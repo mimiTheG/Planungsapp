@@ -42,7 +42,8 @@ Eukalyptus, Petrol, Taubenblau, Lavendel, Pflaume) oder als eigene Farbe.
   hinterlegt in `js/matrix-texts.js`.
 - Unter *Aufgaben → Erledigt* steht alles Erledigte nach Tagen sortiert (auch wiederkehrende Aufgaben, abgeschlossene
   Routinen und die Wunschliste); einmalige Aufgaben lassen sich dort mit ↺ wieder öffnen.
-- Beliebig tief verschachtelte Unteraufgaben. Die **Reihenfolge** von Unteraufgaben und Routine-Schritten ändert man
+- Beliebig tief verschachtelte Unteraufgaben. Bei „Gehört zu“ sieht man zuerst nur die oberste Ebene und klappt bei
+  Bedarf auf. Neue Unteraufgaben übernehmen Wichtigkeit und Dringlichkeit der übergeordneten Aufgabe. Die **Reihenfolge** von Unteraufgaben und Routine-Schritten ändert man
   durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder unten. Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
   bis Dunkelrot (fertig).
 - **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.

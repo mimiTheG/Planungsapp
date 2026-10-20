@@ -8,6 +8,7 @@ import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
 import { enableLongPressReorder } from './reorder.js';
+import { parentPicker } from './parent-picker.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
 const NEW_TITLES = { todo: 'Neue Aufgabe', project: 'Neues Projekt', routine: 'Neue Routine' };
@@ -203,7 +204,7 @@ const writeFlag = (key, on) => { try { localStorage.setItem(key, on ? '1' : '0')
 // Interaktive 5×5-Matrix wie in den Excel-Tabellen: Zeilen = Wichtigkeit 5–1, Spalten = Dringlichkeit 5–1
 // (oben links = sehr wichtig und sofort).
 // values = { sachlich: {importance, urgency}, emotional: {…} }.
-function priorityMatrix(values, currentId) {
+function priorityMatrix(values, currentId, touched) {
   let level = 'sachlich';
   let showInfo = readFlag('planungsapp.setting.matrixInfo');
   const wrap = el('div.matrix-wrap');
@@ -227,7 +228,7 @@ function priorityMatrix(values, currentId) {
           style: { '--heat': `${Math.round(6 + heat * 3.2)}%` },
           'aria-label': `Wichtigkeit ${imp} (${importanceLabel(imp)}), Dringlichkeit ${urg} (${urgencyLabel(urg)})`,
           title: here.map((t) => t.title).join('\n'),
-          onclick: () => { v.importance = imp; v.urgency = urg; render(); },
+          onclick: () => { v.importance = imp; v.urgency = urg; touched[level] = true; render(); },
         }, here.slice(0, 6).map((t) => el('span.dot.small', { style: { background: store.topicColor(t.topic_id) } }))));
       }
     }
@@ -237,7 +238,12 @@ function priorityMatrix(values, currentId) {
         el('div.segmented', { role: 'group', 'aria-label': 'Ebene' },
           ['sachlich', 'emotional'].map((l) => el(`button${l === level ? '.active' : ''}`, {
             type: 'button',
-            onclick: () => { level = l; render(); },
+            onclick: () => {
+              // Noch nicht eigens gewählte Ebene übernimmt das aktuell ausgewählte Kästchen.
+              if (!touched[l]) Object.assign(values[l], values[level]);
+              level = l;
+              render();
+            },
           }, l === 'sachlich' ? 'Sachlich' : 'Emotional'))),
         el(`button.icon.info${showInfo ? '.active' : ''}`, {
           type: 'button',
@@ -249,11 +255,7 @@ function priorityMatrix(values, currentId) {
       el('p.matrix-choice', {},
         el('strong', {}, `Wichtigkeit ${v.importance}`), ` – ${importanceLabel(v.importance)} · `,
         el('strong', {}, `Dringlichkeit ${v.urgency}`), ` – ${urgencyLabel(v.urgency)}`),
-      showInfo ? el('div.matrix-info', {},
-        el('p', {}, matrixText(level, v.importance, v.urgency)),
-        el('small.muted', {}, level === 'sachlich'
-          ? 'Sachliche Ebene: Was bewirkt die Aufgabe, und bis wann muss sie fertig sein?'
-          : 'Emotionale Ebene: Wie fühlt sich die Aufgabe für mich an?')) : null,
+      showInfo ? el('div.matrix-info', {}, el('p', {}, matrixText(level, v.importance, v.urgency))) : null,
       others.length ? el('small.muted', {}, 'Punkte = andere offene Aufgaben.') : null);
   };
   render();
@@ -269,12 +271,6 @@ function monthDayInputs(prefix, value) {
     select(`${prefix}_month`, MONTHS.map((name, i) => [i + 1, name]), m));
 }
 
-function pathOf(task) {
-  const parts = [];
-  for (let current = task; current; current = store.taskById(current.parent_id)) parts.unshift(current.title);
-  return parts.join(' › ');
-}
-
 export function openTaskEditor(task, refresh) {
   const isNew = !task.id;
   const t = {
@@ -283,16 +279,23 @@ export function openTaskEditor(task, refresh) {
     period_start: '03-01', period_end: '09-30', ...task,
   };
   const parent = t.parent_id ? store.taskById(t.parent_id) : null;
-  if (isNew && parent) t.kind = parent.kind === 'project' ? 'project' : 'todo';
+  if (isNew && parent) {
+    t.kind = parent.kind === 'project' ? 'project' : 'todo';
+    // Neue Unteraufgaben übernehmen Wichtigkeit und Dringlichkeit der übergeordneten Aufgabe.
+    for (const key of ['importance', 'urgency', 'importance_emo', 'urgency_emo']) {
+      if (task[key] === undefined) t[key] = parent[key];
+    }
+  }
 
   const values = {
     sachlich: { importance: t.importance, urgency: t.urgency },
     emotional: { importance: t.importance_emo, urgency: t.urgency_emo },
   };
+  // Welche Ebene wurde schon bewusst gesetzt? Eine nicht gesetzte übernimmt die Auswahl der anderen.
+  const fixed = !isNew || Boolean(parent);
+  const touched = { sachlich: fixed, emotional: fixed };
 
   const excluded = new Set(isNew ? [] : [t.id, ...store.descendantsOf(t.id).map((d) => d.id)]);
-  const parentOptions = [['', '— keine (oberste Ebene) —'],
-    ...store.tasks().filter((p) => !excluded.has(p.id)).map((p) => [p.id, pathOf(p)])];
 
   const recurrenceBoxes = {
     once: el('div.row', {},
@@ -312,12 +315,13 @@ export function openTaskEditor(task, refresh) {
   };
 
   const kindSelect = select('kind', Object.entries(KIND_LABELS), t.kind);
-  const parentSelect = select('parent_id', parentOptions, t.parent_id);
+  const parent_ = parentPicker(t.parent_id, excluded);
+  const parentSelect = parent_.input;
 
   // Routinen (und ihre Schritte) haben keine Priorität und kein "Wann?".
   const prioFieldset = el('fieldset', {},
     el('legend', {}, 'Wichtigkeit & Dringlichkeit'),
-    priorityMatrix(values, t.id));
+    priorityMatrix(values, t.id, touched));
 
   const whenFieldset = el('fieldset', {},
     el('legend', {}, 'Wann?'),
@@ -340,7 +344,7 @@ export function openTaskEditor(task, refresh) {
       field('Dauer (min)', el('input', { type: 'number', name: 'duration_min', min: 1, inputmode: 'numeric', value: t.duration_min || '', placeholder: 'optional' }))),
     el('small.muted', {}, 'Projekt = freiwillig, macht Spaß. Routine = wiederverwendbare Abfolge von Schritten.'),
     topicPicker(t.topic_id),
-    field('Gehört zu', parentSelect),
+    el('div.field', {}, el('span.field-label', {}, 'Gehört zu'), parent_.element),
     prioFieldset,
     whenFieldset,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, t.notes || '')),
@@ -369,6 +373,7 @@ export function openTaskEditor(task, refresh) {
   function save() {
     const d = formData(form);
     const md = (prefix) => `${String(d[`${prefix}_month`]).padStart(2, '0')}-${String(d[`${prefix}_day`]).padStart(2, '0')}`;
+    if (!touched.emotional) Object.assign(values.emotional, values.sachlich);
     const payload = {
       title: d.title,
       kind: d.kind,
