@@ -273,6 +273,13 @@ li.dragging > .task-row {
   background: var(--accent-soft); border-radius: var(--radius);
   box-shadow: 0 6px 18px rgba(127, 29, 58, 0.25); transform: scale(1.02);
 }
+li.dragging > .task-row { position: relative; }
+li.level-in > .task-row::after, li.level-out > .task-row::after {
+  position: absolute; top: -0.9rem; left: 1.5rem; padding: 0.05rem 0.5rem; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+}
+li.level-in > .task-row::after { content: '→ Unteraufgabe'; }
+li.level-out > .task-row::after { content: '← eine Ebene höher'; }
 .checklist { list-style: none; padding: 0; }
 .checklist li { border-bottom: 1px solid var(--border); }
 .checklist .check { padding: 0.7rem 0; width: 100%; }

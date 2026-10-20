@@ -112,6 +112,38 @@ export function reorderChildren(parentId, ids) {
   save();
 }
 
+// Ebene ändern: Einrücken macht die Aufgabe zur letzten Unteraufgabe ihres Vorgängers (gleiche Ebene,
+// laut Reihenfolge); Ausrücken stellt sie direkt hinter ihre bisherige Oberaufgabe.
+export function indentTask(id) {
+  const task = data.tasks.find((t) => t.id === id);
+  if (!task) throw new ValidationError('Aufgabe nicht gefunden');
+  const siblings = childrenOf(task.parent_id);
+  const previous = siblings[siblings.findIndex((t) => t.id === id) - 1];
+  if (!previous) throw new ValidationError('Darüber steht nichts, unter das sie rutschen könnte');
+  task.sort_order = Math.max(-1, ...childrenOf(previous.id).map((t) => t.sort_order ?? 0)) + 1;
+  task.parent_id = previous.id;
+  save();
+  return taskById(id);
+}
+
+export function canOutdent(task) {
+  const parent = task?.parent_id !== null && data.tasks.find((t) => t.id === task.parent_id);
+  return Boolean(parent) && !(parent.kind === 'routine' && parent.parent_id === null);
+}
+
+export function outdentTask(id) {
+  const task = data.tasks.find((t) => t.id === id);
+  if (!task) throw new ValidationError('Aufgabe nicht gefunden');
+  if (!canOutdent(task)) throw new ValidationError('Schritte bleiben in ihrer Routine');
+  const parent = data.tasks.find((t) => t.id === task.parent_id);
+  const order = childrenOf(parent.parent_id).filter((t) => t.id !== id).map((t) => t.id);
+  order.splice(order.indexOf(parent.id) + 1, 0, id);
+  task.parent_id = parent.parent_id;
+  order.forEach((tid, index) => { data.tasks.find((t) => t.id === tid).sort_order = index; });
+  save();
+  return taskById(id);
+}
+
 // Alle Nachkommen einer Aufgabe (beliebig tief).
 export function descendantsOf(id) {
   return childrenOf(id).flatMap((child) => [child, ...descendantsOf(child.id)]);
