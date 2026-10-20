@@ -128,9 +128,10 @@ const collapsed = new Set();
 // Rendert Aufgaben rekursiv mit allen Unteraufgaben. Mit options.parentId lassen sich die Einträge
 // per langem Drücken umsortieren (Unteraufgaben und Schritte einer Routine).
 export function taskTree(tasks, refresh, options = {}) {
-  const list = el(`ul.tree${options.parentId ? '.sortable' : ''}`, {},
+  const sortable = options.parentId && options.mode !== 'view';
+  const list = el(`ul.tree${sortable ? '.sortable' : ''}`, {},
     tasks.map((task) => taskNode(task, refresh, { ...options, parentId: undefined })));
-  if (options.parentId && tasks.length > 1) {
+  if (sortable && tasks.length > 1) {
     enableLongPressReorder(list, (ids) => {
       store.reorderChildren(options.parentId, ids);
       refresh();
@@ -139,10 +140,12 @@ export function taskTree(tasks, refresh, options = {}) {
   return list;
 }
 
+// options.mode: undefined = normale Aufgaben, 'view' = Routine ansehen (nur lesen),
+// 'edit' = Routine bearbeiten (Schritte anlegen, löschen, umsortieren – aber nicht abhaken).
 function taskNode(task, refresh, options) {
   const children = store.childrenOf(task.id).filter((c) => options.showDone || c.status !== 'done');
   const isCollapsed = collapsed.has(task.id);
-  const checkable = task.kind !== 'routine' || task.recurrence !== 'once';
+  const checkable = !options.mode && (task.kind !== 'routine' || task.recurrence !== 'once');
   const isDone = task.status === 'done';
   const inRoutine = store.isInRoutine(task);
 
@@ -176,11 +179,13 @@ function taskNode(task, refresh, options) {
       toggle,
       check,
       el('div.task-main', {},
-        el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) },
-          topicDot(task), task.title),
+        options.mode === 'view'
+          ? el('span.task-title', {}, topicDot(task), task.title)
+          : el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) },
+            topicDot(task), task.title),
         el('span.meta', {}, meta),
         progressBar(task)),
-      el('span.actions', {},
+      options.mode === 'view' ? null : el('span.actions', {},
         el('button.icon', {
           type: 'button',
           'aria-label': inRoutine ? 'Schritt hinzufügen' : 'Unteraufgabe hinzufügen',
@@ -473,10 +478,66 @@ export function renderTasksView(root) {
 
 // --- Ansicht "Routinen" -------------------------------------------------------
 
-// Lange Routinen werden eingeklappt angezeigt; aufgeklappte merken wir uns, solange die App offen ist.
+// Routinen werden nur angesehen; abgehakt wird ausschließlich über "Start", geändert nur im
+// Bearbeiten-Modus. Lange Routinen sind eingeklappt (aufgeklappte merken wir uns, solange die App offen ist).
 const ROUTINE_PREVIEW = 3;
 const ROUTINE_COLLAPSE_FROM = 5;
 const expandedRoutines = new Set();
+const editingRoutines = new Set();
+
+function routineCard(routine, refresh) {
+  const steps = store.childrenOf(routine.id);
+  const editing = editingRoutines.has(routine.id);
+  const minutes = store.routineMinutes(routine);
+  const setEditing = (on) => {
+    if (on) editingRoutines.add(routine.id); else editingRoutines.delete(routine.id);
+    refresh();
+  };
+
+  if (editing) {
+    return el('div.card.routine.editing', {},
+      el('div.routine-head', {},
+        topicDot(routine),
+        el('strong', {}, routine.title),
+        minutes ? el('span.badge', {}, `${minutes} min`) : null,
+        el('span.spacer'),
+        el('button.primary', { type: 'button', onclick: () => setEditing(false) }, '✓ Fertig')),
+      el('p.edit-hint', {}, 'Bearbeiten: Schritt antippen zum Ändern, lang drücken zum Verschieben.'),
+      steps.length
+        ? taskTree(steps, refresh, { showDone: true, parentId: routine.id, mode: 'edit' })
+        : el('p.empty', {}, 'Noch keine Schritte.'),
+      el('div.buttons', {},
+        el('button', {
+          type: 'button',
+          onclick: () => openTaskEditor({ parent_id: routine.id, topic_id: routine.topic_id }, refresh),
+        }, '+ Schritt'),
+        el('button', { type: 'button', onclick: () => openTaskEditor(routine, refresh) }, 'Name, Thema & Löschen …')));
+  }
+
+  const long = steps.length >= ROUTINE_COLLAPSE_FROM;
+  const expanded = !long || expandedRoutines.has(routine.id);
+  const visible = expanded ? steps : steps.slice(0, ROUTINE_PREVIEW);
+  return el('div.card.routine', {},
+    el('div.routine-head', {},
+      topicDot(routine),
+      el('strong', {}, routine.title),
+      minutes ? el('span.badge', {}, `${minutes} min`) : null),
+    routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
+    steps.length
+      ? taskTree(visible, refresh, { showDone: true, parentId: routine.id, mode: 'view' })
+      : el('p.empty', {}, 'Noch keine Schritte – über „Routine bearbeiten“ hinzufügen.'),
+    long ? el('button.link.more-steps', {
+      type: 'button',
+      'aria-expanded': String(expanded),
+      onclick: () => {
+        if (expanded) expandedRoutines.delete(routine.id); else expandedRoutines.add(routine.id);
+        refresh();
+      },
+    }, expanded ? '▴ Weniger anzeigen' : `▾ ${steps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null,
+    el('div.buttons.routine-actions', {},
+      el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start'),
+      el('button', { type: 'button', onclick: () => setEditing(true) }, '✎ Routine bearbeiten')));
+}
 
 export function renderRoutinesView(root) {
   const refresh = () => renderRoutinesView(root);
@@ -486,40 +547,19 @@ export function renderRoutinesView(root) {
     el('div.toolbar', {},
       el('h2', {}, 'Routinen'),
       el('span.spacer'),
-      el('button.primary', { type: 'button', onclick: () => openTaskEditor({ kind: 'routine' }, refresh) }, '+ Routine')),
+      el('button.primary', {
+        type: 'button',
+        onclick: () => openTaskEditor({ kind: 'routine' }, () => {
+          // Eine neu angelegte Routine gleich im Bearbeiten-Modus öffnen, damit man Schritte hinzufügen kann.
+          const created = store.routines().find((r) => !list.some((old) => old.id === r.id));
+          if (created) editingRoutines.add(created.id);
+          refresh();
+        }),
+      }, '+ Routine')),
     list.length ? null : el('p.muted', {},
       'Z. B. „Morgenroutine kurz“, „Abendroutine lang“, „Arbeit jeden Morgen“. ',
       'Routinen lassen sich im Kalender vor oder nach einen Termin legen.'),
-    list.map((routine) => {
-      const steps = store.childrenOf(routine.id);
-      const long = steps.length >= ROUTINE_COLLAPSE_FROM;
-      const expanded = !long || expandedRoutines.has(routine.id);
-      const visible = expanded ? steps : steps.slice(0, ROUTINE_PREVIEW);
-      const toggleSteps = long ? el('button.link.more-steps', {
-        type: 'button',
-        'aria-expanded': String(expanded),
-        onclick: () => {
-          if (expanded) expandedRoutines.delete(routine.id); else expandedRoutines.add(routine.id);
-          refresh();
-        },
-      }, expanded ? '▴ Weniger anzeigen' : `▾ ${steps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null;
-      return el('div.card.routine', {},
-        el('div.routine-head', {},
-          el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(routine, refresh) },
-            topicDot(routine), el('strong', {}, routine.title)),
-          store.routineMinutes(routine) ? el('span.badge', {}, `${store.routineMinutes(routine)} min`) : null,
-          el('span.spacer'),
-          el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start')),
-        routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
-        steps.length
-          ? taskTree(visible, refresh, { showDone: true, parentId: routine.id })
-          : el('p.empty', {}, 'Noch keine Schritte.'),
-        toggleSteps,
-        el('button', {
-          type: 'button',
-          onclick: () => openTaskEditor({ parent_id: routine.id, topic_id: routine.topic_id }, refresh),
-        }, '+ Schritt'));
-    }));
+    list.map((routine) => routineCard(routine, refresh)));
 }
 
 // Routine als Checkliste abarbeiten; am Ende werden alle Schritte zurückgesetzt.
