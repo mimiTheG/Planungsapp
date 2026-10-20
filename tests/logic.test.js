@@ -211,3 +211,17 @@ test('Store: Reihenfolge von Unteraufgaben ändern, neue kommen ans Ende', () =>
   store.reorderChildren(parent.id, [a, c]); // nur sichtbare genannt – Rest bleibt dahinter
   assert.deepEqual(store.childrenOf(parent.id).map((t) => t.title), ['A', 'C', 'B', 'D']);
 });
+
+test('Store: neues Thema einer Routine gilt für alle Schritte', () => {
+  store.load(memory());
+  const sport = store.createTopic({ name: 'Sport' });
+  const arbeit = store.createTopic({ name: 'Arbeit' });
+  const routine = store.createTask({ title: 'Morgen', kind: 'routine', topic_id: sport.id });
+  const step = store.createTask({ title: 'Dehnen', parent_id: routine.id, topic_id: sport.id });
+  const sub = store.createTask({ title: 'Beine', parent_id: step.id });
+  const other = store.createTask({ title: 'Einkaufen', topic_id: sport.id });
+  store.updateTask(routine.id, { title: 'Morgen', kind: 'routine', topic_id: arbeit.id });
+  assert.equal(store.taskById(step.id).topic_id, arbeit.id);
+  assert.equal(store.taskById(sub.id).topic_id, arbeit.id);
+  assert.equal(store.taskById(other.id).topic_id, sport.id);
+});

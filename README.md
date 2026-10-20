@@ -49,6 +49,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
   selbst in den Kalender ein. In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
   **▶ Start**, geändert nur nach Tippen auf **✎ Routine bearbeiten** (Schritte hinzufügen, löschen, umsortieren).
+  Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.
   Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
   sich ausklappen. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
   für das nächste Mal zurückgesetzt.

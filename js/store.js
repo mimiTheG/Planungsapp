@@ -374,7 +374,12 @@ export function updateTask(id, input) {
   if (next.parent_id !== null && next.parent_id !== task.parent_id) {
     next.sort_order = Math.max(-1, ...childrenOf(next.parent_id).map((t) => t.sort_order ?? 0)) + 1;
   }
+  const topicChanged = next.topic_id !== task.topic_id;
   Object.assign(task, next);
+  // Thema einer Routine geändert → alle Schritte (beliebig tief) bekommen das neue Thema.
+  if (topicChanged && task.kind === 'routine') {
+    for (const step of descendantsOf(id)) data.tasks.find((t) => t.id === step.id).topic_id = task.topic_id;
+  }
   save();
   return taskById(id);
 }
