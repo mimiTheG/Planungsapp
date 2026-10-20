@@ -289,6 +289,21 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .progress.p0 .progress-label { color: var(--muted); }
 .task-row:has(> .task-main > .progress.p4) .task-title { color: var(--p4); }
 
+/* Wiederholen (Termine) */
+
+.repeat-fields { display: grid; gap: 0.5rem; }
+.repeat-custom { display: grid; gap: 0.6rem; padding: 0.7rem; border-radius: var(--radius); background: var(--pink-soft); border: 1px solid var(--border); }
+.repeat-custom[hidden] { display: none; }
+.repeat-every { display: grid; grid-template-columns: auto 4.5rem 1fr; gap: 0.5rem; align-items: center; }
+.weekday-picker { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.weekday-picker button { width: 2.6rem; height: 2.6rem; min-height: 0; padding: 0; border-radius: 50%; font-size: 0.85rem; }
+.weekday-picker button.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.repeat-end { gap: 0.4rem; }
+.end-option { display: grid; grid-template-columns: auto 3rem 1fr; gap: 0.5rem; align-items: center; min-height: 2.6rem; }
+.end-option .inline { align-items: center; }
+.end-option .inline input { width: 5rem; }
+.scope-options { display: grid; gap: 0.9rem; padding: 0.3rem 0; }
+
 /* Themenauswahl mit "+ Neues Thema anlegen" */
 
 .topic-picker { display: grid; gap: 0.3rem; }
@@ -302,8 +317,9 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .week { background: var(--surface); border-radius: var(--radius); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); overflow: hidden; }
 .week-head, .week-body { display: grid; }
 .week-head { border-bottom: 1px solid var(--border); }
-.day-head { padding: 0.35rem 0.1rem; text-align: center; font-weight: 600; font-size: 0.8rem; overflow: hidden; white-space: nowrap; }
-.day-head.today { color: var(--accent); }
+.day-head { display: grid; padding: 0.3rem 0.1rem; text-align: center; font-size: 0.72rem; color: var(--muted); overflow: hidden; white-space: nowrap; line-height: 1.25; }
+.day-head strong { font-size: 0.95rem; color: var(--text); }
+.day-head.today, .day-head.today strong { color: var(--accent); }
 .week-scroll { height: 60dvh; overflow-y: auto; }
 .hours .hour { font-size: 0.68rem; color: var(--muted); text-align: right; padding-right: 0.3rem; transform: translateY(-0.45rem); }
 .hours .hour:first-child { visibility: hidden; }

@@ -9,6 +9,7 @@ import {
 import * as store from './store.js';
 import { runRoutine } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
+import { askScope, repeatFields } from './repeat-fields.js';
 
 const HOUR_PX = 44;
 const MODES = { 1: 'Tag', 3: '3 Tage', 7: 'Woche', month: 'Monat' };
@@ -165,8 +166,9 @@ function dayGrid(from, count, events, refresh) {
         title: `${formatTime(seg.start)}–${formatTime(seg.end)} ${seg.label}`,
         onclick: () => openEventEditor(ev, refresh),
       },
-      el('span.block-time', {}, formatTime(seg.start)),
-      el('span.block-title', {}, seg.label)));
+      // Kurze Blöcke in schmalen Spalten: lieber den Titel als die Uhrzeit zeigen.
+      height < 30 && count > 3 ? null : el('span.block-time', {}, formatTime(seg.start)),
+      el('span.block-title', {}, seg.part === 'main' && ev.series ? `↻ ${seg.label}` : seg.label)));
     }
     return col;
   });
@@ -174,7 +176,9 @@ function dayGrid(from, count, events, refresh) {
   return el('div.week', {},
     el('div.week-head', { style: { gridTemplateColumns: columns } },
       el('div'),
-      days.map((d) => el(`div.day-head${isoDate(d) === today ? '.today' : ''}`, {}, formatDate(d)))),
+      days.map((d) => el(`div.day-head${isoDate(d) === today ? '.today' : ''}`, {},
+        el('span', {}, formatDate(d, { weekday: 'short' }).replace('.', '')),
+        el('strong', {}, formatDate(d, count === 7 ? { day: 'numeric' } : { day: '2-digit', month: '2-digit' }))))),
     el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)),
     el('p.muted.hint', {}, 'Tippe auf eine freie Stelle, um dort einen Termin anzulegen. Schraffiert = davor/danach.'));
 }
@@ -223,7 +227,7 @@ function monthGrid(from, to, events, refresh) {
       style: { '--c': store.topicColor(ev.topic_id) },
       title: `${formatTime(parseDate(ev.start_at))} ${ev.title}`,
       onclick: () => openEventEditor(ev, refresh),
-    }, ev.title))));
+    }, ev.series ? `↻ ${ev.title}` : ev.title))));
   }
   return el('div', {},
     el('div.month', {}, ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div.month-head', {}, d)), cells),
@@ -283,6 +287,8 @@ export function openEventEditor(event, refresh) {
   });
   endInput.addEventListener('change', () => { duration = parseDate(endInput.value) - parseDate(startInput.value); });
 
+  const repeat = repeatFields(ev.repeat || null, startInput);
+
   const routineButtons = ['before', 'after']
     .filter((side) => ev[`${side}_type`] === 'routine' && store.taskById(ev[`${side}_routine_id`]))
     .map((side) => {
@@ -296,6 +302,7 @@ export function openEventEditor(event, refresh) {
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
     el('div.row', {}, field('Beginn', startInput), field('Ende', endInput)),
+    repeat.element,
     sideFields('before', ev),
     sideFields('after', ev),
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, ev.notes || '')),
@@ -305,19 +312,30 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   function save() {
-    const payload = formData(form);
-    const ok = attempt(() => (isNew ? store.createEvent(payload) : store.updateEvent(ev.id, payload)));
-    if (!ok) return;
-    close();
-    toast(isNew ? 'Termin angelegt' : 'Termin gespeichert');
-    refresh();
+    const payload = { ...formData(form), repeat: repeat.value() };
+    if (!attempt(() => store.checkEvent(payload))) return;
+    const run = (scope) => {
+      const ok = attempt(() => (isNew
+        ? store.createEvent(payload)
+        : store.updateEvent(ev.id, payload, { scope, occurrence: ev.occurrence })));
+      if (!ok) return;
+      close();
+      toast(isNew ? 'Termin angelegt' : 'Termin gespeichert');
+      refresh();
+    };
+    // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll.
+    if (ev.series) askScope('Wiederkehrenden Termin speichern', run);
+    else run('all');
   }
 
   function remove() {
-    if (!window.confirm(`Termin „${ev.title}“ löschen?`)) return;
-    attempt(() => store.deleteEvent(ev.id));
-    close();
-    refresh();
+    const run = (scope) => {
+      attempt(() => store.deleteEvent(ev.id, { scope, occurrence: ev.occurrence }));
+      close();
+      refresh();
+    };
+    if (ev.series) askScope('Wiederkehrenden Termin löschen', run);
+    else if (window.confirm(`Termin „${ev.title}“ löschen?`)) run('all');
   }
 
   const topic = store.topicById(ev.topic_id);

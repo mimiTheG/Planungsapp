@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import * as schedule from '../js/schedule.js';
 import * as store from '../js/store.js';
 import { loadSamples } from '../js/samples.js';
+import * as repeating from '../js/repeat.js';
 
 const memory = () => {
   const map = new Map();
@@ -153,4 +154,49 @@ test('Store: Verlauf zeigt Erledigtes, Wieder-Öffnen entfernt den Eintrag', () 
   assert.deepEqual(store.history().map((e) => (e.task || e.wish).title), ['Museum', 'Einkaufen', 'Morgenroutine']);
   store.reopenTask(todo.id);
   assert.deepEqual(store.history().map((e) => (e.task || e.wish).title), ['Museum', 'Morgenroutine']);
+});
+
+test('Wiederholung: wöchentlich an mehreren Tagen, alle 2 Wochen, Ende nach Anzahl und Datum', () => {
+  const ev = { start_at: '2026-10-20 18:00', end_at: '2026-10-20 19:00' }; // Dienstag
+  const days = (repeat, to = new Date(2026, 11, 31)) =>
+    repeating.occurrences({ ...ev, repeat }, new Date(2026, 9, 1), to).map((o) => o.occurrence);
+  assert.deepEqual(days({ freq: 'weekly', interval: 1, weekdays: [2, 4], count: 4 }), ['2026-10-20', '2026-10-22', '2026-10-27', '2026-10-29']);
+  assert.deepEqual(days({ freq: 'weekly', interval: 2, until: '2026-11-17' }), ['2026-10-20', '2026-11-03', '2026-11-17']);
+  assert.deepEqual(days({ freq: 'daily', interval: 3, count: 3 }), ['2026-10-20', '2026-10-23', '2026-10-26']);
+  assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: 3, count: 3 }), ['2026-10-20', '2026-11-17', '2026-12-15']);
+  assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: -1, count: 2 }, new Date(2027, 1, 1)), ['2026-10-27', '2026-11-24']);
+  assert.equal(repeating.repeatText({ freq: 'weekly', interval: 1, weekdays: [1, 2, 3, 4, 5] }, ev.start_at), 'Wöchentlich am Mo–Fr');
+  const keys = repeating.presets(ev.start_at).map((p) => p.label);
+  assert.ok(keys.includes('Wöchentlich am Dienstag') && keys.includes('Monatlich am dritten Dienstag'));
+});
+
+test('Store: Serien – nur dieser, dieser und folgende, alle Termine', () => {
+  store.load(memory());
+  const range = [new Date(2026, 9, 1), new Date(2026, 11, 31)];
+  const titles = () => store.eventsBetween(...range).map((e) => `${e.start_at.slice(5)} ${e.title}`);
+  const yoga = store.createEvent({
+    title: 'Yoga', start_at: '2026-10-20T18:00', end_at: '2026-10-20T19:00', repeat: { freq: 'weekly', interval: 1, count: 4 },
+  });
+  assert.equal(store.eventsBetween(...range).length, 4);
+
+  // Nur dieser: 27.10. auf 19 Uhr verschieben
+  store.updateEvent(yoga.id, { title: 'Yoga', start_at: '2026-10-27T19:00', end_at: '2026-10-27T20:00' }, { scope: 'this', occurrence: '2026-10-27' });
+  assert.deepEqual(titles(), ['10-20 18:00 Yoga', '10-27 19:00 Yoga', '11-03 18:00 Yoga', '11-10 18:00 Yoga']);
+
+  // Dieser und alle folgenden: ab 03.11. heißt es "Pilates"
+  store.updateEvent(yoga.id, {
+    title: 'Pilates', start_at: '2026-11-03T18:00', end_at: '2026-11-03T19:00', repeat: { freq: 'weekly', interval: 1, count: 4 },
+  }, { scope: 'following', occurrence: '2026-11-03' });
+  assert.deepEqual(titles(), ['10-20 18:00 Yoga', '10-27 19:00 Yoga', '11-03 18:00 Pilates', '11-10 18:00 Pilates']);
+
+  // Alle: Uhrzeit der ersten Serie um eine Stunde verschieben
+  store.updateEvent(yoga.id, {
+    title: 'Yoga', start_at: '2026-10-20T17:00', end_at: '2026-10-20T18:00', repeat: { freq: 'weekly', interval: 1 },
+  }, { scope: 'all', occurrence: '2026-10-20' });
+  assert.equal(titles()[0], '10-20 17:00 Yoga');
+
+  // Löschen: nur dieser Termin
+  store.deleteEvent(yoga.id, { scope: 'this', occurrence: '2026-10-20' });
+  assert.ok(!titles().includes('10-20 17:00 Yoga'));
+  assert.throws(() => store.createEvent({ title: 'x', start_at: '2026-10-20T10:00', end_at: '2026-10-20T11:00', repeat: { freq: 'daily', until: '2026-10-01' } }), /Ende der Wiederholung/);
 });
