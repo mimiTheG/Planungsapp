@@ -45,7 +45,17 @@ show();
 
 // Offline-Unterstützung und dauerhafter Speicher.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Übernimmt eine neue Version die Kontrolle, einmal neu laden, damit sie sofort sichtbar ist.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+    .then((registration) => registration.update())
+    .catch(() => {});
 }
 navigator.storage?.persist?.().catch(() => {});
 window.addEventListener('storage', () => { store.load(); show(); });
