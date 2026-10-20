@@ -95,8 +95,19 @@ export function taskById(id) {
   return task ? decorate(task, new Date()) : null;
 }
 
+// Unteraufgaben in der festgelegten Reihenfolge (sort_order, sonst Reihenfolge des Anlegens).
 export function childrenOf(id) {
-  return tasks().filter((t) => t.parent_id === id);
+  return tasks().filter((t) => t.parent_id === id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+// Neue Reihenfolge der Unteraufgaben speichern. ids = sichtbare Reihenfolge; nicht genannte bleiben dahinter.
+export function reorderChildren(parentId, ids) {
+  const rest = childrenOf(parentId).map((t) => t.id).filter((id) => !ids.includes(id));
+  [...ids, ...rest].forEach((id, index) => {
+    const task = data.tasks.find((t) => t.id === id && t.parent_id === parentId);
+    if (task) task.sort_order = index;
+  });
+  save();
 }
 
 // Alle Nachkommen einer Aufgabe (beliebig tief).
@@ -345,6 +356,10 @@ function rawWindowFor(task, input, old) {
 export function createTask(input) {
   const task = { id: nextId(), ...taskInput(input, null) };
   [task.window_start, task.window_end] = windowFor(task, input, null);
+  // Neue Unteraufgaben kommen ans Ende.
+  if (task.parent_id !== null) {
+    task.sort_order = Math.max(-1, ...childrenOf(task.parent_id).map((t) => t.sort_order ?? 0)) + 1;
+  }
   Object.assign(task, { done_at: null, last_done_at: null, missed_count: 0, created_at: stamp(new Date()) });
   data.tasks.push(task);
   save();
@@ -356,6 +371,9 @@ export function updateTask(id, input) {
   if (!task) throw new ValidationError('Aufgabe nicht gefunden');
   const next = taskInput(input, id);
   [next.window_start, next.window_end] = windowFor(next, input, task);
+  if (next.parent_id !== null && next.parent_id !== task.parent_id) {
+    next.sort_order = Math.max(-1, ...childrenOf(next.parent_id).map((t) => t.sort_order ?? 0)) + 1;
+  }
   Object.assign(task, next);
   save();
   return taskById(id);

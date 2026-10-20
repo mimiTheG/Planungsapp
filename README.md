@@ -34,7 +34,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   hinterlegt in `js/matrix-texts.js`.
 - Unter *Aufgaben → Erledigt* steht alles Erledigte nach Tagen sortiert (auch wiederkehrende Aufgaben, abgeschlossene
   Routinen und die Wunschliste); einmalige Aufgaben lassen sich dort mit ↺ wieder öffnen.
-- Beliebig tief verschachtelte Unteraufgaben. Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
+- Beliebig tief verschachtelte Unteraufgaben. Die **Reihenfolge** von Unteraufgaben und Routine-Schritten ändert man
+  durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder unten. Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
   bis Dunkelrot (fertig).
 - **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
@@ -44,7 +45,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
   „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
-  selbst in den Kalender ein. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
+  selbst in den Kalender ein. Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
+  sich ausklappen. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
   für das nächste Mal zurückgesetzt.
 
 **Was mache ich jetzt?**
@@ -94,6 +96,9 @@ js/
   more.js              Themen, Datensicherung, Beispieldaten
   matrix-texts.js      Erklärungen zur Wichtigkeits-Dringlichkeits-Matrix
   topic-picker.js      Themenauswahl mit „+ Neues Thema anlegen“
+  repeat.js            Wiederkehrende Termine (Berechnung, Texte, Vorschläge)
+  repeat-fields.js     Formular „Wiederholen“ und Rückfrage bei Serien
+  reorder.js           Umsortieren per langem Drücken
   samples.js           Beispieldaten
 icons/                 App-Icons
 tests/                 node:test-Tests

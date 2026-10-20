@@ -23,7 +23,9 @@ export function loadSamples(today = new Date()) {
   const morgenKurz = task({ title: 'Morgenroutine kurz', kind: 'routine', topic_id: freizeit });
   steps(morgenKurz, [['Zähne putzen', 3], ['Kaffee kochen', 5], ['Tagesplan anschauen', 5]]);
   const abendLang = task({ title: 'Abendroutine lang', kind: 'routine', topic_id: freizeit });
-  steps(abendLang, [['Küche aufräumen', 10], ['Tasche für morgen packen', 5], ['Tagebuch schreiben', 10], ['Lesen', 20]]);
+  steps(abendLang, [
+    ['Küche aufräumen', 10], ['Tasche für morgen packen', 5], ['Zähne putzen', 3], ['Tagebuch schreiben', 10], ['Lesen', 20], ['Licht aus', 1],
+  ]);
   const arbeitMorgen = task({ title: 'Arbeit Morgendliche Aufgaben', kind: 'routine', topic_id: arbeit });
   steps(arbeitMorgen, [['Mails checken', 10], ['Kalender durchgehen', 5], ['Top-3 des Tages festlegen', 5]]);
   const sportRoutine = task({ title: 'Sportroutine', kind: 'routine', topic_id: sport });

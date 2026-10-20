@@ -13,7 +13,8 @@ export function el(spec, attrs = {}, ...children) {
         if (prop.startsWith('--')) node.style.setProperty(prop, v);
         else node.style[prop] = v;
       }
-    } else if (key in node && typeof value !== 'string') node[key] = value;
+    } else if (key === 'dataset') Object.assign(node.dataset, value);
+    else if (key in node && typeof value !== 'string') node[key] = value;
     else node.setAttribute(key, value === true ? '' : value);
   }
   node.append(...clean(children));

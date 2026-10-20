@@ -200,3 +200,14 @@ test('Store: Serien – nur dieser, dieser und folgende, alle Termine', () => {
   assert.ok(!titles().includes('10-20 17:00 Yoga'));
   assert.throws(() => store.createEvent({ title: 'x', start_at: '2026-10-20T10:00', end_at: '2026-10-20T11:00', repeat: { freq: 'daily', until: '2026-10-01' } }), /Ende der Wiederholung/);
 });
+
+test('Store: Reihenfolge von Unteraufgaben ändern, neue kommen ans Ende', () => {
+  store.load(memory());
+  const parent = store.createTask({ title: 'Umzug' });
+  const [a, b, c] = ['A', 'B', 'C'].map((title) => store.createTask({ title, parent_id: parent.id }).id);
+  store.reorderChildren(parent.id, [c, a, b]);
+  assert.deepEqual(store.childrenOf(parent.id).map((t) => t.title), ['C', 'A', 'B']);
+  store.createTask({ title: 'D', parent_id: parent.id });
+  store.reorderChildren(parent.id, [a, c]); // nur sichtbare genannt – Rest bleibt dahinter
+  assert.deepEqual(store.childrenOf(parent.id).map((t) => t.title), ['A', 'C', 'B', 'D']);
+});

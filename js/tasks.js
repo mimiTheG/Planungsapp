@@ -7,6 +7,7 @@ import { daysBetween, formatDate, isoDate, parseDate } from './dates.js';
 import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
+import { enableLongPressReorder } from './reorder.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
 const NEW_TITLES = { todo: 'Neue Aufgabe', project: 'Neues Projekt', routine: 'Neue Routine' };
@@ -124,9 +125,18 @@ function deleteTask(task, refresh) {
 
 const collapsed = new Set();
 
-// Rendert Aufgaben rekursiv mit allen Unteraufgaben.
+// Rendert Aufgaben rekursiv mit allen Unteraufgaben. Mit options.parentId lassen sich die Einträge
+// per langem Drücken umsortieren (Unteraufgaben und Schritte einer Routine).
 export function taskTree(tasks, refresh, options = {}) {
-  return el('ul.tree', {}, tasks.map((task) => taskNode(task, refresh, options)));
+  const list = el(`ul.tree${options.parentId ? '.sortable' : ''}`, {},
+    tasks.map((task) => taskNode(task, refresh, { ...options, parentId: undefined })));
+  if (options.parentId && tasks.length > 1) {
+    enableLongPressReorder(list, (ids) => {
+      store.reorderChildren(options.parentId, ids);
+      refresh();
+    });
+  }
+  return list;
 }
 
 function taskNode(task, refresh, options) {
@@ -161,7 +171,7 @@ function taskNode(task, refresh, options) {
     windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
   ];
 
-  return el('li', {},
+  return el('li', { dataset: { id: task.id } },
     el(`div.task-row${isDone ? '.done' : ''}`, {},
       toggle,
       check,
@@ -177,7 +187,7 @@ function taskNode(task, refresh, options) {
           onclick: () => openTaskEditor({ parent_id: task.id, topic_id: task.topic_id }, refresh),
         }, '+'),
         el('button.icon', { type: 'button', 'aria-label': 'Löschen', onclick: () => deleteTask(task, refresh) }, '🗑'))),
-    children.length && !isCollapsed ? taskTree(children, refresh, options) : null);
+    children.length && !isCollapsed ? taskTree(children, refresh, { ...options, parentId: task.id }) : null);
 }
 
 // --- Matrix ----------------------------------------------------------------
@@ -463,6 +473,11 @@ export function renderTasksView(root) {
 
 // --- Ansicht "Routinen" -------------------------------------------------------
 
+// Lange Routinen werden eingeklappt angezeigt; aufgeklappte merken wir uns, solange die App offen ist.
+const ROUTINE_PREVIEW = 3;
+const ROUTINE_COLLAPSE_FROM = 5;
+const expandedRoutines = new Set();
+
 export function renderRoutinesView(root) {
   const refresh = () => renderRoutinesView(root);
   const list = store.routines();
@@ -477,6 +492,17 @@ export function renderRoutinesView(root) {
       'Routinen lassen sich im Kalender vor oder nach einen Termin legen.'),
     list.map((routine) => {
       const steps = store.childrenOf(routine.id);
+      const long = steps.length >= ROUTINE_COLLAPSE_FROM;
+      const expanded = !long || expandedRoutines.has(routine.id);
+      const visible = expanded ? steps : steps.slice(0, ROUTINE_PREVIEW);
+      const toggleSteps = long ? el('button.link.more-steps', {
+        type: 'button',
+        'aria-expanded': String(expanded),
+        onclick: () => {
+          if (expanded) expandedRoutines.delete(routine.id); else expandedRoutines.add(routine.id);
+          refresh();
+        },
+      }, expanded ? '▴ Weniger anzeigen' : `▾ ${steps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null;
       return el('div.card.routine', {},
         el('div.routine-head', {},
           el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(routine, refresh) },
@@ -485,7 +511,10 @@ export function renderRoutinesView(root) {
           el('span.spacer'),
           el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start')),
         routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
-        steps.length ? taskTree(steps, refresh, { showDone: true }) : el('p.empty', {}, 'Noch keine Schritte.'),
+        steps.length
+          ? taskTree(visible, refresh, { showDone: true, parentId: routine.id })
+          : el('p.empty', {}, 'Noch keine Schritte.'),
+        toggleSteps,
         el('button', {
           type: 'button',
           onclick: () => openTaskEditor({ parent_id: routine.id, topic_id: routine.topic_id }, refresh),
