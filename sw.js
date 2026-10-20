@@ -1,8 +1,8 @@
 // Service Worker: hält die App offline verfügbar.
-// Antwortet sofort aus dem Cache und lädt im Hintergrund die neueste Version nach
-// (wirksam beim nächsten Öffnen). Bei Änderungen an der Dateiliste VERSION erhöhen.
+// Mit Internet wird immer die neueste Version geladen (am Browser-Cache vorbei), ohne Internet die
+// zuletzt gespeicherte. Bei Änderungen an der Dateiliste VERSION erhöhen.
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `planungsapp-${VERSION}`;
 const FILES = [
   './',
@@ -27,7 +27,10 @@ const FILES = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' umgeht den HTTP-Cache, damit keine veralteten Dateien vorab gespeichert werden.
+  event.waitUntil(caches.open(CACHE)
+    .then((cache) => cache.addAll(FILES.map((file) => new Request(file, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -36,16 +39,19 @@ self.addEventListener('activate', (event) => {
     .then(() => self.clients.claim()));
 });
 
+// Netz zuerst, bei fehlender Verbindung der gespeicherte Stand.
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== location.origin) return;
-  event.respondWith(caches.open(CACHE).then(async (cache) => {
-    const cached = await cache.match(event.request, { ignoreSearch: true });
-    const network = fetch(event.request)
-      .then((response) => {
-        if (response.ok) cache.put(event.request, response.clone());
-        return response;
-      })
-      .catch(() => cached);
-    return cached || network;
-  }));
+  const { request } = event;
+  if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    try {
+      const response = await fetch(request, { cache: 'no-cache' });
+      if (response.ok) cache.put(request, response.clone());
+      return response;
+    } catch {
+      const cached = await cache.match(request, { ignoreSearch: true });
+      return cached || (request.mode === 'navigate' ? cache.match('index.html') : Response.error());
+    }
+  })());
 });
