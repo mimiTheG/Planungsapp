@@ -143,6 +143,13 @@ button.link { border: 0; background: none; padding: 0; min-height: 0; text-align
 .card h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
 .card.alert { border-left: 4px solid var(--warn); background: var(--warn-bg); }
 .card.alert h3 { color: var(--warn); }
+.card.running-now { border: 2px solid var(--accent); }
+.card.running-now h3 { color: var(--accent); }
+.running { display: grid; gap: 0.4rem; padding: 0.5rem 0; border-top: 1px solid var(--border); }
+.running:first-child { border-top: 0; }
+.running-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.running .checklist { margin: 0; }
+.running > .primary { justify-self: start; }
 .card.wishes { background: var(--pink-soft); border-color: var(--p1); }
 .badge.wish { background: var(--surface); color: var(--pink); }
 .wish .done-btn { color: var(--pink); }
@@ -377,7 +384,8 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .dt-time-label input::-webkit-calendar-picker-indicator { filter: none; opacity: 0.7; }
 
 /* Monat/Jahr wählen (Kalendertitel antippen) */
-.cal-title { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 700; }
+/* Feste Breite, damit die Pfeile nicht springen („Mai 2026“ so breit wie „September 2026“). */
+.cal-title { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-weight: 700; width: 10.5rem; flex: none; }
 .cal-title .caret { font-size: 0.75rem; }
 .month-picker { display: grid; gap: 0.5rem; margin-bottom: 0.6rem; padding: 0.6rem; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
 .month-picker-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
@@ -456,6 +464,8 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
   border-left: 1px solid var(--border);
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--border) 43px, var(--border) 44px);
 }
+.now-line { position: absolute; left: -1px; right: 0; height: 2px; background: var(--accent); z-index: 2; pointer-events: none; }
+.now-line::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .day-col.today { background-color: color-mix(in srgb, var(--accent) 6%, transparent); }
 .week .hint { padding: 0.4rem 0.75rem; margin: 0; border-top: 1px solid var(--border); }
 

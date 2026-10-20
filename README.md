@@ -22,7 +22,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
   statt der Drehräder des Handys.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
-- Tippt man in der Monatsansicht auf einen Tag, führt die Zurück-Taste des Handys wieder zum Monat.
+- Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
+- In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
@@ -67,6 +68,8 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   für das nächste Mal zurückgesetzt.
 
 **Was mache ich jetzt?**
+- **Läuft gerade:** Termine und Routinen, die jetzt stattfinden, stehen ganz oben; Routinen kann man dort direkt
+  Schritt für Schritt abhaken und abschließen.
 - Alles, was gerade ansteht, nach Priorität (sachliche Wichtigkeit und Dringlichkeit);
   Überfälliges mit „täglich erinnern“ steht ganz oben.
 - **„Wollte ich schon länger mal wieder machen“** ist eine eigene Liste ohne Datum und Priorität. Mit ♥ markiert

@@ -91,7 +91,7 @@ export function renderCalendarView(root) {
   const title = view.mode === 'month'
     ? view.anchor.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
     : view.mode === '1'
-      ? formatDate(from, { weekday: 'long', day: '2-digit', month: 'long' })
+      ? formatDate(from, { weekday: 'short', day: 'numeric', month: 'short' })
       : from.getMonth() === to.getMonth()
         ? `${from.getDate()}.–${to.getDate()}. ${formatDate(to, { month: 'short' }).replace('.', '')}`
         : `${from.getDate()}.${from.getMonth() + 1}.–${to.getDate()}.${to.getMonth() + 1}.`;
@@ -113,7 +113,7 @@ export function renderCalendarView(root) {
     el('div.segmented.modes', {}, Object.entries(MODES).map(([m, label]) =>
       el(`button${view.mode === m ? '.active' : ''}`, {
         type: 'button',
-        onclick: () => { view.mode = m; refresh(); },
+        onclick: () => setMode(m, refresh),
       }, label))),
     el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor({}, refresh) }, '+'),
     el('div.legend', {},
@@ -128,25 +128,45 @@ export function renderCalendarView(root) {
     view.mode === 'month' ? monthGrid(from, to, events, refresh) : dayGrid(from, Number(view.mode), events, refresh));
 
   const scroller = root.querySelector('.week-scroll');
-  if (scroller) scroller.scrollTop = 6.5 * HOUR_PX;
+  // Ist heute zu sehen, zur aktuellen Uhrzeit scrollen (etwas Vorlauf), sonst zum Morgen.
+  const line = root.querySelector('.now-line');
+  if (scroller) scroller.scrollTop = line ? Math.max(0, line.offsetTop - 2 * HOUR_PX) : 6.5 * HOUR_PX;
 }
 
-// Tag aus der Monatsansicht öffnen. Der Schritt landet im Browser-Verlauf, damit die Zurück-Taste
-// des Handys wieder zur vorherigen Ansicht (z. B. Monat) führt statt die App zu verlassen.
-function openDay(day, refresh) {
-  history.replaceState({ ...history.state, cal: { mode: view.mode, anchor: +view.anchor } }, '');
-  view.anchor = day;
-  view.mode = '1';
-  history.pushState({ cal: { mode: view.mode, anchor: +view.anchor } }, '');
+// Strich bei der aktuellen Uhrzeit; wandert jede Minute weiter, solange er angezeigt wird.
+function nowLine() {
+  const line = el('div.now-line', { 'aria-hidden': 'true' });
+  const place = () => {
+    const now = new Date();
+    line.style.top = `${((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_PX}px`;
+  };
+  place();
+  const timer = setInterval(() => (line.isConnected ? place() : clearInterval(timer)), 60000);
+  return line;
+}
+
+// Ansicht wechseln. Verlässt man die Monatsansicht (Tag, 3 Tage, Woche), landet das im Browser-Verlauf:
+// Die Zurück-Taste des Handys führt dann immer zur Monatsansicht statt die App zu verlassen.
+function setMode(mode, refresh) {
+  if (view.mode === 'month' && mode !== 'month') {
+    history.pushState({ calDetail: true }, '');
+  } else if (view.mode !== 'month' && mode === 'month' && history.state?.calDetail) {
+    history.back(); // der popstate-Handler schaltet auf Monat
+    return;
+  }
+  view.mode = mode;
   refresh();
 }
 
-window.addEventListener('popstate', (e) => {
+function openDay(day, refresh) {
+  view.anchor = day;
+  setMode('1', refresh);
+}
+
+window.addEventListener('popstate', () => {
   if (!['', '#kalender'].includes(location.hash) || document.getElementById('dialog')?.open) return;
-  const saved = e.state?.cal;
-  if (!saved && view.mode === 'month') return;
-  view.mode = saved?.mode || 'month';
-  view.anchor = saved ? new Date(saved.anchor) : view.anchor;
+  if (view.mode === 'month') return;
+  view.mode = 'month';
   view.pickMonth = false;
   window.dispatchEvent(new HashChangeEvent('hashchange')); // Ansicht neu zeichnen
 });
@@ -234,6 +254,7 @@ function dayGrid(from, count, events, refresh) {
       height < 30 && count > 3 ? null : el('span.block-time', {}, formatTime(seg.start)),
       el('span.block-title', {}, seg.label)));
     }
+    if (isoDate(day) === today) col.append(nowLine());
     return col;
   });
 

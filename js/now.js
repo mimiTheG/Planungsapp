@@ -3,7 +3,7 @@
 import {
   el, mount, field, formData, openDialog, closeDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, parseDate } from './dates.js';
+import { daysBetween, formatDate, formatTime, parseDate } from './dates.js';
 import * as store from './store.js';
 import {
   KIND_LABELS, completeTask, openTaskEditor, priority, progressBar, recurrenceText, runRoutine, topicDot, windowText,
@@ -104,10 +104,74 @@ function openWishEditor(wish, refresh) {
   const close = openDialog(isNew ? 'Neuer Eintrag' : 'Bearbeiten', form);
 }
 
+// --- Läuft gerade: Termine und Routinen, die jetzt stattfinden -----------------
+
+function runningNow(now = new Date()) {
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const items = [];
+  for (const ev of store.eventsBetween(day, day)) {
+    const start = parseDate(ev.start_at);
+    const end = parseDate(ev.end_at);
+    const parts = [{ from: start, to: end, routineId: ev.routine_id, title: ev.title }];
+    if (ev.before_type === 'routine' && ev.before_minutes) {
+      parts.push({ from: new Date(+start - ev.before_minutes * 60000), to: start, routineId: ev.before_routine_id, title: null });
+    }
+    if (ev.after_type === 'routine' && ev.after_minutes) {
+      parts.push({ from: end, to: new Date(+end + ev.after_minutes * 60000), routineId: ev.after_routine_id, title: null });
+    }
+    for (const part of parts) {
+      if (part.from > now || part.to <= now) continue;
+      const routine = part.routineId ? store.taskById(part.routineId) : null;
+      if (!routine && !part.title) continue;
+      items.push({ ...part, routine, topicId: ev.topic_id, title: routine ? routine.title : part.title });
+    }
+  }
+  return items.sort((a, b) => a.from - b.from);
+}
+
+function runningItem(item, refresh) {
+  const time = `${formatTime(item.from)}–${formatTime(item.to)}`;
+  const head = el('div.running-head', {},
+    el('span.dot', { style: { background: store.topicColor(item.routine?.topic_id ?? item.topicId) } }),
+    el('strong', {}, item.title),
+    el('span.badge', {}, item.routine ? `Routine · ${time}` : time));
+  if (!item.routine) return el('li.running', {}, head);
+
+  // Routine: Schritte direkt hier abhaken.
+  const steps = store.descendantsOf(item.routine.id).filter((s) => !store.childrenOf(s.id).length);
+  const done = steps.filter((s) => s.done_at).length;
+  return el('li.running', {},
+    head,
+    steps.length ? el('progress', { max: steps.length, value: done }) : null,
+    el('ul.checklist', {}, steps.map((step) => el('li', {},
+      el('label.check', {},
+        el('input', {
+          type: 'checkbox',
+          checked: Boolean(step.done_at),
+          onchange: () => {
+            attempt(() => (step.done_at ? store.reopenTask(step.id) : store.completeTask(step.id)));
+            refresh();
+          },
+        }),
+        step.title,
+        step.duration_min ? el('span.muted', {}, ` (${step.duration_min} min)`) : null)))),
+    el('button.primary', { type: 'button', onclick: () => completeTask(item.routine, refresh) },
+      done === steps.length ? '✓ Routine abschließen' : 'Trotzdem abschließen'));
+}
+
+// Solange "Jetzt" offen ist, jede Minute aktualisieren (laufende Termine kommen und gehen).
+let nowTimer = null;
+
 // --- Ansicht ---------------------------------------------------------------------
 
 export function renderNowView(root) {
   const refresh = () => renderNowView(root);
+  clearInterval(nowTimer);
+  nowTimer = setInterval(() => {
+    if (location.hash !== '#jetzt' || document.getElementById('dialog').open) return clearInterval(nowTimer);
+    refresh();
+  }, 60000);
+  const running = runningNow();
   const all = store.tasks().filter((t) => t.parent_id === null);
   const items = all.filter((t) => ACTIVE.includes(t.status)).sort(sortByPriority);
   const overdue = items.filter((t) => t.status === 'overdue');
@@ -144,6 +208,9 @@ export function renderNowView(root) {
 
   mount(root,
     el('div.toolbar', {}, el('h2', {}, 'Was mache ich jetzt?')),
+    running.length ? el('section.card.running-now', {},
+      el('h3', {}, '● Läuft gerade'),
+      el('ul.now-list', {}, running.map((item) => runningItem(item, refresh)))) : null,
     el('button.primary.big.wide', { type: 'button', onclick: decide, disabled: !candidates.length }, '🎲 Ich kann mich nicht entscheiden'),
 
     overdue.length ? el('section.card.alert', {},
