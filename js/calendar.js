@@ -11,6 +11,7 @@ import { routineStart, runRoutine } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
 import { dateTimeField } from './datetime-picker.js';
+import { enableEventDrag, justDragged } from './event-drag.js';
 
 const HOUR_PX = 44;
 const MODES = { 1: 'Tag', 3: '3 Tage', 7: 'Woche', month: 'Monat' };
@@ -133,7 +134,7 @@ export function renderCalendarView(root) {
   const line = root.querySelector('.now-line');
   if (scroller && swiped) {
     scroller.scrollTop = swiped.scrollTop;
-    root.querySelector('.week').classList.add(swiped.dir > 0 ? 'slide-next' : 'slide-prev');
+    if (swiped.dir) root.querySelector('.week').classList.add(swiped.dir > 0 ? 'slide-next' : 'slide-prev');
   } else if (scroller) {
     scroller.scrollTop = line ? Math.max(0, line.offsetTop - 2 * HOUR_PX) : 6.5 * HOUR_PX;
   }
@@ -143,7 +144,40 @@ export function renderCalendarView(root) {
       swiped = { dir, scrollTop: scroller.scrollTop };
       step(dir);
     });
+    enableEventDrag(root.querySelector('.week'), {
+      hourPx: HOUR_PX,
+      // Beim Blättern während des Ziehens ist schon neu gezeichnet worden → aktuellen Scroller nehmen.
+      onEdge: (dir) => {
+        swiped = { dir, scrollTop: document.querySelector('.week-scroll').scrollTop };
+        step(dir);
+      },
+      onDrop: ({ ev }, delta) => {
+        swiped = { dir: 0, scrollTop: document.querySelector('.week-scroll').scrollTop }; // Uhrzeit im Blick behalten
+        moveEvent(ev, delta, refresh);
+      },
+    });
   }
+}
+
+// Termin um delta Millisekunden verschieben (Bereiche davor/danach wandern mit).
+function moveEvent(ev, delta, refresh) {
+  if (!delta) return;
+  const start = new Date(+parseDate(ev.start_at) + delta);
+  const end = new Date(+parseDate(ev.end_at) + delta);
+  const payload = { ...ev, start_at: isoDateTime(start), end_at: isoDateTime(end) };
+  // Wöchentlich an genau dem bisherigen Wochentag → der Wochentag zieht mit um.
+  const oldDay = parseDate(ev.start_at).getDay();
+  if (ev.repeat?.freq === 'weekly' && ev.repeat.weekdays?.length === 1 && ev.repeat.weekdays[0] === oldDay) {
+    payload.repeat = { ...ev.repeat, weekdays: [start.getDay()] };
+  }
+  const run = (scope) => {
+    if (attempt(() => store.updateEvent(ev.id, payload, { scope, occurrence: ev.occurrence }))) {
+      toast(`„${eventTitle(ev)}“ → ${formatDate(start, { weekday: 'short', day: 'numeric', month: 'numeric' })} ${formatTime(start)}`);
+    }
+    refresh();
+  };
+  if (ev.series) askScope('Wiederkehrenden Termin verschieben', run);
+  else run('all');
 }
 
 // Wischen nach links = weiter (nächster Tag bzw. nächste Tage), nach rechts = zurück.
@@ -157,7 +191,7 @@ function onSwipe(node, go) {
     start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
   }, { passive: true });
   node.addEventListener('touchend', (e) => {
-    if (!start) return;
+    if (!start || justDragged()) { start = null; return; }
     const t = e.changedTouches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
@@ -253,6 +287,7 @@ function dayGrid(from, count, events, refresh) {
     const dayStart = startOfDay(day);
     const dayEnd = addDays(dayStart, 1);
     const col = el(`div.day-col${isoDate(day) === today ? '.today' : ''}`, {
+      dataset: { day: isoDate(day) },
       style: { height: `${24 * HOUR_PX}px` },
       onclick: (e) => {
         if (e.target !== col) return;
@@ -272,7 +307,7 @@ function dayGrid(from, count, events, refresh) {
       const e = Math.min(seg.end, dayEnd);
       const top = ((s - dayStart) / 3600000) * HOUR_PX;
       const height = Math.max(16, ((e - s) / 3600000) * HOUR_PX - 2);
-      col.append(el(`button.block.${seg.part}${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
+      const block = el(`button.block.${seg.part}${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
         type: 'button',
         style: {
           top: `${top}px`,
@@ -283,11 +318,13 @@ function dayGrid(from, count, events, refresh) {
           '--on': textOn(store.topicColor(ev.topic_id)),
         },
         title: `${formatTime(seg.start)}–${formatTime(seg.end)} ${seg.label}`,
-        onclick: () => openEventEditor(ev, refresh),
+        onclick: () => { if (!justDragged()) openEventEditor(ev, refresh); },
       },
       // Kurze Blöcke in schmalen Spalten: lieber den Titel als die Uhrzeit zeigen.
       height < 30 && count > 3 ? null : el('span.block-time', {}, formatTime(seg.start)),
-      el('span.block-title', {}, seg.label)));
+      el('span.block-title', {}, seg.label));
+      block._drag = { ev, seg };
+      col.append(block);
     }
     if (isoDate(day) === today) col.append(nowLine());
     return col;

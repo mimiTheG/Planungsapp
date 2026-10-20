@@ -25,6 +25,10 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
 - In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
 - In Tag, 3 Tage und Woche **wischt** man nach links zum nächsten und nach rechts zum vorigen Tag bzw. Zeitraum.
+- **Termine verschieben:** In Tag, 3 Tage und Woche einen Termin lang drücken und ziehen – hoch/runter ändert die
+  Uhrzeit (in 15-Minuten-Schritten), in eine andere Spalte den Tag. Hält man ihn am linken oder rechten Rand fest,
+  blättert der Kalender zum vorigen bzw. nächsten Tag. Bereiche davor/danach wandern mit; bei Serien fragt die App,
+  ob nur dieser oder alle Termine verschoben werden.
 - Termine über Mitternacht erscheinen am Folgetag nur, wenn sie nach **4:30** enden (vorher zählt die Nacht
   noch zum Vortag, z. B. Party 22–2 Uhr).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
@@ -137,6 +141,7 @@ js/
   topic-picker.js      Themenauswahl mit „+ Neues Thema anlegen“
   repeat.js            Wiederkehrende Termine (Berechnung, Texte, Vorschläge)
   repeat-fields.js     Formular „Wiederholen“ und Rückfrage bei Serien
+  event-drag.js        Termine im Kalender per langem Drücken verschieben
   reorder.js           Umsortieren per langem Drücken
   samples.js           Beispieldaten
 icons/                 App-Icons
