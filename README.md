@@ -20,12 +20,16 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
+Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
 
 **Aufgaben, Projekte und Routinen**
-- Wichtigkeit und Dringlichkeit jeweils 1–5, getrennt für die **sachliche** und die **emotionale** Ebene.
-  Beim Anlegen lässt sich die Wichtigkeits-Dringlichkeits-Matrix anzeigen (Tippen auf ein Feld setzt beide Werte;
-  Punkte zeigen, wo andere offene Aufgaben liegen).
-- Beliebig tief verschachtelte Unteraufgaben.
+- Wichtigkeit und Dringlichkeit jeweils **1–5, wobei 1 = sehr wichtig / sofort** und 5 = unwichtig / kein Zeitdruck –
+  getrennt für die **sachliche** und die **emotionale** Ebene. Beim Anlegen zeigt eine Matrix alle Kombinationen
+  (je dunkler, desto dringender und wichtiger; Punkte = andere offene Aufgaben). Der **Info-Button (i)** erklärt die
+  gewählte Kombination – Texte aus `Prioritätsmatrix.xlsx` (sachlich) und `Gefühlsmatrix.xlsx` (emotional),
+  hinterlegt in `js/matrix-texts.js`.
+- Beliebig tief verschachtelte Unteraufgaben. Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
+  bis Dunkelrot (fertig).
 - **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
 - Rhythmus-Beispiel: alle 7 Tage, Puffer 3 Tage. Erledigt an Tag 1 → wieder fällig Tag 7–9,
@@ -33,15 +37,20 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Wenn nicht rechtzeitig erledigt: **verfällt** (der nächste Durchgang beginnt, wird als verpasst gezählt) oder
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
-  „Sportroutine“ …). Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
+  „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
+  selbst in den Kalender ein. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
   für das nächste Mal zurückgesetzt.
 
 **Was mache ich jetzt?**
-- Alles, was gerade ansteht, nach Priorität (Wichtigkeit × Dringlichkeit, sachlich oder emotional);
+- Alles, was gerade ansteht, nach Priorität (sachliche Wichtigkeit und Dringlichkeit);
   Überfälliges mit „täglich erinnern“ steht ganz oben.
-- „Wollte ich schon länger mal wieder machen“ = Projekte mit Wichtigkeit 1 und Dringlichkeit 1.
-- **„Ich kann mich nicht entscheiden“** wählt per Zufall eine offene Aufgabe oder ein Projekt, gewichtet nach
-  Priorität (Projekte und To-dos zählen gleich).
+- **„Wollte ich schon länger mal wieder machen“** ist eine eigene Liste ohne Datum und Priorität. Mit ♥ markiert
+  man, dass man es gemacht hat – der Eintrag bleibt und rutscht nach hinten (am längsten nicht Gemachtes zuerst).
+- **„Ich kann mich nicht entscheiden“** wählt per Zufall eine offene Aufgabe, ein Projekt oder einen Eintrag der
+  Wunschliste, gewichtet nach Priorität (Projekte und To-dos zählen gleich).
+
+**Beispieldaten** werden beim allerersten Start angelegt. Unter *Themen → Beispieldaten* lassen sie sich neu laden
+oder mit „Alles löschen“ entfernen.
 
 ## Veröffentlichen (GitHub Pages, kostenlos)
 
@@ -76,7 +85,10 @@ js/
   now.js               „Was mache ich jetzt?“
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix
-  more.js              Themen und Datensicherung
+  more.js              Themen, Datensicherung, Beispieldaten
+  matrix-texts.js      Erklärungen zur Wichtigkeits-Dringlichkeits-Matrix
+  topic-picker.js      Themenauswahl mit „+ Neues Thema anlegen“
+  samples.js           Beispieldaten
 icons/                 App-Icons
 tests/                 node:test-Tests
 ```

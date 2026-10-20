@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as schedule from '../js/schedule.js';
 import * as store from '../js/store.js';
+import { loadSamples } from '../js/samples.js';
 
 const memory = () => {
   const map = new Map();
@@ -88,4 +89,35 @@ test('Store: Rhythmus-Fenster, das beim Anlegen schon vorbei ist, rückt ohne Ve
   });
   assert.equal(task.missed_count, 0);
   assert.notEqual(task.status, 'expired');
+});
+
+test('Store: Routinen haben kein Fälligkeitsfenster, auch nicht ihre Schritte', () => {
+  store.load(memory());
+  const routine = store.createTask({ title: 'Abendroutine', kind: 'routine', recurrence: 'rhythm', rhythm_days: 1 });
+  const step = store.createTask({ title: 'Lesen', parent_id: routine.id, recurrence: 'rhythm', rhythm_days: 2 });
+  assert.equal(routine.recurrence, 'once');
+  assert.equal(routine.window_start, null);
+  assert.equal(store.taskById(step.id).recurrence, 'once');
+});
+
+test('Store: Wunschliste ist unabhängig von Aufgaben, am längsten nicht Gemachtes zuerst', () => {
+  store.load(memory());
+  const a = store.createWish({ title: 'Gitarre spielen' });
+  const b = store.createWish({ title: 'Brot backen' });
+  store.doneWish(b.id, new Date(2026, 0, 1));
+  store.doneWish(a.id, new Date(2026, 5, 1));
+  assert.deepEqual(store.wishes().map((w) => w.title), ['Brot backen', 'Gitarre spielen']);
+  assert.equal(store.tasks().length, 0);
+});
+
+test('Beispieldaten lassen sich anlegen und enthalten alle Bereiche', () => {
+  const hadData = store.load(memory());
+  assert.equal(hadData, false);
+  loadSamples(new Date(2026, 9, 20, 12));
+  assert.ok(store.topics().length >= 4);
+  assert.ok(store.routines().length >= 3);
+  assert.ok(store.wishes().length >= 3);
+  const statuses = new Set(store.tasks(new Date(2026, 9, 20, 12)).map((t) => t.status));
+  for (const s of ['overdue', 'due', 'upcoming', 'routine']) assert.ok(statuses.has(s), s);
+  assert.ok(store.eventsBetween(new Date(2026, 9, 19), new Date(2026, 9, 26)).some((e) => e.is_event));
 });

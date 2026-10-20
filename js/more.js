@@ -1,16 +1,16 @@
-// "Mehr": Themen mit Farben und Datensicherung.
+// "Mehr": Themen mit Farben, Datensicherung und Beispieldaten.
 
 import { el, mount, toast, attempt } from './ui.js';
 import { isoDate } from './dates.js';
 import * as store from './store.js';
-
-const SUGGESTED = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#9333ea', '#0891b2', '#db2777', '#4b5563'];
+import { nextTopicColor } from './topic-picker.js';
+import { loadSamples } from './samples.js';
 
 export function renderMoreView(root) {
   const refresh = () => renderMoreView(root);
   const topics = store.topics();
 
-  const nextColor = SUGGESTED.find((c) => !topics.some((t) => t.color === c)) || SUGGESTED[0];
+  const nextColor = nextTopicColor();
   const newForm = el('form.inline-form', {
     onsubmit: (e) => {
       e.preventDefault();
@@ -83,5 +83,29 @@ export function renderMoreView(root) {
       el('div.buttons', {},
         el('button.primary', { type: 'button', onclick: download }, '⬇ Sicherung speichern'),
         el('button', { type: 'button', onclick: () => fileInput.click() }, '⬆ Sicherung einlesen'),
-        fileInput)));
+        fileInput)),
+
+    el('div.toolbar', {}, el('h2', {}, 'Beispieldaten')),
+    el('div.card', {},
+      el('p.muted', {}, 'Zum Ausprobieren gibt es Beispiel-Themen, -Aufgaben, -Routinen und -Termine. ',
+        'Wenn du richtig loslegen willst, lösche sie einfach.'),
+      el('div.buttons', {},
+        el('button', {
+          type: 'button',
+          onclick: () => {
+            if (!window.confirm('Alle aktuellen Daten durch die Beispieldaten ersetzen?')) return;
+            loadSamples();
+            toast('Beispieldaten geladen');
+            refresh();
+          },
+        }, 'Beispieldaten laden'),
+        el('button.danger', {
+          type: 'button',
+          onclick: () => {
+            if (!window.confirm('Wirklich ALLE Daten löschen? Das lässt sich nicht rückgängig machen.')) return;
+            store.clearAll();
+            toast('Alle Daten gelöscht');
+            refresh();
+          },
+        }, 'Alles löschen'))));
 }

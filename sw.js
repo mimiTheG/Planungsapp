@@ -2,7 +2,7 @@
 // Antwortet sofort aus dem Cache und lädt im Hintergrund die neueste Version nach
 // (wirksam beim nächsten Öffnen). Bei Änderungen an der Dateiliste VERSION erhöhen.
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `planungsapp-${VERSION}`;
 const FILES = [
   './',
@@ -12,11 +12,14 @@ const FILES = [
   'js/app.js',
   'js/calendar.js',
   'js/dates.js',
+  'js/matrix-texts.js',
   'js/more.js',
   'js/now.js',
+  'js/samples.js',
   'js/schedule.js',
   'js/store.js',
   'js/tasks.js',
+  'js/topic-picker.js',
   'js/ui.js',
   'icons/icon.svg',
   'icons/icon-192.png',

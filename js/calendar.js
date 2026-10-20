@@ -8,6 +8,7 @@ import {
 } from './dates.js';
 import * as store from './store.js';
 import { runRoutine } from './tasks.js';
+import { topicPicker } from './topic-picker.js';
 
 const HOUR_PX = 44;
 const MODES = { 1: 'Tag', 3: '3 Tage', 7: 'Woche', month: 'Monat' };
@@ -291,9 +292,9 @@ export function openEventEditor(event, refresh) {
 
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
     field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: ev.title || '' })),
-    el('div.row', {},
-      field('Thema', select('topic_id', [['', '— ohne —'], ...store.topics().map((t) => [t.id, t.name])], ev.topic_id)),
-      el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }), 'Veranstaltung')),
+    topicPicker(ev.topic_id),
+    el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
+      'Veranstaltung (lässt sich im Kalender ausblenden)'),
     el('div.row', {}, field('Beginn', startInput), field('Ende', endInput)),
     sideFields('before', ev),
     sideFields('after', ev),

@@ -4,7 +4,7 @@ import { parseDate, stamp } from './dates.js';
 import * as schedule from './schedule.js';
 
 const STORAGE_KEY = 'planungsapp.v1';
-const EMPTY = () => ({ version: 1, nextId: 1, topics: [], tasks: [], events: [], log: [] });
+const EMPTY = () => ({ version: 1, nextId: 1, topics: [], tasks: [], events: [], wishes: [], log: [] });
 
 let data = EMPTY();
 let storage = globalThis.localStorage;
@@ -13,15 +13,23 @@ export class ValidationError extends Error {}
 
 // --- Laden & Speichern -------------------------------------------------------
 
+// Lädt die gespeicherten Daten. Gibt false zurück, wenn noch nie etwas gespeichert wurde (erster Start).
 export function load(customStorage) {
   if (customStorage) storage = customStorage;
+  let raw = null;
   try {
-    const raw = storage?.getItem(STORAGE_KEY);
+    raw = storage?.getItem(STORAGE_KEY);
     data = raw ? { ...EMPTY(), ...JSON.parse(raw) } : EMPTY();
   } catch {
     data = EMPTY();
   }
   rollExpired();
+  return raw !== null;
+}
+
+export function clearAll() {
+  data = EMPTY();
+  save();
 }
 
 function save() {
@@ -89,9 +97,18 @@ export function routineMinutes(task) {
   return childrenOf(task.id).reduce((sum, child) => sum + (routineMinutes(child) || 0), 0) || null;
 }
 
-// "Wollte ich schon länger mal wieder machen": Projekte mit Wichtigkeit und Dringlichkeit 1.
-export function isWishlist(task) {
-  return task.kind === 'project' && task.importance === 1 && task.urgency === 1;
+// Liegt die Aufgabe (oder eine übergeordnete) in einer Routine? Dann gibt es keine Priorität und kein "Wann?".
+export function isInRoutine(task) {
+  for (let current = task; current; current = data.tasks.find((t) => t.id === current.parent_id)) {
+    if (current.kind === 'routine') return true;
+  }
+  return false;
+}
+
+// "Wollte ich schon länger mal wieder machen" – ohne Datum und Priorität; am längsten nicht Gemachtes zuerst.
+export function wishes() {
+  return [...data.wishes].sort((a, b) => String(a.last_done_at || '').localeCompare(String(b.last_done_at || ''))
+    || a.title.localeCompare(b.title, 'de'));
 }
 
 // Termine, die den Zeitraum [from, to] (Tage, inklusive) berühren – mit einem Tag Rand für Bereiche davor/danach.
@@ -166,7 +183,7 @@ const LABELS = {
 function topicInput(input) {
   return {
     name: text(input, 'name', 60, true),
-    color: pattern(input, 'color', /^#[0-9a-fA-F]{6}$/) || '#2563eb',
+    color: pattern(input, 'color', /^#[0-9a-fA-F]{6}$/) || '#9f1239',
   };
 }
 
@@ -187,7 +204,7 @@ export function updateTopic(id, input) {
 
 export function deleteTopic(id) {
   data.topics = data.topics.filter((t) => t.id !== id);
-  for (const item of [...data.tasks, ...data.events]) {
+  for (const item of [...data.tasks, ...data.events, ...data.wishes]) {
     if (item.topic_id === id) item.topic_id = null;
   }
   save();
@@ -232,6 +249,13 @@ function taskInput(input, id) {
   }
   if (task.parent_id !== null && id !== null && isDescendantOrSelf(task.parent_id, id)) {
     throw new ValidationError('Eine Aufgabe kann nicht unter sich selbst einsortiert werden');
+  }
+  // Routinen und ihre Schritte trägt man selbst in den Kalender ein: keine Fälligkeit.
+  if (isInRoutine(task)) {
+    Object.assign(task, {
+      recurrence: 'once', rhythm_days: null, buffer_days: null, period_start: null, period_end: null,
+      deadline_time: null, on_missed: 'remind',
+    });
   }
   return task;
 }
@@ -355,6 +379,43 @@ export function rollExpired(now = new Date()) {
     changed = true;
   }
   if (changed) save();
+}
+
+// --- Wollte ich schon länger mal wieder machen ------------------------------------
+
+function wishInput(input) {
+  return {
+    title: text(input, 'title', 200, true),
+    notes: text(input, 'notes', 5000),
+    topic_id: ref(input, 'topic_id'),
+  };
+}
+
+export function createWish(input) {
+  const wish = { id: nextId(), ...wishInput(input), last_done_at: null };
+  data.wishes.push(wish);
+  save();
+  return wish;
+}
+
+export function updateWish(id, input) {
+  const wish = data.wishes.find((w) => w.id === id);
+  if (!wish) throw new ValidationError('Eintrag nicht gefunden');
+  Object.assign(wish, wishInput(input));
+  save();
+  return wish;
+}
+
+export function doneWish(id, now = new Date()) {
+  const wish = data.wishes.find((w) => w.id === id);
+  if (wish) wish.last_done_at = stamp(now);
+  save();
+  return wish;
+}
+
+export function deleteWish(id) {
+  data.wishes = data.wishes.filter((w) => w.id !== id);
+  save();
 }
 
 // --- Termine -----------------------------------------------------------------------
