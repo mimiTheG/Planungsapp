@@ -20,13 +20,13 @@ export function loadSamples(today = new Date()) {
   const steps = (parent, list) => list.map(([title, duration_min]) => task({ title, duration_min, parent_id: parent }));
 
   // Routinen
-  const morgenKurz = task({ title: 'Morgenroutine kurz', kind: 'routine', topic_id: freizeit });
+  const morgenKurz = task({ title: 'Morgenroutine kurz', kind: 'routine', topic_id: freizeit, default_time: '07:00' });
   steps(morgenKurz, [['Zähne putzen', 3], ['Kaffee kochen', 5], ['Tagesplan anschauen', 5]]);
-  const abendLang = task({ title: 'Abendroutine lang', kind: 'routine', topic_id: freizeit });
+  const abendLang = task({ title: 'Abendroutine lang', kind: 'routine', topic_id: freizeit, default_time: '21:30' });
   steps(abendLang, [
     ['Küche aufräumen', 10], ['Tasche für morgen packen', 5], ['Zähne putzen', 3], ['Tagebuch schreiben', 10], ['Lesen', 20], ['Licht aus', 1],
   ]);
-  const arbeitMorgen = task({ title: 'Arbeit Morgendliche Aufgaben', kind: 'routine', topic_id: arbeit });
+  const arbeitMorgen = task({ title: 'Arbeit Morgendliche Aufgaben', kind: 'routine', topic_id: arbeit, default_time: '08:30' });
   steps(arbeitMorgen, [['Mails checken', 10], ['Kalender durchgehen', 5], ['Top-3 des Tages festlegen', 5]]);
   const sportRoutine = task({ title: 'Sportroutine', kind: 'routine', topic_id: sport });
   steps(sportRoutine, [['Aufwärmen', 10], ['Krafttraining', 25], ['Dehnen', 10]]);

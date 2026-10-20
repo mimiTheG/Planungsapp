@@ -7,7 +7,7 @@ import {
   addDays, formatDate, formatTime, isoDate, isoDateTime, parseDate, startOfDay, startOfWeek,
 } from './dates.js';
 import * as store from './store.js';
-import { runRoutine } from './tasks.js';
+import { routineStart, runRoutine } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
 import { dateTimeField } from './datetime-picker.js';
@@ -401,6 +401,8 @@ export function openEventEditor(event, refresh) {
     if (!r) return;
     const topicSelect = topics.querySelector('select[name="topic_id"]');
     if (r.topic_id) topicSelect.value = String(r.topic_id);
+    // Standardstartzeit der Routine am gewählten Tag übernehmen, Ende aus ihrer Dauer.
+    if (r.default_time) startField.set(routineStart(r, parseDate(startInput.value)), false);
     const minutes = store.routineMinutes(r);
     if (minutes) endField.set(new Date(+parseDate(startInput.value) + minutes * 60000));
   });

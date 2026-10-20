@@ -6,6 +6,7 @@ import * as schedule from '../js/schedule.js';
 import * as store from '../js/store.js';
 import { loadSamples } from '../js/samples.js';
 import * as repeating from '../js/repeat.js';
+import { stamp } from '../js/dates.js';
 
 const memory = () => {
   const map = new Map();
@@ -236,4 +237,29 @@ test('Store: Routine im Kalender einplanen (Titel/Thema von der Routine, Lösche
   assert.throws(() => store.createEvent({ routine_id: 9999, start_at: '2026-10-21T07:00', end_at: '2026-10-21T07:45' }), /Routine nicht gefunden/);
   store.deleteTask(routine.id);
   assert.equal(store.eventById(ev.id).routine_id, null);
+});
+
+test('Store: Routinen werden um 4:30 des Folgetages zurückgesetzt', () => {
+  store.load(memory());
+  const routine = store.createTask({ title: 'Abendroutine', kind: 'routine' });
+  const step = store.createTask({ title: 'Lesen', parent_id: routine.id });
+  store.rollExpired(new Date(2026, 9, 20, 21, 0)); // merkt sich den Tag
+  store.completeTask(step.id, new Date(2026, 9, 20, 22, 0));
+  store.rollExpired(new Date(2026, 9, 21, 4, 29)); // noch derselbe App-Tag
+  assert.ok(store.taskById(step.id).done_at);
+  store.rollExpired(new Date(2026, 9, 21, 4, 30));
+  assert.equal(store.taskById(step.id).done_at, null);
+  assert.equal(stamp(store.dayStart(new Date(2026, 9, 21, 3, 0))), '2026-10-20 04:30');
+});
+
+test('Store: Standardstartzeit nur für Routinen, Dauer über eine Stunde', () => {
+  store.load(memory());
+  const routine = store.createTask({ title: 'Abendroutine', kind: 'routine', default_time: '21:30', duration_min: 90 });
+  assert.equal(routine.default_time, '21:30');
+  assert.equal(routine.duration_min, 90);
+  const step = store.createTask({ title: 'Lesen', parent_id: routine.id, default_time: '22:00' });
+  assert.equal(step.default_time, null);
+  const todo = store.createTask({ title: 'Einkaufen', default_time: '10:00' });
+  assert.equal(todo.default_time, null);
+  assert.throws(() => store.createTask({ title: 'x', kind: 'routine', default_time: '9 Uhr' }), /Standardstartzeit/);
 });

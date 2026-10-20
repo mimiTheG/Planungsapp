@@ -52,3 +52,11 @@ export function formatDate(value, options = { weekday: 'short', day: '2-digit', 
 export function formatTime(date) {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+// Dauer lesbar: 45 → "45 min", 90 → "1 h 30 min", 120 → "2 h".
+export function formatDuration(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}

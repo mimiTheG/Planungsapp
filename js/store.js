@@ -232,7 +232,7 @@ const LABELS = {
   name: 'Name', title: 'Titel', notes: 'Notizen', rhythm_days: 'Rhythmus', buffer_days: 'Puffer',
   period_start: 'Beginn des Zeitraums', period_end: 'Ende des Zeitraums', duration_min: 'Dauer',
   start_at: 'Beginn', end_at: 'Ende', before_minutes: 'Minuten davor', after_minutes: 'Minuten danach',
-  window_start: 'Beginn', window_end: 'Ende', deadline_time: 'Uhrzeit',
+  window_start: 'Beginn', window_end: 'Ende', deadline_time: 'Uhrzeit', default_time: 'Standardstartzeit',
 };
 
 // --- Themen ----------------------------------------------------------------------
@@ -282,6 +282,7 @@ function taskInput(input, id) {
     importance_emo: int(input, 'importance_emo', 1, 5, 3),
     urgency_emo: int(input, 'urgency_emo', 1, 5, 3),
     duration_min: int(input, 'duration_min', 1, 1440),
+    default_time: pattern(input, 'default_time', /^\d{2}:\d{2}$/),
     recurrence,
     rhythm_days: null,
     buffer_days: null,
@@ -307,6 +308,8 @@ function taskInput(input, id) {
   if (task.parent_id !== null && id !== null && isDescendantOrSelf(task.parent_id, id)) {
     throw new ValidationError('Eine Aufgabe kann nicht unter sich selbst einsortiert werden');
   }
+  // Standardstartzeit gibt es nur für Routinen selbst (nicht für ihre Schritte).
+  if (task.kind !== 'routine' || task.parent_id !== null) task.default_time = null;
   // Routinen und ihre Schritte trägt man selbst in den Kalender ein: keine Fälligkeit.
   if (isInRoutine(task)) {
     Object.assign(task, {
@@ -453,7 +456,27 @@ export function rollExpired(now = new Date()) {
     resetChildren(task.id);
     changed = true;
   }
+  if (resetRoutinesForNewDay(now)) changed = true;
   if (changed) save();
+}
+
+// Ein "Tag" in der App beginnt um 4:30 – wer nach Mitternacht noch wach ist, ist noch im alten Tag.
+export function dayStart(now = new Date()) {
+  const start = new Date(now);
+  start.setHours(4, 30, 0, 0);
+  if (now < start) start.setDate(start.getDate() - 1);
+  return start;
+}
+
+// Um 4:30 werden abgehakte Schritte aller Routinen wieder geöffnet.
+function resetRoutinesForNewDay(now) {
+  const boundary = stamp(dayStart(now));
+  if (data.routineResetAt === boundary) return false;
+  if (data.routineResetAt) {
+    for (const routine of data.tasks.filter((t) => t.kind === 'routine' && t.parent_id === null)) resetChildren(routine.id);
+  }
+  data.routineResetAt = boundary; // beim allerersten Mal nur merken, nichts zurücksetzen
+  return true;
 }
 
 // --- Wollte ich schon länger mal wieder machen ------------------------------------
