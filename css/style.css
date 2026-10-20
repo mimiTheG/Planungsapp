@@ -508,6 +508,11 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .day-head { display: grid; padding: 0.3rem 0.1rem; text-align: center; font-size: 0.72rem; color: var(--muted); overflow: hidden; white-space: nowrap; line-height: 1.25; }
 .day-head strong { font-size: 0.95rem; font-weight: 500; color: var(--text); }
 .day-head.today, .day-head.today strong { color: var(--accent); }
+.week { touch-action: pan-y; }
+.week.slide-next { animation: slide-next 0.2s ease-out; }
+.week.slide-prev { animation: slide-prev 0.2s ease-out; }
+@keyframes slide-next { from { transform: translateX(25%); opacity: 0.3; } }
+@keyframes slide-prev { from { transform: translateX(-25%); opacity: 0.3; } }
 .week-scroll { height: max(55dvh, calc(100dvh - var(--bar-h) - env(safe-area-inset-bottom) - 12.5rem)); overflow-y: auto; }
 .hours .hour { font-size: 0.68rem; color: var(--muted); text-align: right; padding-right: 0.3rem; transform: translateY(-0.45rem); }
 .hours .hour:first-child { visibility: hidden; }

@@ -24,6 +24,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
 - In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
+- In Tag, 3 Tage und Woche **wischt** man nach links zum nächsten und nach rechts zum vorigen Tag bzw. Zeitraum.
 - Termine über Mitternacht erscheinen am Folgetag nur, wenn sie nach **4:30** enden (vorher zählt die Nacht
   noch zum Vortag, z. B. Party 22–2 Uhr).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.

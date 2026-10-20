@@ -129,8 +129,42 @@ export function renderCalendarView(root) {
 
   const scroller = root.querySelector('.week-scroll');
   // Ist heute zu sehen, zur aktuellen Uhrzeit scrollen (etwas Vorlauf), sonst zum Morgen.
+  // Nach einem Wisch zum nächsten/vorigen Tag bleibt die Uhrzeit, die man gerade angesehen hat.
   const line = root.querySelector('.now-line');
-  if (scroller) scroller.scrollTop = line ? Math.max(0, line.offsetTop - 2 * HOUR_PX) : 6.5 * HOUR_PX;
+  if (scroller && swiped) {
+    scroller.scrollTop = swiped.scrollTop;
+    root.querySelector('.week').classList.add(swiped.dir > 0 ? 'slide-next' : 'slide-prev');
+  } else if (scroller) {
+    scroller.scrollTop = line ? Math.max(0, line.offsetTop - 2 * HOUR_PX) : 6.5 * HOUR_PX;
+  }
+  swiped = null;
+  if (scroller) {
+    onSwipe(root.querySelector('.week'), (dir) => {
+      swiped = { dir, scrollTop: scroller.scrollTop };
+      step(dir);
+    });
+  }
+}
+
+// Wischen nach links = weiter (nächster Tag bzw. nächste Tage), nach rechts = zurück.
+const SWIPE_PX = 60;
+let swiped = null;
+
+function onSwipe(node, go) {
+  let start = null;
+  node.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, { passive: true });
+  node.addEventListener('touchend', (e) => {
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const quick = Date.now() - start.at < 800;
+    start = null;
+    if (quick && Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(dy)) go(dx < 0 ? 1 : -1);
+  }, { passive: true });
 }
 
 // Strich bei der aktuellen Uhrzeit; wandert jede Minute weiter, solange er angezeigt wird.
