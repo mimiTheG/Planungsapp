@@ -10,11 +10,11 @@ export function loadSamples(today = new Date()) {
   const at = (offset, time) => `${day(offset)} ${time}`;
 
   const topic = (name, color) => store.createTopic({ name, color }).id;
-  const arbeit = topic('Arbeit', '#9f1239');
-  const sport = topic('Sport', '#db2777');
-  const haushalt = topic('Haushalt', '#f472b6');
-  const freizeit = topic('Freizeit', '#c026d3');
-  const finanzen = topic('Finanzen', '#e11d48');
+  const arbeit = topic('Arbeit', '#9b2948');
+  const sport = topic('Sport', '#4f8a7b');
+  const haushalt = topic('Haushalt', '#e9a66b');
+  const freizeit = topic('Freizeit', '#9c8ad0');
+  const finanzen = topic('Finanzen', '#2f6f7e');
 
   const task = (input) => store.createTask(input).id;
   const steps = (parent, list) => list.map(([title, duration_min]) => task({ title, duration_min, parent_id: parent }));

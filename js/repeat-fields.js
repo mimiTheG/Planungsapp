@@ -104,7 +104,7 @@ export function repeatFields(initial, startInput) {
       input);
 
     mount(customBox,
-      el('div.repeat-every', {}, el('span', {}, 'Wiederholen alle'), interval, unit),
+      el('div.repeat-every', {}, el('span', {}, 'Alle'), interval, unit),
       weekdays,
       monthly,
       el('fieldset.repeat-end', {},

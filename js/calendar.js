@@ -50,7 +50,7 @@ function segments(event) {
 
 function sideLabel(event, side) {
   if (event[`${side}_type`] === 'routine') {
-    return `↻ ${store.taskById(event[`${side}_routine_id`])?.title || 'Routine'}`;
+    return store.taskById(event[`${side}_routine_id`])?.title || 'Routine';
   }
   return event[`${side}_label`] || (side === 'before' ? 'Vorlauf' : 'Nachlauf');
 }
@@ -84,33 +84,33 @@ export function renderCalendarView(root) {
     ? view.anchor.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
     : view.mode === '1'
       ? formatDate(from, { weekday: 'long', day: '2-digit', month: 'long' })
-      : `${formatDate(from, { day: '2-digit', month: '2-digit' })} – ${formatDate(to, { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+      : from.getMonth() === to.getMonth()
+        ? `${from.getDate()}.–${to.getDate()}. ${formatDate(to, { month: 'short' }).replace('.', '')}`
+        : `${from.getDate()}.${from.getMonth() + 1}.–${to.getDate()}.${to.getMonth() + 1}.`;
 
+  // Kompakter Kopf, damit möglichst viel Platz für den Kalender bleibt.
   mount(root,
-    el('div.toolbar', {},
-      el('h2', {}, 'Kalender'),
-      el('span.spacer'),
-      el('button.primary', { type: 'button', onclick: () => openEventEditor({}, refresh) }, '+ Termin')),
-    el('div.toolbar', {},
-      el('div.segmented', {}, Object.entries(MODES).map(([m, label]) =>
-        el(`button${view.mode === m ? '.active' : ''}`, {
-          type: 'button',
-          onclick: () => { view.mode = m; refresh(); },
-        }, label)))),
-    el('div.toolbar', {},
+    el('div.toolbar.cal-head', {},
       el('button.icon.nav', { type: 'button', 'aria-label': 'Zurück', onclick: () => step(-1) }, '‹'),
-      el('button', { type: 'button', onclick: () => { view.anchor = new Date(); refresh(); } }, 'Heute'),
+      el('strong.cal-title', {}, title),
       el('button.icon.nav', { type: 'button', 'aria-label': 'Vor', onclick: () => step(1) }, '›'),
-      el('strong.cal-title', {}, title)),
-    el('div.toolbar', {},
-      el('label.check', {},
+      el('span.spacer'),
+      el('button', { type: 'button', onclick: () => { view.anchor = new Date(); refresh(); } }, 'Heute')),
+    el('div.segmented.modes', {}, Object.entries(MODES).map(([m, label]) =>
+      el(`button${view.mode === m ? '.active' : ''}`, {
+        type: 'button',
+        onclick: () => { view.mode = m; refresh(); },
+      }, label))),
+    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor({}, refresh) }, '+'),
+    el('div.legend', {},
+      el('label.check.small', {},
         el('input', {
           type: 'checkbox',
           checked: view.showEvents,
           onchange: (e) => { view.showEvents = e.target.checked; writeSetting('showEvents', view.showEvents); refresh(); },
         }),
-        `Veranstaltungen anzeigen${!view.showEvents && hiddenCount ? ` (${hiddenCount} ausgeblendet)` : ''}`)),
-    legend(),
+        `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`),
+      legend()),
     view.mode === 'month' ? monthGrid(from, to, events, refresh) : dayGrid(from, Number(view.mode), events, refresh));
 
   const scroller = root.querySelector('.week-scroll');
@@ -118,10 +118,7 @@ export function renderCalendarView(root) {
 }
 
 function legend() {
-  const list = store.topics();
-  if (!list.length) return null;
-  return el('div.legend', {}, list.map((t) =>
-    el('span', {}, el('span.dot', { style: { background: t.color } }), t.name)));
+  return store.topics().map((t) => el('span', {}, el('span.dot', { style: { background: t.color } }), t.name));
 }
 
 function dayGrid(from, count, events, refresh) {
@@ -168,7 +165,7 @@ function dayGrid(from, count, events, refresh) {
       },
       // Kurze Blöcke in schmalen Spalten: lieber den Titel als die Uhrzeit zeigen.
       height < 30 && count > 3 ? null : el('span.block-time', {}, formatTime(seg.start)),
-      el('span.block-title', {}, seg.part === 'main' && ev.series ? `↻ ${seg.label}` : seg.label)));
+      el('span.block-title', {}, seg.label)));
     }
     return col;
   });
@@ -179,8 +176,7 @@ function dayGrid(from, count, events, refresh) {
       days.map((d) => el(`div.day-head${isoDate(d) === today ? '.today' : ''}`, {},
         el('span', {}, formatDate(d, { weekday: 'short' }).replace('.', '')),
         el('strong', {}, formatDate(d, count === 7 ? { day: 'numeric' } : { day: '2-digit', month: '2-digit' }))))),
-    el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)),
-    el('p.muted.hint', {}, 'Tippe auf eine freie Stelle, um dort einen Termin anzulegen. Schraffiert = davor/danach.'));
+    el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)));
 }
 
 // Überlappende Blöcke nebeneinander anordnen.
@@ -227,11 +223,9 @@ function monthGrid(from, to, events, refresh) {
       style: { '--c': store.topicColor(ev.topic_id) },
       title: `${formatTime(parseDate(ev.start_at))} ${ev.title}`,
       onclick: () => openEventEditor(ev, refresh),
-    }, ev.series ? `↻ ${ev.title}` : ev.title))));
+    }, ev.title))));
   }
-  return el('div', {},
-    el('div.month', {}, ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div.month-head', {}, d)), cells),
-    el('p.muted.hint', {}, 'Tippe auf einen Tag, um ihn zu öffnen.'));
+  return el('div.month', {}, ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div.month-head', {}, d)), cells);
 }
 
 // --- Termin-Editor -----------------------------------------------------------

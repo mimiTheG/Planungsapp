@@ -27,6 +27,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
+Farben wählt man aus einer abgestimmten Palette (Weinrot, Himbeere, Altrosa, Koralle, Pfirsich, Senf, Salbei,
+Eukalyptus, Petrol, Taubenblau, Lavendel, Pflaume) oder als eigene Farbe.
 
 **Aufgaben, Projekte und Routinen**
 - Wichtigkeit und Dringlichkeit jeweils **1–5, wobei 5 = sehr wichtig / sofort** und 1 = unwichtig / kein Zeitdruck –
