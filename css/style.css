@@ -411,8 +411,22 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.45rem; }
 .swatch { aspect-ratio: 1; min-height: 0; padding: 0; border-radius: 50%; border: 3px solid var(--surface); }
 .swatch.selected { box-shadow: 0 0 0 2px var(--text); }
-.custom-color { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); }
-.custom-color input { width: 2.2rem; height: 2.2rem; }
+.custom-color { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; justify-self: start; }
+.custom-color[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.custom-dot { width: 1.3rem; height: 1.3rem; border-radius: 50%; box-shadow: 0 0 0 1px var(--border); }
+.color-mixer { display: grid; gap: 0.5rem; }
+.color-mixer[hidden] { display: none; }
+.mixer-row { display: grid; grid-template-columns: 5.5rem 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); }
+.mixer-row input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 1.4rem; padding: 0; border: 0; border-radius: 999px;
+}
+.mixer-row input[aria-label="Farbton"] { background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.mixer-row input[aria-label="Sättigung"] { background: linear-gradient(90deg, hsl(var(--h) 0% var(--l)), hsl(var(--h) 100% var(--l))); }
+.mixer-row input[aria-label="Helligkeit"] { background: linear-gradient(90deg, #000, hsl(var(--h) var(--s) 50%), #fff); }
+.mixer-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: #fff; border: 3px solid var(--text); cursor: pointer;
+}
+.mixer-row input[type="range"]::-moz-range-thumb { width: 1.3rem; height: 1.3rem; border-radius: 50%; background: #fff; border: 3px solid var(--text); }
 .topic-list li { flex-wrap: wrap; }
 .inline-form { flex-wrap: wrap; align-items: center; }
 .topic-list li input:not([type]), .inline-form input:not([type]) { width: auto; flex: 1; min-width: 0; }
