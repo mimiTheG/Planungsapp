@@ -129,8 +129,42 @@ export function renderCalendarView(root) {
 
   const scroller = root.querySelector('.week-scroll');
   // Ist heute zu sehen, zur aktuellen Uhrzeit scrollen (etwas Vorlauf), sonst zum Morgen.
+  // Nach einem Wisch zum nächsten/vorigen Tag bleibt die Uhrzeit, die man gerade angesehen hat.
   const line = root.querySelector('.now-line');
-  if (scroller) scroller.scrollTop = line ? Math.max(0, line.offsetTop - 2 * HOUR_PX) : 6.5 * HOUR_PX;
+  if (scroller && swiped) {
+    scroller.scrollTop = swiped.scrollTop;
+    root.querySelector('.week').classList.add(swiped.dir > 0 ? 'slide-next' : 'slide-prev');
+  } else if (scroller) {
+    scroller.scrollTop = line ? Math.max(0, line.offsetTop - 2 * HOUR_PX) : 6.5 * HOUR_PX;
+  }
+  swiped = null;
+  if (scroller) {
+    onSwipe(root.querySelector('.week'), (dir) => {
+      swiped = { dir, scrollTop: scroller.scrollTop };
+      step(dir);
+    });
+  }
+}
+
+// Wischen nach links = weiter (nächster Tag bzw. nächste Tage), nach rechts = zurück.
+const SWIPE_PX = 60;
+let swiped = null;
+
+function onSwipe(node, go) {
+  let start = null;
+  node.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, { passive: true });
+  node.addEventListener('touchend', (e) => {
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const quick = Date.now() - start.at < 800;
+    start = null;
+    if (quick && Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(dy)) go(dx < 0 ? 1 : -1);
+  }, { passive: true });
 }
 
 // Strich bei der aktuellen Uhrzeit; wandert jede Minute weiter, solange er angezeigt wird.
@@ -229,7 +263,8 @@ function dayGrid(from, count, events, refresh) {
     });
 
     const blocks = events.flatMap((ev) => segments(ev).map((seg) => ({ ev, seg })))
-      .filter(({ seg }) => seg.end > dayStart && seg.start < dayEnd);
+      .filter(({ seg }) => seg.end > dayStart && seg.start < dayEnd)
+      .filter(({ ev, seg }) => isoDate(day) <= lastDay(parseDate(ev.start_at), seg.end));
     layoutLanes(blocks);
 
     for (const { ev, seg, lane, lanes } of blocks) {
@@ -267,6 +302,14 @@ function dayGrid(from, count, events, refresh) {
     el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)));
 }
 
+// Letzter Kalendertag eines Termins: Was nach Mitternacht vor 4:30 endet, gehört noch zum Vortag
+// (die App-Tage beginnen um 4:30) und erscheint nicht zusätzlich am Folgetag.
+const DAY_START_MS = (4 * 60 + 30) * 60000;
+function lastDay(start, end) {
+  const last = isoDate(new Date(+end - DAY_START_MS - 1));
+  return last < isoDate(start) ? isoDate(start) : last;
+}
+
 // Überlappende Blöcke nebeneinander anordnen.
 function layoutLanes(blocks) {
   blocks.sort((a, b) => a.seg.start - b.seg.start || b.seg.end - a.seg.end);
@@ -296,7 +339,8 @@ function monthGrid(from, to, events, refresh) {
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const day = new Date(d);
     const key = isoDate(day);
-    const dayEvents = events.filter((ev) => ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key);
+    const dayEvents = events.filter((ev) => ev.start_at.slice(0, 10) <= key
+      && lastDay(parseDate(ev.start_at), parseDate(ev.end_at)) >= key);
     cells.push(el(`div.month-cell${day.getMonth() !== month ? '.other' : ''}${key === today ? '.today' : ''}`, {
       onclick: (e) => {
         if (e.target.closest('.chip')) return;
