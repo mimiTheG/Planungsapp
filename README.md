@@ -19,8 +19,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 **Kalender** (Tag, 3 Tage, Woche, Monat) – die Startseite der App, öffnet in der Monatsansicht
 - Termine mit Thema (Farbe). Davor und/oder danach kann ein **freier Bereich** (z. B. „Anfahrt“, 30 min)
   oder eine **Routine** (z. B. „Arbeit Morgendliche Aufgaben“) liegen – im Kalender schraffiert.
-- Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt), die Uhrzeit per
-  Stunde und Minute – statt der Drehräder des Handys.
+- Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
+  statt der Drehräder des Handys.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
