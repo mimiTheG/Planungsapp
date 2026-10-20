@@ -315,3 +315,17 @@ test('Store: Ebene ändern – einrücken unter den Vorgänger, ausrücken hinte
   const step = store.createTask({ title: 'Zähne', parent_id: routine.id });
   assert.throws(() => store.outdentTask(step.id), /Routine/);
 });
+
+test('Store: ganztägige Termine – nur Datum, ohne Bereiche davor/danach', () => {
+  store.load(memory());
+  const ev = store.createEvent({
+    title: 'Urlaub', all_day: true, start_at: '2026-10-22T09:00', end_at: '2026-10-24T10:00',
+    before_type: 'free', before_minutes: 30,
+  });
+  assert.equal(ev.all_day, true);
+  assert.equal(ev.start_at, '2026-10-22 00:00');
+  assert.equal(ev.end_at, '2026-10-24 23:59');
+  assert.equal(ev.before_type, 'none');
+  const timed = store.createEvent({ title: 'Arzt', start_at: '2026-10-22T09:00', end_at: '2026-10-22T10:00' });
+  assert.equal(timed.all_day, false);
+});

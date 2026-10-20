@@ -135,7 +135,7 @@ function runningNow(now = new Date()) {
   for (const ev of store.eventsBetween(dayStart, now)) {
     const start = parseDate(ev.start_at);
     const end = parseDate(ev.end_at);
-    const parts = [{ from: start, to: end, routineId: ev.routine_id, title: ev.title }];
+    const parts = [{ from: start, to: end, routineId: ev.routine_id, title: ev.title, allDay: ev.all_day }];
     if (ev.before_type === 'routine' && ev.before_minutes) {
       parts.push({ from: new Date(+start - ev.before_minutes * 60000), to: start, routineId: ev.before_routine_id, title: null });
     }
@@ -158,7 +158,7 @@ function runningNow(now = new Date()) {
 }
 
 function runningItem(item, refresh) {
-  const time = `${formatTime(item.from)}–${formatTime(item.to)}`;
+  const time = item.allDay ? 'ganztägig' : `${formatTime(item.from)}–${formatTime(item.to)}`;
   const head = el('div.running-head', {},
     el('span.dot', { style: { background: store.topicColor(item.routine?.topic_id ?? item.topicId) } }),
     el('strong', {}, item.title),

@@ -505,6 +505,9 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .week { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
 .week-head, .week-body { display: grid; }
 .week-head { border-bottom: 1px solid var(--border); }
+.allday-row { display: grid; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.allday-label { font-size: 0.6rem; color: var(--muted); text-align: right; padding: 0.25rem 0.3rem 0 0; }
+.allday-cell { display: flex; flex-direction: column; gap: 1px; padding: 2px 1px; min-width: 0; }
 .day-head { display: grid; padding: 0.3rem 0.1rem; text-align: center; font-size: 0.72rem; color: var(--muted); overflow: hidden; white-space: nowrap; line-height: 1.25; }
 .day-head strong { font-size: 0.95rem; font-weight: 500; color: var(--text); }
 .day-head.today, .day-head.today strong { color: var(--accent); }

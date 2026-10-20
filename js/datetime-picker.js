@@ -19,6 +19,7 @@ export function dateTimeField(name, value, { required = false } = {}) {
 
   const display = el('button.dt-display', { type: 'button', 'aria-expanded': 'false', onclick: () => toggle() });
   const panel = el('div.dt-panel', { hidden: true });
+  let dateOnly = false; // ganztägig: nur das Datum wählen
 
   function startOfMonth(date) {
     return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -32,7 +33,7 @@ export function dateTimeField(name, value, { required = false } = {}) {
     const d = current();
     mount(display,
       el('span.dt-date', {}, formatDate(d, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })),
-      el('span.dt-time', {}, `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`));
+      dateOnly ? null : el('span.dt-time', {}, `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`));
   }
 
   // Setzt den Wert; mit notify wird 'change' ausgelöst (für abhängige Felder wie das Ende).
@@ -106,7 +107,7 @@ export function dateTimeField(name, value, { required = false } = {}) {
         el('button.icon', { type: 'button', 'aria-label': 'Nächster Monat', onclick: () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderPanel(); } }, '›')),
       el('div.dt-grid', {}, WEEKDAYS.map((w) => el('span.dt-weekday', {}, w)), days),
       el('div.dt-foot', {},
-        el('label.dt-time-label', {}, el('span', {}, 'Uhrzeit'), time),
+        dateOnly ? el('span.spacer') : el('label.dt-time-label', {}, el('span', {}, 'Uhrzeit'), time),
         el('button.primary', { type: 'button', onclick: close }, 'Fertig')));
   }
 
@@ -115,5 +116,10 @@ export function dateTimeField(name, value, { required = false } = {}) {
     element: el('div.dt-field', {}, input, display, panel),
     input,
     set,
+    setDateOnly(on) {
+      dateOnly = on;
+      updateDisplay();
+      if (!panel.hidden) renderPanel();
+    },
   };
 }

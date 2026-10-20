@@ -275,8 +275,14 @@ function legend() {
   return store.topics().map((t) => el('span', {}, el('span.dot', { style: { background: t.color } }), t.name));
 }
 
-function dayGrid(from, count, events, refresh) {
+function dayGrid(from, count, allEvents, refresh) {
   const days = [...Array(count)].map((_, i) => addDays(from, i));
+  // Ganztägige Termine stehen in einer eigenen Zeile über den Stunden.
+  const events = allEvents.filter((ev) => !ev.all_day);
+  const allDay = days.map((day) => {
+    const key = isoDate(day);
+    return allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key);
+  });
   const today = isoDate(new Date());
   const columns = `2.6rem repeat(${count}, minmax(0, 1fr))`;
 
@@ -336,6 +342,14 @@ function dayGrid(from, count, events, refresh) {
       days.map((d) => el(`div.day-head${isoDate(d) === today ? '.today' : ''}`, {},
         el('span', {}, formatDate(d, { weekday: 'short' }).replace('.', '')),
         el('strong', {}, formatDate(d, count === 7 ? { day: 'numeric' } : { day: '2-digit', month: '2-digit' }))))),
+    allDay.some((list) => list.length) ? el('div.allday-row', { style: { gridTemplateColumns: columns } },
+      el('span.allday-label', {}, 'ganzt.'),
+      allDay.map((list) => el('div.allday-cell', {}, list.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
+        type: 'button',
+        style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
+        title: `ganztägig: ${ev.title}`,
+        onclick: () => openEventEditor(ev, refresh),
+      }, eventTitle(ev)))))) : null,
     el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)));
 }
 
@@ -388,7 +402,7 @@ function monthGrid(from, to, events, refresh) {
     dayEvents.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
       type: 'button',
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
-      title: `${formatTime(parseDate(ev.start_at))} ${ev.title}`,
+      title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,
       onclick: () => openEventEditor(ev, refresh),
     }, eventTitle(ev)))));
   }
@@ -476,6 +490,26 @@ export function openEventEditor(event, refresh) {
     titleInput.required = !isRoutine;
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
+    allDayLabel.hidden = isRoutine; // eine Routine braucht eine Uhrzeit
+    if (isRoutine && allDayInput.checked) { allDayInput.checked = false; showAllDay(); }
+  }
+
+  // Ganztägig: nur Datum (ohne Uhrzeit), keine Bereiche davor/danach.
+  const allDayInput = el('input', { type: 'checkbox', name: 'all_day', checked: Boolean(ev.all_day), onchange: () => showAllDay(true) });
+  const allDayLabel = el('label.check', {}, allDayInput, 'Ganztägig');
+  const sides = [sideFields('before', ev), sideFields('after', ev)];
+  function showAllDay(changed = false) {
+    const on = allDayInput.checked;
+    startField.setDateOnly(on);
+    endField.setDateOnly(on);
+    for (const side of sides) side.hidden = on;
+    // Von ganztägig zurück auf eine Uhrzeit: 9–10 Uhr am ersten Tag vorschlagen.
+    const start = parseDate(startInput.value);
+    if (changed && !on && start.getHours() === 0 && start.getMinutes() === 0) {
+      start.setHours(9);
+      startField.set(start, false);
+      endField.set(new Date(+start + 3600000));
+    }
   }
   routineSelect.addEventListener('change', () => {
     const r = store.taskById(routineSelect.value);
@@ -495,11 +529,11 @@ export function openEventEditor(event, refresh) {
     topics,
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
+    allDayLabel,
     el('div.field', {}, el('span.field-label', {}, 'Beginn'), startField.element),
     el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element),
     repeat.element,
-    sideFields('before', ev),
-    sideFields('after', ev),
+    sides,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, ev.notes || '')),
     el('div.buttons.sticky', {},
       el('button.primary', { type: 'submit' }, isNew ? 'Anlegen' : 'Speichern'),
@@ -507,6 +541,7 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   showType();
+  showAllDay();
 
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
