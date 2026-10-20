@@ -4,7 +4,23 @@ import { parseDate, stamp } from './dates.js';
 import * as schedule from './schedule.js';
 
 const STORAGE_KEY = 'planungsapp.v1';
-const EMPTY = () => ({ version: 1, nextId: 1, topics: [], tasks: [], events: [], wishes: [], log: [] });
+// scale 'high5': Wichtigkeit/Dringlichkeit 5 = sehr wichtig/sofort, 1 = unwichtig/kein Zeitdruck.
+const EMPTY = () => ({ version: 1, scale: 'high5', nextId: 1, topics: [], tasks: [], events: [], wishes: [], log: [] });
+
+// Gespeicherte Daten auf den aktuellen Stand bringen. Eine Zwischenversion der App hatte die Skala
+// umgedreht (1 = sehr wichtig); deren Daten erkennt man an der Wunschliste ohne scale-Angabe.
+function migrate(parsed) {
+  const result = { ...EMPTY(), ...parsed };
+  if (!parsed.scale) {
+    if (Array.isArray(parsed.wishes)) {
+      for (const t of result.tasks) {
+        for (const key of ['importance', 'urgency', 'importance_emo', 'urgency_emo']) t[key] = 6 - t[key];
+      }
+    }
+    result.scale = 'high5';
+  }
+  return result;
+}
 
 let data = EMPTY();
 let storage = globalThis.localStorage;
@@ -19,7 +35,7 @@ export function load(customStorage) {
   let raw = null;
   try {
     raw = storage?.getItem(STORAGE_KEY);
-    data = raw ? { ...EMPTY(), ...JSON.parse(raw) } : EMPTY();
+    data = raw ? migrate(JSON.parse(raw)) : EMPTY();
   } catch {
     data = EMPTY();
   }
@@ -51,7 +67,7 @@ export function importJson(text) {
   if (!parsed || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.topics) || !Array.isArray(parsed.events)) {
     throw new ValidationError('Das ist keine gültige Sicherung');
   }
-  data = { ...EMPTY(), ...parsed };
+  data = migrate(parsed);
   save();
   rollExpired();
 }
@@ -109,6 +125,24 @@ export function isInRoutine(task) {
 export function wishes() {
   return [...data.wishes].sort((a, b) => String(a.last_done_at || '').localeCompare(String(b.last_done_at || ''))
     || a.title.localeCompare(b.title, 'de'));
+}
+
+// Verlauf: alles Erledigte, neueste zuerst – Aufgaben, Projekte, Routinen und Wunschliste
+// (einzelne Schritte einer Routine nicht, die stehen beim Abschließen der Routine).
+export function history() {
+  const entries = [];
+  for (const entry of data.log) {
+    if (entry.action !== 'done') continue;
+    if (entry.wish_id) {
+      const wish = data.wishes.find((w) => w.id === entry.wish_id);
+      if (wish) entries.push({ at: entry.at, wish });
+      continue;
+    }
+    const task = taskById(entry.task_id);
+    if (!task || (isInRoutine(task) && task.kind !== 'routine')) continue;
+    entries.push({ at: entry.at, task });
+  }
+  return entries.sort((a, b) => b.at.localeCompare(a.at));
 }
 
 // Termine, die den Zeitraum [from, to] (Tage, inklusive) berühren – mit einem Tag Rand für Bereiche davor/danach.
@@ -353,7 +387,12 @@ export function completeTask(id, now = new Date()) {
 
 export function reopenTask(id) {
   const task = data.tasks.find((t) => t.id === id);
-  if (task) task.done_at = null;
+  if (task?.done_at) {
+    // Den Verlaufseintrag des Abhakens wieder entfernen.
+    const index = data.log.findLastIndex((l) => l.task_id === id && l.action === 'done');
+    if (index >= 0) data.log.splice(index, 1);
+    task.done_at = null;
+  }
   save();
   return taskById(id);
 }
@@ -408,13 +447,17 @@ export function updateWish(id, input) {
 
 export function doneWish(id, now = new Date()) {
   const wish = data.wishes.find((w) => w.id === id);
-  if (wish) wish.last_done_at = stamp(now);
+  if (wish) {
+    wish.last_done_at = stamp(now);
+    data.log.push({ wish_id: id, action: 'done', at: wish.last_done_at });
+  }
   save();
   return wish;
 }
 
 export function deleteWish(id) {
   data.wishes = data.wishes.filter((w) => w.id !== id);
+  data.log = data.log.filter((l) => l.wish_id !== id);
   save();
 }
 

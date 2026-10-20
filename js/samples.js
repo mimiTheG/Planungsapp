@@ -32,31 +32,31 @@ export function loadSamples(today = new Date()) {
   // Wiederkehrende Aufgaben
   task({
     title: 'Müll rausstellen', topic_id: haushalt, recurrence: 'rhythm', rhythm_days: 14, buffer_days: 1,
-    window_start: day(2), deadline_time: '06:00', on_missed: 'expire', importance: 3, urgency: 1, importance_emo: 4, urgency_emo: 2,
+    window_start: day(2), deadline_time: '06:00', on_missed: 'expire', importance: 3, urgency: 5, importance_emo: 2, urgency_emo: 4,
   });
   task({
     title: 'Bett frisch beziehen', topic_id: haushalt, recurrence: 'rhythm', rhythm_days: 7, buffer_days: 3,
-    window_start: day(-1), on_missed: 'remind', importance: 3, urgency: 3, importance_emo: 3, urgency_emo: 4,
+    window_start: day(-1), on_missed: 'remind', importance: 3, urgency: 3, importance_emo: 3, urgency_emo: 2,
   });
   task({
     title: 'Pflanzen gießen', topic_id: haushalt, recurrence: 'rhythm', rhythm_days: 4, buffer_days: 2,
-    window_start: day(-4), on_missed: 'remind', importance: 3, urgency: 2, importance_emo: 2, urgency_emo: 2,
+    window_start: day(-4), on_missed: 'remind', importance: 3, urgency: 4, importance_emo: 4, urgency_emo: 4,
   });
   task({
     title: 'Steuererklärung', topic_id: finanzen, recurrence: 'period', period_start: '03-01', period_end: '09-30',
-    on_missed: 'remind', importance: 1, urgency: 4, importance_emo: 2, urgency_emo: 5,
+    on_missed: 'remind', importance: 5, urgency: 2, importance_emo: 4, urgency_emo: 1,
   });
 
   // Einmalige Aufgaben
   task({
     title: 'Zahnarzttermin vereinbaren', topic_id: null, window_end: day(-2), on_missed: 'remind',
-    importance: 2, urgency: 2, importance_emo: 3, urgency_emo: 4,
+    importance: 4, urgency: 4, importance_emo: 3, urgency_emo: 2,
   });
   task({
     title: 'Präsentation vorbereiten', topic_id: arbeit, window_end: day(3), deadline_time: '09:00',
-    importance: 1, urgency: 3, importance_emo: 1, urgency_emo: 2, duration_min: 120,
+    importance: 5, urgency: 3, importance_emo: 5, urgency_emo: 4, duration_min: 120,
   });
-  const umzug = task({ title: 'Umzug planen', topic_id: haushalt, window_end: day(40), importance: 2, urgency: 4 });
+  const umzug = task({ title: 'Umzug planen', topic_id: haushalt, window_end: day(40), importance: 4, urgency: 2 });
   const kartons = task({ title: 'Kartons besorgen', parent_id: umzug });
   const nachbarn = task({ title: 'Bei den Nachbarn fragen', parent_id: kartons });
   task({ title: 'Im Baumarkt kaufen', parent_id: kartons });
@@ -67,7 +67,7 @@ export function loadSamples(today = new Date()) {
   store.completeTask(angebote);
 
   // Projekte
-  const fotobuch = task({ title: 'Fotobuch vom Urlaub gestalten', kind: 'project', topic_id: freizeit, importance: 4, urgency: 5, importance_emo: 2, urgency_emo: 4 });
+  const fotobuch = task({ title: 'Fotobuch vom Urlaub gestalten', kind: 'project', topic_id: freizeit, importance: 2, urgency: 1, importance_emo: 4, urgency_emo: 2 });
   const fotos = task({ title: 'Fotos aussortieren', parent_id: fotobuch });
   const layout = task({ title: 'Layout auswählen', parent_id: fotobuch });
   task({ title: 'Texte schreiben', parent_id: fotobuch });
@@ -75,7 +75,7 @@ export function loadSamples(today = new Date()) {
   store.completeTask(fotos);
   store.completeTask(layout);
   store.completeTask(task({ title: 'Erste Seiten füllen', parent_id: fotobuch }));
-  task({ title: 'Halbmarathon-Training', kind: 'project', topic_id: sport, importance: 3, urgency: 5, importance_emo: 2, urgency_emo: 5 });
+  task({ title: 'Halbmarathon-Training', kind: 'project', topic_id: sport, importance: 3, urgency: 1, importance_emo: 4, urgency_emo: 1 });
 
   // Wollte ich schon länger mal wieder machen
   store.createWish({ title: 'Gitarre spielen', topic_id: freizeit });

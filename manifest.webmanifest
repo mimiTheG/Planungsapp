@@ -3,7 +3,7 @@
   "short_name": "Planung",
   "description": "Kalender, Aufgaben, Projekte und Routinen – und was mache ich jetzt?",
   "lang": "de",
-  "start_url": "./#jetzt",
+  "start_url": "./#kalender",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

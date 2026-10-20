@@ -121,3 +121,36 @@ test('Beispieldaten lassen sich anlegen und enthalten alle Bereiche', () => {
   for (const s of ['overdue', 'due', 'upcoming', 'routine']) assert.ok(statuses.has(s), s);
   assert.ok(store.eventsBetween(new Date(2026, 9, 19), new Date(2026, 9, 26)).some((e) => e.is_event));
 });
+
+test('Store: Daten der Zwischenversion (1 = sehr wichtig) werden auf 5 = sehr wichtig umgerechnet', () => {
+  const old = memory();
+  old.setItem('planungsapp.v1', JSON.stringify({
+    nextId: 2, topics: [], events: [], wishes: [], log: [],
+    tasks: [{ id: 1, parent_id: null, title: 'Alt', kind: 'todo', recurrence: 'once', importance: 1, urgency: 2, importance_emo: 5, urgency_emo: 3 }],
+  }));
+  store.load(old);
+  const task = store.tasks()[0];
+  assert.deepEqual([task.importance, task.urgency, task.importance_emo, task.urgency_emo], [5, 4, 1, 3]);
+  store.load(old); // nach dem Speichern nicht noch einmal umrechnen
+  assert.equal(store.tasks()[0].importance, 5);
+
+  const first = memory(); // erste Version (ohne Wunschliste) hatte schon 5 = sehr wichtig
+  first.setItem('planungsapp.v1', JSON.stringify({ nextId: 2, topics: [], events: [], log: [], tasks: [{ id: 1, parent_id: null, title: 'Uralt', kind: 'todo', recurrence: 'once', importance: 5, urgency: 5, importance_emo: 3, urgency_emo: 3 }] }));
+  store.load(first);
+  assert.equal(store.tasks()[0].importance, 5);
+});
+
+test('Store: Verlauf zeigt Erledigtes, Wieder-Öffnen entfernt den Eintrag', () => {
+  store.load(memory());
+  const routine = store.createTask({ title: 'Morgenroutine', kind: 'routine' });
+  const step = store.createTask({ title: 'Kaffee', parent_id: routine.id });
+  const todo = store.createTask({ title: 'Einkaufen' });
+  const wish = store.createWish({ title: 'Museum' });
+  store.completeTask(step.id, new Date(2026, 9, 20, 7, 0));
+  store.completeTask(routine.id, new Date(2026, 9, 20, 7, 10));
+  store.completeTask(todo.id, new Date(2026, 9, 20, 9, 0));
+  store.doneWish(wish.id, new Date(2026, 9, 20, 18, 0));
+  assert.deepEqual(store.history().map((e) => (e.task || e.wish).title), ['Museum', 'Einkaufen', 'Morgenroutine']);
+  store.reopenTask(todo.id);
+  assert.deepEqual(store.history().map((e) => (e.task || e.wish).title), ['Museum', 'Morgenroutine']);
+});

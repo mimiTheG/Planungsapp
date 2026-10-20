@@ -17,7 +17,7 @@ const VIEWS = {
 };
 
 function show() {
-  const name = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'jetzt';
+  const name = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'kalender';
   for (const link of document.querySelectorAll('.tabs a')) {
     link.classList.toggle('active', link.dataset.view === name);
   }

@@ -5,7 +5,7 @@ import {
 } from './ui.js';
 import { daysBetween, formatDate, isoDate, parseDate } from './dates.js';
 import * as store from './store.js';
-import { IMPORTANCE_LABELS, URGENCY_LABELS, TEXTS } from './matrix-texts.js';
+import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
@@ -46,11 +46,11 @@ export function windowText(task) {
   }
 }
 
-// Priorität 1–25 (höher = zuerst). Skala: Wichtigkeit/Dringlichkeit 1 = sehr wichtig/sofort … 5 = unwichtig/kein Zeitdruck.
+// Priorität 1–25 (höher = zuerst). Skala: Wichtigkeit/Dringlichkeit 5 = sehr wichtig/sofort … 1 = unwichtig/kein Zeitdruck.
 export function priority(task, level = 'sachlich') {
   return level === 'emotional'
-    ? (6 - task.importance_emo) * (6 - task.urgency_emo)
-    : (6 - task.importance) * (6 - task.urgency);
+    ? task.importance_emo * task.urgency_emo
+    : task.importance * task.urgency;
 }
 
 export function topicDot(task) {
@@ -86,7 +86,7 @@ export function progressBar(task) {
 }
 
 function prioBadge(task) {
-  return el('span.badge', { title: 'Wichtigkeit / Dringlichkeit (1 = sehr wichtig / sofort)' }, `W${task.importance} · D${task.urgency}`);
+  return el('span.badge', { title: 'Wichtigkeit / Dringlichkeit (5 = sehr wichtig / sofort)' }, `W${task.importance} · D${task.urgency}`);
 }
 
 // --- Aktionen --------------------------------------------------------------
@@ -185,7 +185,8 @@ function taskNode(task, refresh, options) {
 const readFlag = (key) => { try { return localStorage.getItem(key) === '1'; } catch { return false; } };
 const writeFlag = (key, on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* egal */ } };
 
-// Interaktive 5×5-Matrix wie in den Excel-Tabellen: Zeilen = Wichtigkeit 1–5, Spalten = Dringlichkeit 1–5.
+// Interaktive 5×5-Matrix wie in den Excel-Tabellen: Zeilen = Wichtigkeit 5–1, Spalten = Dringlichkeit 5–1
+// (oben links = sehr wichtig und sofort).
 // values = { sachlich: {importance, urgency}, emotional: {…} }.
 function priorityMatrix(values, currentId) {
   let level = 'sachlich';
@@ -198,18 +199,18 @@ function priorityMatrix(values, currentId) {
     const v = values[level];
     const grid = el('div.matrix', { role: 'grid' },
       el('span.corner', {}, 'W↓ D→'),
-      URGENCY_LABELS.map((label, i) => el('span.axis', { title: label }, String(i + 1))));
-    for (let imp = 1; imp <= 5; imp += 1) {
-      grid.append(el('span.axis', { title: IMPORTANCE_LABELS[imp - 1] }, String(imp)));
-      for (let urg = 1; urg <= 5; urg += 1) {
+      [5, 4, 3, 2, 1].map((u) => el('span.axis', { title: urgencyLabel(u) }, String(u))));
+    for (let imp = 5; imp >= 1; imp -= 1) {
+      grid.append(el('span.axis', { title: importanceLabel(imp) }, String(imp)));
+      for (let urg = 5; urg >= 1; urg -= 1) {
         const here = others.filter((t) => (level === 'sachlich'
           ? t.importance === imp && t.urgency === urg
           : t.importance_emo === imp && t.urgency_emo === urg));
-        const heat = (6 - imp) * (6 - urg); // 1–25
+        const heat = imp * urg; // 1–25
         grid.append(el(`button.cell${v.importance === imp && v.urgency === urg ? '.selected' : ''}`, {
           type: 'button',
           style: { '--heat': `${Math.round(6 + heat * 3.2)}%` },
-          'aria-label': `Wichtigkeit ${imp} (${IMPORTANCE_LABELS[imp - 1]}), Dringlichkeit ${urg} (${URGENCY_LABELS[urg - 1]})`,
+          'aria-label': `Wichtigkeit ${imp} (${importanceLabel(imp)}), Dringlichkeit ${urg} (${urgencyLabel(urg)})`,
           title: here.map((t) => t.title).join('\n'),
           onclick: () => { v.importance = imp; v.urgency = urg; render(); },
         }, here.slice(0, 6).map((t) => el('span.dot.small', { style: { background: store.topicColor(t.topic_id) } }))));
@@ -231,10 +232,10 @@ function priorityMatrix(values, currentId) {
         }, 'i')),
       grid,
       el('p.matrix-choice', {},
-        el('strong', {}, `Wichtigkeit ${v.importance}`), ` – ${IMPORTANCE_LABELS[v.importance - 1]} · `,
-        el('strong', {}, `Dringlichkeit ${v.urgency}`), ` – ${URGENCY_LABELS[v.urgency - 1]}`),
+        el('strong', {}, `Wichtigkeit ${v.importance}`), ` – ${importanceLabel(v.importance)} · `,
+        el('strong', {}, `Dringlichkeit ${v.urgency}`), ` – ${urgencyLabel(v.urgency)}`),
       showInfo ? el('div.matrix-info', {},
-        el('p', {}, TEXTS[level][v.importance - 1][v.urgency - 1]),
+        el('p', {}, matrixText(level, v.importance, v.urgency)),
         el('small.muted', {}, level === 'sachlich'
           ? 'Sachliche Ebene: Was bewirkt die Aufgabe, und bis wann muss sie fertig sein?'
           : 'Emotionale Ebene: Wie fühlt sich die Aufgabe für mich an?')) : null,
@@ -391,13 +392,57 @@ export function openTaskEditor(task, refresh) {
 
 // --- Ansicht "Aufgaben & Projekte" ------------------------------------------
 
-const filters = { kind: 'all', showDone: false };
+const filters = { kind: 'all', view: 'open' };
+
+function dayHeading(at) {
+  const days = daysBetween(parseDate(at), new Date());
+  if (days === 0) return 'Heute';
+  if (days === 1) return 'Gestern';
+  return formatDate(at, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+// Verlauf aller erledigten Dinge, nach Tagen gruppiert.
+function historyList(refresh) {
+  const entries = store.history().filter(({ task }) => !task || filters.kind === 'all' || task.kind === filters.kind);
+  if (!entries.length) return el('p.empty', {}, 'Noch nichts erledigt.');
+
+  const groups = [];
+  for (const entry of entries) {
+    const heading = dayHeading(entry.at);
+    if (groups.at(-1)?.heading !== heading) groups.push({ heading, entries: [] });
+    groups.at(-1).entries.push(entry);
+  }
+  return groups.map(({ heading, entries: list }) => el('section.card', {},
+    el('h3', {}, heading),
+    el('ul.now-list', {}, list.map(({ at, task, wish }) => {
+      const item = task || wish;
+      const label = wish ? 'Wunschliste' : KIND_LABELS[task.kind];
+      const canReopen = task && task.recurrence === 'once' && task.kind !== 'routine' && task.done_at === at;
+      return el('li.now-item.history', {},
+        el('div.now-text', {},
+          el('button.link.task-title', {
+            type: 'button',
+            onclick: () => (task ? openTaskEditor(task, refresh) : null),
+          }, topicDot(item), item.title),
+          el('div.meta', {},
+            el('span.badge', {}, at.slice(11, 16)),
+            el(`span.badge.kind${task ? `.${task.kind}` : '.project'}`, {}, label),
+            task && task.parent_id ? el('span.badge', {}, `in „${store.taskById(task.parent_id)?.title}“`) : null,
+            task && task.recurrence !== 'once' ? el('span.badge', {}, `↻ wieder ab ${formatDate(task.window_start)}`) : null)),
+        canReopen ? el('button.icon', {
+          type: 'button',
+          'aria-label': 'Wieder öffnen',
+          title: 'Wieder öffnen',
+          onclick: () => reopenTask(task, refresh),
+        }, '↺') : null);
+    }))));
+}
 
 export function renderTasksView(root) {
   const refresh = () => renderTasksView(root);
   const top = store.tasks().filter((t) => t.parent_id === null && t.kind !== 'routine'
     && (filters.kind === 'all' || t.kind === filters.kind)
-    && (filters.showDone || !['done', 'expired'].includes(t.status)));
+    && !['done', 'expired'].includes(t.status));
 
   mount(root,
     el('div.toolbar', {},
@@ -405,14 +450,15 @@ export function renderTasksView(root) {
       el('span.spacer'),
       el('button.primary', { type: 'button', onclick: () => openTaskEditor({}, refresh) }, '+ Neu')),
     el('div.toolbar', {},
+      el('div.segmented', {}, [['open', 'Offen'], ['done', 'Erledigt']].map(([v, label]) =>
+        el(`button${filters.view === v ? '.active' : ''}`, { type: 'button', onclick: () => { filters.view = v; refresh(); } }, label))),
       el('div.segmented', {}, [['all', 'Alle'], ['todo', 'Aufgaben'], ['project', 'Projekte']].map(([v, label]) =>
-        el(`button${filters.kind === v ? '.active' : ''}`, { type: 'button', onclick: () => { filters.kind = v; refresh(); } }, label))),
-      el('label.check', {},
-        el('input', { type: 'checkbox', checked: filters.showDone, onchange: (e) => { filters.showDone = e.target.checked; refresh(); } }),
-        'Erledigte')),
-    top.length
-      ? el('div.card', {}, taskTree(top, refresh, filters))
-      : el('p.empty', {}, 'Noch nichts hier. Lege oben eine Aufgabe oder ein Projekt an.'));
+        el(`button${filters.kind === v ? '.active' : ''}`, { type: 'button', onclick: () => { filters.kind = v; refresh(); } }, label)))),
+    filters.view === 'done'
+      ? historyList(refresh)
+      : top.length
+        ? el('div.card', {}, taskTree(top, refresh, { showDone: true }))
+        : el('p.empty', {}, 'Nichts offen. Lege oben eine Aufgabe oder ein Projekt an.'));
 }
 
 // --- Ansicht "Routinen" -------------------------------------------------------
