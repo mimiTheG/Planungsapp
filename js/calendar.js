@@ -10,6 +10,7 @@ import * as store from './store.js';
 import { runRoutine } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
+import { dateTimeField } from './datetime-picker.js';
 
 const HOUR_PX = 44;
 const MODES = { 1: 'Tag', 3: '3 Tage', 7: 'Woche', month: 'Monat' };
@@ -270,14 +271,15 @@ export function openEventEditor(event, refresh) {
     is_event: false,
     ...event,
   };
-  const toInput = (v) => isoDateTime(parseDate(v));
-
-  const startInput = el('input', { type: 'datetime-local', name: 'start_at', required: true, value: toInput(ev.start_at) });
-  const endInput = el('input', { type: 'datetime-local', name: 'end_at', required: true, value: toInput(ev.end_at) });
+  // Datum & Uhrzeit mit Monatskalender (statt der Drehräder des Handys).
+  const startField = dateTimeField('start_at', ev.start_at, { required: true });
+  const endField = dateTimeField('end_at', ev.end_at, { required: true });
+  const startInput = startField.input;
+  const endInput = endField.input;
   // Dauer beibehalten, wenn der Beginn verschoben wird.
   let duration = parseDate(ev.end_at) - parseDate(ev.start_at);
   startInput.addEventListener('change', () => {
-    if (startInput.value) endInput.value = isoDateTime(new Date(+parseDate(startInput.value) + duration));
+    if (startInput.value) endField.set(new Date(+parseDate(startInput.value) + duration), false);
   });
   endInput.addEventListener('change', () => { duration = parseDate(endInput.value) - parseDate(startInput.value); });
 
@@ -295,7 +297,8 @@ export function openEventEditor(event, refresh) {
     topicPicker(ev.topic_id),
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
-    el('div.row', {}, field('Beginn', startInput), field('Ende', endInput)),
+    el('div.field', {}, el('span.field-label', {}, 'Beginn'), startField.element),
+    el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element),
     repeat.element,
     sideFields('before', ev),
     sideFields('after', ev),
