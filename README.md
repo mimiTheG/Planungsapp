@@ -17,14 +17,16 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 ## Funktionen
 
 **Kalender** (Tag, 3 Tage, Woche, Monat) – die Startseite der App, öffnet in der Monatsansicht
-- Termine mit Thema (Farbe). Davor und/oder danach kann ein **freier Bereich** (z. B. „Anfahrt“, 30 min)
+- Termine mit Thema (Farbe), mit Uhrzeit oder **ganztägig** (nur Datum; in Tag/Woche in einer eigenen Zeile oben). Davor und/oder danach kann ein **freier Bereich** (z. B. „Anfahrt“, 30 min)
   oder eine **Routine** (z. B. „Arbeit Morgendliche Aufgaben“) liegen – im Kalender schraffiert.
 - Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
   statt der Drehräder des Handys.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
 - In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
-- In Tag, 3 Tage und Woche **wischt** man nach links zum nächsten und nach rechts zum vorigen Tag bzw. Zeitraum.
+- In Tag, 3 Tage und Woche **wischt** man nach links zum nächsten und nach rechts zum vorigen Tag bzw. Zeitraum;
+  der Kalender folgt dabei dem Finger.
+- **+** legt in Tag, 3 Tage und Woche einen Termin am angezeigten Tag an (heute zur nächsten vollen Stunde, sonst 9 Uhr).
 - **Termine verschieben:** In Tag, 3 Tage und Woche einen Termin lang drücken und ziehen – hoch/runter ändert die
   Uhrzeit (in 15-Minuten-Schritten), in eine andere Spalte den Tag. Hält man ihn am linken oder rechten Rand fest,
   blättert der Kalender zum vorigen bzw. nächsten Tag. Bereiche davor/danach wandern mit; bei Serien fragt die App,

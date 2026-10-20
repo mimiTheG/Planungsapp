@@ -426,14 +426,14 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .dt-day.selected .dt-busy { background: var(--on-accent); }
 .dt-foot { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .dt-time-label { display: flex; align-items: center; gap: 0.5rem; flex: 1; color: var(--muted); }
-/* Uhrzeitfeld im App-Design (rosa). Das Auswahlfenster selbst kommt vom Handy. */
+/* Uhrzeitfeld im App-Design (rosa). Die Uhr zum Auswählen bleibt die normale Android-Uhr:
+   keine accent-color, sonst färbt Chrome sie mit ein. */
 .dt-time-label input {
   width: auto; flex: 1; min-height: 2.6rem;
   background: var(--accent-soft); border: 1.5px solid var(--accent); border-radius: 999px;
   color: var(--accent); font-weight: 700; font-size: 1.15rem; text-align: center;
-  accent-color: var(--accent);
+  accent-color: auto;
 }
-.dt-time-label input::-webkit-calendar-picker-indicator { filter: none; opacity: 0.7; }
 
 /* Monat/Jahr wählen (Kalendertitel antippen) */
 /* Feste Breite, damit die Pfeile nicht springen („Mai 2026“ so breit wie „September 2026“). */
@@ -505,14 +505,17 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .week { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
 .week-head, .week-body { display: grid; }
 .week-head { border-bottom: 1px solid var(--border); }
+.allday-row { display: grid; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.allday-label { font-size: 0.6rem; color: var(--muted); text-align: right; padding: 0.25rem 0.3rem 0 0; }
+.allday-cell { display: flex; flex-direction: column; gap: 1px; padding: 2px 1px; min-width: 0; }
 .day-head { display: grid; padding: 0.3rem 0.1rem; text-align: center; font-size: 0.72rem; color: var(--muted); overflow: hidden; white-space: nowrap; line-height: 1.25; }
 .day-head strong { font-size: 0.95rem; font-weight: 500; color: var(--text); }
 .day-head.today, .day-head.today strong { color: var(--accent); }
 .week { touch-action: pan-y; }
-.week.slide-next { animation: slide-next 0.2s ease-out; }
-.week.slide-prev { animation: slide-prev 0.2s ease-out; }
-@keyframes slide-next { from { transform: translateX(25%); opacity: 0.3; } }
-@keyframes slide-prev { from { transform: translateX(-25%); opacity: 0.3; } }
+.week.slide-next > * { animation: slide-next 0.16s ease-out; }
+.week.slide-prev > * { animation: slide-prev 0.16s ease-out; }
+@keyframes slide-next { from { transform: translateX(100%); } }
+@keyframes slide-prev { from { transform: translateX(-100%); } }
 .week-scroll { height: max(55dvh, calc(100dvh - var(--bar-h) - env(safe-area-inset-bottom) - 12.5rem)); overflow-y: auto; }
 .hours .hour { font-size: 0.68rem; color: var(--muted); text-align: right; padding-right: 0.3rem; transform: translateY(-0.45rem); }
 .hours .hour:first-child { visibility: hidden; }

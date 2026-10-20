@@ -606,14 +606,20 @@ function eventInput(input) {
     notes: text(input, 'notes', 5000),
     topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
     is_event: Boolean(input.is_event),
+    all_day: Boolean(input.all_day) && !routine,
     start_at: dateTime('start_at'),
     end_at: dateTime('end_at'),
   };
+  // Ganztägig: vom ersten Tag 0:00 bis zum letzten Tag 23:59, ohne Bereiche davor/danach.
+  if (event.all_day) {
+    event.start_at = `${event.start_at.slice(0, 10)} 00:00`;
+    event.end_at = `${event.end_at.slice(0, 10)} 23:59`;
+  }
   if (event.end_at < event.start_at) throw new ValidationError('Das Ende liegt vor dem Beginn');
 
   // Bereich davor/danach: frei (z. B. Anfahrt) oder eine Routine.
   for (const side of ['before', 'after']) {
-    const type = oneOf(input, `${side}_type`, ['none', 'free', 'routine']);
+    const type = event.all_day ? 'none' : oneOf(input, `${side}_type`, ['none', 'free', 'routine']);
     event[`${side}_type`] = type;
     event[`${side}_minutes`] = type === 'none' ? null : int(input, `${side}_minutes`, 1, 1440, 15);
     event[`${side}_label`] = type === 'free' ? text(input, `${side}_label`, 100) : null;

@@ -75,6 +75,18 @@ function range() {
   return [from, addDays(from, days - 1)];
 }
 
+// Neuer Termin über „+“: in Tag/3 Tage/Woche am angezeigten Tag (heute, falls sichtbar, sonst der erste) –
+// heute zur nächsten vollen Stunde, an anderen Tagen um 9 Uhr. In der Monatsansicht wie gewohnt ab jetzt.
+function newEventAt(from, to) {
+  if (view.mode === 'month') return {};
+  const today = startOfDay(new Date());
+  const isToday = today >= from && today <= to;
+  const day = isToday ? today : from;
+  const hour = isToday ? Math.min(23, new Date().getHours() + 1) : 9; // kurz vor Mitternacht: 23 Uhr
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour);
+  return { start_at: isoDateTime(start), end_at: isoDateTime(new Date(+start + 3600000)) };
+}
+
 export function renderCalendarView(root) {
   const refresh = () => renderCalendarView(root);
   const [from, to] = range();
@@ -116,7 +128,7 @@ export function renderCalendarView(root) {
         type: 'button',
         onclick: () => setMode(m, refresh),
       }, label))),
-    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor({}, refresh) }, '+'),
+    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
     el('div.legend', {},
       el('label.check.small', {},
         el('input', {
@@ -181,24 +193,48 @@ function moveEvent(ev, delta, refresh) {
 }
 
 // Wischen nach links = weiter (nächster Tag bzw. nächste Tage), nach rechts = zurück.
+// Der Kalender folgt dabei dem Finger; der neue Tag gleitet von der Seite herein. Bewegt wird nur der Inhalt
+// innerhalb des Kalenderrahmens (der schneidet ab), damit die Seite nicht seitlich verrutscht.
 const SWIPE_PX = 60;
+const SWIPE_OUT_MS = 140;
 let swiped = null;
 
 function onSwipe(node, go) {
   let start = null;
+  const parts = () => [...node.children];
+  const move = (dx, animate) => {
+    for (const part of parts()) {
+      part.style.transition = animate ? `transform ${SWIPE_OUT_MS}ms ease-out` : 'none';
+      part.style.transform = dx ? `translateX(${dx}px)` : '';
+    }
+  };
   node.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+    start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now(), axis: null } : null;
   }, { passive: true });
-  node.addEventListener('touchend', (e) => {
-    if (!start || justDragged()) { start = null; return; }
-    const t = e.changedTouches[0];
+  node.addEventListener('touchmove', (e) => {
+    if (!start) return;
+    if (justDragged()) { move(0); start = null; return; } // Termin wird verschoben, nicht geblättert
+    const t = e.touches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
-    const quick = Date.now() - start.at < 800;
-    start = null;
-    if (quick && Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(dy)) go(dx < 0 ? 1 : -1);
+    // Erst entscheiden, ob seitlich gewischt oder senkrecht gescrollt wird – dann dabei bleiben.
+    if (!start.axis && Math.hypot(dx, dy) > 10) start.axis = Math.abs(dx) > 1.5 * Math.abs(dy) ? 'x' : 'y';
+    if (start.axis === 'x') move(dx);
   }, { passive: true });
+  const end = (e) => {
+    if (!start) return;
+    const { axis } = start;
+    const dx = e.changedTouches[0].clientX - start.x;
+    start = null;
+    if (axis !== 'x' || justDragged()) { move(0, true); return; }
+    if (Math.abs(dx) < SWIPE_PX) { move(0, true); return; } // zurückfedern
+    const dir = dx < 0 ? 1 : -1;
+    move(-dir * node.clientWidth, true); // alter Tag gleitet hinaus …
+    setTimeout(() => go(dir), SWIPE_OUT_MS); // … der neue herein
+  };
+  node.addEventListener('touchend', end, { passive: true });
+  node.addEventListener('touchcancel', end, { passive: true });
 }
 
 // Strich bei der aktuellen Uhrzeit; wandert jede Minute weiter, solange er angezeigt wird.
@@ -275,8 +311,14 @@ function legend() {
   return store.topics().map((t) => el('span', {}, el('span.dot', { style: { background: t.color } }), t.name));
 }
 
-function dayGrid(from, count, events, refresh) {
+function dayGrid(from, count, allEvents, refresh) {
   const days = [...Array(count)].map((_, i) => addDays(from, i));
+  // Ganztägige Termine stehen in einer eigenen Zeile über den Stunden.
+  const events = allEvents.filter((ev) => !ev.all_day);
+  const allDay = days.map((day) => {
+    const key = isoDate(day);
+    return allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key);
+  });
   const today = isoDate(new Date());
   const columns = `2.6rem repeat(${count}, minmax(0, 1fr))`;
 
@@ -336,6 +378,14 @@ function dayGrid(from, count, events, refresh) {
       days.map((d) => el(`div.day-head${isoDate(d) === today ? '.today' : ''}`, {},
         el('span', {}, formatDate(d, { weekday: 'short' }).replace('.', '')),
         el('strong', {}, formatDate(d, count === 7 ? { day: 'numeric' } : { day: '2-digit', month: '2-digit' }))))),
+    allDay.some((list) => list.length) ? el('div.allday-row', { style: { gridTemplateColumns: columns } },
+      el('span.allday-label', {}, 'ganzt.'),
+      allDay.map((list) => el('div.allday-cell', {}, list.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
+        type: 'button',
+        style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
+        title: `ganztägig: ${ev.title}`,
+        onclick: () => openEventEditor(ev, refresh),
+      }, eventTitle(ev)))))) : null,
     el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)));
 }
 
@@ -388,7 +438,7 @@ function monthGrid(from, to, events, refresh) {
     dayEvents.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
       type: 'button',
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
-      title: `${formatTime(parseDate(ev.start_at))} ${ev.title}`,
+      title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,
       onclick: () => openEventEditor(ev, refresh),
     }, eventTitle(ev)))));
   }
@@ -476,6 +526,26 @@ export function openEventEditor(event, refresh) {
     titleInput.required = !isRoutine;
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
+    allDayLabel.hidden = isRoutine; // eine Routine braucht eine Uhrzeit
+    if (isRoutine && allDayInput.checked) { allDayInput.checked = false; showAllDay(); }
+  }
+
+  // Ganztägig: nur Datum (ohne Uhrzeit), keine Bereiche davor/danach.
+  const allDayInput = el('input', { type: 'checkbox', name: 'all_day', checked: Boolean(ev.all_day), onchange: () => showAllDay(true) });
+  const allDayLabel = el('label.check', {}, allDayInput, 'Ganztägig');
+  const sides = [sideFields('before', ev), sideFields('after', ev)];
+  function showAllDay(changed = false) {
+    const on = allDayInput.checked;
+    startField.setDateOnly(on);
+    endField.setDateOnly(on);
+    for (const side of sides) side.hidden = on;
+    // Von ganztägig zurück auf eine Uhrzeit: 9–10 Uhr am ersten Tag vorschlagen.
+    const start = parseDate(startInput.value);
+    if (changed && !on && start.getHours() === 0 && start.getMinutes() === 0) {
+      start.setHours(9);
+      startField.set(start, false);
+      endField.set(new Date(+start + 3600000));
+    }
   }
   routineSelect.addEventListener('change', () => {
     const r = store.taskById(routineSelect.value);
@@ -495,11 +565,11 @@ export function openEventEditor(event, refresh) {
     topics,
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
+    allDayLabel,
     el('div.field', {}, el('span.field-label', {}, 'Beginn'), startField.element),
     el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element),
     repeat.element,
-    sideFields('before', ev),
-    sideFields('after', ev),
+    sides,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, ev.notes || '')),
     el('div.buttons.sticky', {},
       el('button.primary', { type: 'submit' }, isNew ? 'Anlegen' : 'Speichern'),
@@ -507,6 +577,7 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   showType();
+  showAllDay();
 
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
