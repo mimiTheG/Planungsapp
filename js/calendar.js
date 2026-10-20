@@ -152,6 +152,12 @@ function monthPicker(refresh) {
     })));
 }
 
+// Schriftfarbe passend zur Themenfarbe: auf hellen Farben dunkle Schrift, auf dunklen helle.
+function textOn(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? '#2b1a21' : '#ffffff';
+}
+
 function legend() {
   return store.topics().map((t) => el('span', {}, el('span.dot', { style: { background: t.color } }), t.name));
 }
@@ -194,6 +200,7 @@ function dayGrid(from, count, events, refresh) {
           left: `${(lane / lanes) * 100}%`,
           width: `calc(${100 / lanes}% - 3px)`,
           '--c': store.topicColor(ev.topic_id),
+          '--on': textOn(store.topicColor(ev.topic_id)),
         },
         title: `${formatTime(seg.start)}–${formatTime(seg.end)} ${seg.label}`,
         onclick: () => openEventEditor(ev, refresh),
@@ -255,7 +262,7 @@ function monthGrid(from, to, events, refresh) {
     el('span.month-day', {}, String(day.getDate())),
     dayEvents.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
       type: 'button',
-      style: { '--c': store.topicColor(ev.topic_id) },
+      style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${formatTime(parseDate(ev.start_at))} ${ev.title}`,
       onclick: () => openEventEditor(ev, refresh),
     }, ev.title))));
