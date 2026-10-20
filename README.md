@@ -11,6 +11,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 1. Die App-Adresse in **Chrome** öffnen (siehe „Veröffentlichen“).
 2. Menü **⋮** → **„App installieren“** (oder „Zum Startbildschirm hinzufügen“).
 3. Die App startet danach wie jede andere App über ihr Icon.
+4. **Langes Drücken auf das App-Icon** zeigt Verknüpfungen: Kalender (Monat), Was mache ich jetzt?, Aufgaben, Routinen.
+   Jede lässt sich auch als eigenes Symbol auf den Startbildschirm ziehen.
 
 ## Funktionen
 
@@ -45,7 +47,9 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
   „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
-  selbst in den Kalender ein. Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
+  selbst in den Kalender ein. In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
+  **▶ Start**, geändert nur nach Tippen auf **✎ Routine bearbeiten** (Schritte hinzufügen, löschen, umsortieren).
+  Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
   sich ausklappen. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
   für das nächste Mal zurückgesetzt.
 
