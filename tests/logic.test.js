@@ -263,3 +263,36 @@ test('Store: Standardstartzeit nur für Routinen, Dauer über eine Stunde', () =
   assert.equal(todo.default_time, null);
   assert.throws(() => store.createTask({ title: 'x', kind: 'routine', default_time: '9 Uhr' }), /Standardstartzeit/);
 });
+
+test('Store: Oberaufgabe abhaken erledigt alle Unteraufgaben; Wiederöffnen nimmt sie mit', () => {
+  store.load(memory());
+  const parent = store.createTask({ title: 'Umzug' });
+  const sub = store.createTask({ title: 'Kisten', parent_id: parent.id });
+  const subsub = store.createTask({ title: 'Kisten kaufen', parent_id: sub.id });
+  const earlier = store.createTask({ title: 'Wohnung suchen', parent_id: parent.id });
+  store.completeTask(earlier.id, new Date(2026, 9, 19, 10, 0));
+  store.completeTask(parent.id, new Date(2026, 9, 20, 10, 0));
+  for (const t of [parent, sub, subsub, earlier]) assert.ok(store.taskById(t.id).done_at);
+  assert.equal(store.taskById(earlier.id).done_at, '2026-10-19 10:00');
+  store.reopenTask(parent.id);
+  assert.equal(store.taskById(sub.id).done_at, null);
+  assert.equal(store.taskById(subsub.id).done_at, null);
+  assert.ok(store.taskById(earlier.id).done_at, 'schon vorher Erledigtes bleibt erledigt');
+});
+
+test('Store: laufende Routine starten, abschließen und abbrechen', () => {
+  store.load(memory());
+  const routine = store.createTask({ title: 'Morgenroutine', kind: 'routine' });
+  const step = store.createTask({ title: 'Zähne', parent_id: routine.id });
+  assert.equal(store.activeRoutine(), null);
+  store.startRoutine(routine.id, new Date(2026, 9, 20, 7, 0));
+  assert.equal(store.activeRoutine().routine.id, routine.id);
+  assert.equal(store.activeRoutine().startedAt, '2026-10-20 07:00');
+  store.completeTask(step.id);
+  store.cancelRoutine(routine.id);
+  assert.equal(store.activeRoutine(), null);
+  assert.equal(store.taskById(step.id).done_at, null);
+  store.startRoutine(routine.id);
+  store.completeTask(routine.id);
+  assert.equal(store.activeRoutine(), null);
+});

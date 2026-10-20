@@ -628,33 +628,66 @@ export function renderRoutinesView(root) {
     list.map((routine) => routineCard(routine, refresh)));
 }
 
-// Routine als Checkliste abarbeiten; am Ende werden alle Schritte zurückgesetzt.
-export function runRoutine(routine, refresh) {
+// Schritte einer Routine als verschachtelte Checkliste. Abhaken eines Schritts hakt seine Unterschritte mit ab;
+// wer etwas abhakt, hat die Routine damit gestartet.
+export function routineChecklist(routine, onChange) {
+  const toggle = (step) => {
+    attempt(() => {
+      if (step.done_at) return store.reopenTask(step.id);
+      store.startRoutine(routine.id);
+      return store.completeTask(step.id);
+    });
+    onChange();
+  };
+  const list = (parentId) => el('ul.checklist', {}, store.childrenOf(parentId).map((step) => {
+    const subs = store.childrenOf(step.id).length ? list(step.id) : null;
+    return el('li', {},
+      el('label.check', {},
+        el('input', { type: 'checkbox', checked: Boolean(step.done_at), onchange: () => toggle(step) }),
+        step.title,
+        step.duration_min ? el('span.muted', {}, ` (${formatDuration(step.duration_min)})`) : null),
+      subs);
+  }));
+  return list(routine.id);
+}
+
+// Fortschritt einer Routine: erledigte Schritte der untersten Ebene.
+export function routineProgress(routine) {
+  const steps = store.descendantsOf(routine.id).filter((s) => !store.childrenOf(s.id).length);
+  return { done: steps.filter((s) => s.done_at).length, total: steps.length };
+}
+
+// Routine abbrechen: läuft nicht mehr, Häkchen werden zurückgesetzt.
+export function cancelRoutine(routine, refresh) {
+  if (!window.confirm(`Routine „${routine.title}“ abbrechen? Abgehakte Schritte werden zurückgesetzt.`)) return false;
+  attempt(() => store.cancelRoutine(routine.id));
+  toast(`Routine „${routine.title}“ abgebrochen`);
+  refresh();
+  return true;
+}
+
+// Routine starten und als Checkliste abarbeiten. Sie läuft weiter (Leiste über der Navigation),
+// bis sie abgeschlossen oder abgebrochen wird; beim Abschließen werden alle Schritte zurückgesetzt.
+export function runRoutine(routine, refresh = () => {}) {
+  attempt(() => store.startRoutine(routine.id));
   const body = el('div');
   const render = () => {
-    const steps = store.descendantsOf(routine.id).filter((s) => !store.childrenOf(s.id).length);
-    const done = steps.filter((s) => s.done_at).length;
+    const { done, total } = routineProgress(routine);
     mount(body,
-      el('progress', { max: steps.length || 1, value: done }),
-      el('ul.checklist', {}, steps.map((step) => el('li', {},
-        el('label.check', {},
-          el('input', {
-            type: 'checkbox',
-            checked: Boolean(step.done_at),
-            onchange: () => {
-              attempt(() => (step.done_at ? store.reopenTask(step.id) : store.completeTask(step.id)));
-              render();
-            },
-          }),
-          step.title,
-          step.duration_min ? el('span.muted', {}, ` (${formatDuration(step.duration_min)})`) : null)))),
-      steps.length ? null : el('p.muted', {}, 'Diese Routine hat noch keine Schritte.'),
-      el('div.buttons', {},
+      el('progress', { max: total || 1, value: done }),
+      routineChecklist(routine, render),
+      total ? null : el('p.muted', {}, 'Diese Routine hat noch keine Schritte.'),
+      el('div.buttons.run-buttons', {},
         el('button.primary', {
           type: 'button',
           onclick: () => { close(); completeTask(routine, refresh); },
-        }, done === steps.length ? 'Routine abschließen' : 'Trotzdem abschließen')));
+        }, done === total ? '✓ Routine abschließen' : 'Trotzdem abschließen'),
+        el('button', { type: 'button', onclick: () => { close(); refresh(); } }, 'Später weitermachen'),
+        el('button.danger', {
+          type: 'button',
+          onclick: () => { if (cancelRoutine(routine, refresh)) close(); },
+        }, 'Abbrechen')));
   };
   render();
-  const close = openDialog(routine.title, body);
+  const close = openDialog(`▶ ${routine.title}`, body);
 }

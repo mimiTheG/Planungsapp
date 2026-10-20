@@ -65,8 +65,14 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Thema und Löschen der Routine).
   Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.
   Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
-  sich ausklappen. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
-  für das nächste Mal zurückgesetzt.
+  sich ausklappen.
+- **Routine starten:** **▶ Start** öffnet die Checkliste mit allen Schritten und Unterschritten. Die Routine läuft
+  dann – wie ein Song bei Spotify – als **Leiste über der unteren Navigation** weiter (Fortschritt, seit wann);
+  Antippen öffnet die Checkliste wieder, ✓ schließt ab, × bricht ab. **Abbrechen** setzt die abgehakten Schritte
+  zurück, **Später weitermachen** schließt nur die Checkliste. Beim Abschließen werden die Schritte für das
+  nächste Mal zurückgesetzt.
+- **Oberaufgabe abhaken = alle Unteraufgaben erledigt** (bei Aufgaben, Projekten und Routine-Schritten). Öffnet man
+  sie wieder, werden auch die mit abgehakten Unteraufgaben wieder geöffnet.
 
 **Was mache ich jetzt?**
 - **Läuft gerade:** Termine und Routinen, die jetzt stattfinden, stehen ganz oben; Routinen kann man dort direkt
@@ -115,6 +121,7 @@ js/
   dates.js             Datumshelfer
   ui.js                DOM-Helfer, Dialog, Hinweise
   now.js               „Was mache ich jetzt?“
+  player.js            Leiste der laufenden Routine über der Navigation
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix
   more.js              Themen, Datensicherung, Beispieldaten

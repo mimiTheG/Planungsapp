@@ -6,7 +6,8 @@ import {
 import { daysBetween, formatDate, formatDuration, formatTime, parseDate, stamp } from './dates.js';
 import * as store from './store.js';
 import {
-  KIND_LABELS, completeTask, openTaskEditor, priority, progressBar, recurrenceText, runRoutine, topicDot, windowText,
+  KIND_LABELS, cancelRoutine, completeTask, openTaskEditor, priority, progressBar, recurrenceText, routineChecklist,
+  routineProgress, runRoutine, topicDot, windowText,
 } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 
@@ -165,26 +166,18 @@ function runningItem(item, refresh) {
     item.expired ? el('span.badge.expired-badge', {}, 'abgelaufen') : null);
   if (!item.routine) return el('li.running', {}, head);
 
-  // Routine: Schritte direkt hier abhaken.
-  const steps = store.descendantsOf(item.routine.id).filter((s) => !store.childrenOf(s.id).length);
-  const done = steps.filter((s) => s.done_at).length;
+  // Routine: Schritte (mit Unterschritten) direkt hier abhaken.
+  const { done, total } = routineProgress(item.routine);
+  const running = store.activeRoutine()?.routine.id === item.routine.id;
   return el(`li.running${item.expired ? '.expired' : ''}`, {},
     head,
-    steps.length ? el('progress', { max: steps.length, value: done }) : null,
-    el('ul.checklist', {}, steps.map((step) => el('li', {},
-      el('label.check', {},
-        el('input', {
-          type: 'checkbox',
-          checked: Boolean(step.done_at),
-          onchange: () => {
-            attempt(() => (step.done_at ? store.reopenTask(step.id) : store.completeTask(step.id)));
-            refresh();
-          },
-        }),
-        step.title,
-        step.duration_min ? el('span.muted', {}, ` (${formatDuration(step.duration_min)})`) : null)))),
-    el('button.primary', { type: 'button', onclick: () => completeTask(item.routine, refresh) },
-      done === steps.length ? '✓ Routine abschließen' : 'Trotzdem abschließen'));
+    total ? el('progress', { max: total, value: done }) : null,
+    routineChecklist(item.routine, refresh),
+    el('div.buttons', {},
+      el('button.primary', { type: 'button', onclick: () => completeTask(item.routine, refresh) },
+        done === total ? '✓ Routine abschließen' : 'Trotzdem abschließen'),
+      running ? null : el('button', { type: 'button', onclick: () => runRoutine(item.routine, refresh) }, '▶ Start'),
+      running || done ? el('button.danger', { type: 'button', onclick: () => cancelRoutine(item.routine, refresh) }, 'Abbrechen') : null));
 }
 
 // Solange "Jetzt" offen ist, jede Minute aktualisieren (laufende Termine kommen und gehen).
