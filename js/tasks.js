@@ -315,6 +315,7 @@ export function openTaskEditor(task, refresh) {
       field('bis', monthDayInputs('period_end', t.period_end))),
   };
 
+  const titleInput = el('input', { name: 'title', required: true, maxlength: 200, value: t.title || '' });
   const kindSelect = select('kind', Object.entries(KIND_LABELS), t.kind);
   // Routinen: Uhrzeit, zu der sie normalerweise beginnen (Vorschlag beim Einplanen im Kalender).
   const defaultTimeField = field('Standardstartzeit (optional)',
@@ -343,7 +344,7 @@ export function openTaskEditor(task, refresh) {
     ], t.on_missed)));
 
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
-    field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: t.title || '' })),
+    field('Titel', titleInput),
     el('div.row', {},
       field('Art', kindSelect),
       el('div.field.duration-field', {}, el('span.field-label', {}, 'Dauer (optional)'),
@@ -421,6 +422,17 @@ export function openTaskEditor(task, refresh) {
     else title = store.isInRoutine(parent) ? 'Neuer Schritt' : 'Neue Unteraufgabe';
   }
   const close = openDialog(title, form);
+
+  // Neuer Schritt einer Routine: Titel gleich anwählen; die Enter-/Pfeiltaste der Tastatur legt ihn an.
+  if (isNew && parent && store.isInRoutine(parent)) {
+    titleInput.enterKeyHint = 'done';
+    titleInput.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      save();
+    });
+    setTimeout(() => titleInput.focus(), 50);
+  }
 }
 
 // --- Ansicht "Aufgaben & Projekte" ------------------------------------------
