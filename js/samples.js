@@ -23,7 +23,9 @@ export function loadSamples(today = new Date()) {
   const morgenKurz = task({ title: 'Morgenroutine kurz', kind: 'routine', topic_id: freizeit });
   steps(morgenKurz, [['Zähne putzen', 3], ['Kaffee kochen', 5], ['Tagesplan anschauen', 5]]);
   const abendLang = task({ title: 'Abendroutine lang', kind: 'routine', topic_id: freizeit });
-  steps(abendLang, [['Küche aufräumen', 10], ['Tasche für morgen packen', 5], ['Tagebuch schreiben', 10], ['Lesen', 20]]);
+  steps(abendLang, [
+    ['Küche aufräumen', 10], ['Tasche für morgen packen', 5], ['Zähne putzen', 3], ['Tagebuch schreiben', 10], ['Lesen', 20], ['Licht aus', 1],
+  ]);
   const arbeitMorgen = task({ title: 'Arbeit Morgendliche Aufgaben', kind: 'routine', topic_id: arbeit });
   steps(arbeitMorgen, [['Mails checken', 10], ['Kalender durchgehen', 5], ['Top-3 des Tages festlegen', 5]]);
   const sportRoutine = task({ title: 'Sportroutine', kind: 'routine', topic_id: sport });
@@ -93,13 +95,16 @@ export function loadSamples(today = new Date()) {
   store.createEvent({
     title: 'Teammeeting', topic_id: arbeit, start_at: at(2, '10:00'), end_at: at(2, '11:00'),
     before_type: 'routine', before_routine_id: arbeitMorgen, before_minutes: 20,
+    repeat: { freq: 'weekly', interval: 1 },
   });
   store.createEvent({
     title: 'Yoga', topic_id: sport, start_at: at(0, '18:30'), end_at: at(0, '19:30'),
     before_type: 'free', before_label: 'Anfahrt', before_minutes: 15,
+    repeat: { freq: 'weekly', interval: 1, count: 10 },
   });
   store.createEvent({
     title: 'Laufen im Park', topic_id: sport, start_at: at(3, '07:00'), end_at: at(3, '07:45'),
+    repeat: { freq: 'weekly', interval: 2 },
     after_type: 'routine', after_routine_id: sportRoutine, after_minutes: 45,
   });
   store.createEvent({

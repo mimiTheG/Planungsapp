@@ -1,7 +1,8 @@
 // Datenhaltung auf dem Gerät (localStorage) und alle Abläufe rund um Themen, Aufgaben und Termine.
 
-import { parseDate, stamp } from './dates.js';
+import { addDays, isoDate, parseDate, stamp } from './dates.js';
 import * as schedule from './schedule.js';
+import * as repeating from './repeat.js';
 
 const STORAGE_KEY = 'planungsapp.v1';
 // scale 'high5': Wichtigkeit/Dringlichkeit 5 = sehr wichtig/sofort, 1 = unwichtig/kein Zeitdruck.
@@ -94,8 +95,19 @@ export function taskById(id) {
   return task ? decorate(task, new Date()) : null;
 }
 
+// Unteraufgaben in der festgelegten Reihenfolge (sort_order, sonst Reihenfolge des Anlegens).
 export function childrenOf(id) {
-  return tasks().filter((t) => t.parent_id === id);
+  return tasks().filter((t) => t.parent_id === id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+// Neue Reihenfolge der Unteraufgaben speichern. ids = sichtbare Reihenfolge; nicht genannte bleiben dahinter.
+export function reorderChildren(parentId, ids) {
+  const rest = childrenOf(parentId).map((t) => t.id).filter((id) => !ids.includes(id));
+  [...ids, ...rest].forEach((id, index) => {
+    const task = data.tasks.find((t) => t.id === id && t.parent_id === parentId);
+    if (task) task.sort_order = index;
+  });
+  save();
 }
 
 // Alle Nachkommen einer Aufgabe (beliebig tief).
@@ -146,12 +158,23 @@ export function history() {
 }
 
 // Termine, die den Zeitraum [from, to] (Tage, inklusive) berühren – mit einem Tag Rand für Bereiche davor/danach.
+// Wiederkehrende Termine werden in einzelne Termine aufgelöst (occurrence = Tag des Termins, series = true).
 export function eventsBetween(from, to) {
-  const start = new Date(from); start.setDate(start.getDate() - 1);
-  const end = new Date(to); end.setDate(end.getDate() + 2);
+  const start = addDays(new Date(from), -1);
+  const end = addDays(new Date(to), 2);
   return data.events
-    .filter((e) => parseDate(e.end_at) >= start && parseDate(e.start_at) < end)
+    .flatMap((event) => repeating.occurrences(event, start, end).map((o) => ({
+      ...event,
+      start_at: stamp(o.start),
+      end_at: stamp(o.end),
+      occurrence: o.occurrence,
+      series: Boolean(event.repeat),
+    })))
     .sort((a, b) => a.start_at.localeCompare(b.start_at));
+}
+
+export function eventById(id) {
+  return data.events.find((e) => e.id === Number(id)) || null;
 }
 
 // --- Validierung ---------------------------------------------------------------
@@ -333,6 +356,10 @@ function rawWindowFor(task, input, old) {
 export function createTask(input) {
   const task = { id: nextId(), ...taskInput(input, null) };
   [task.window_start, task.window_end] = windowFor(task, input, null);
+  // Neue Unteraufgaben kommen ans Ende.
+  if (task.parent_id !== null) {
+    task.sort_order = Math.max(-1, ...childrenOf(task.parent_id).map((t) => t.sort_order ?? 0)) + 1;
+  }
   Object.assign(task, { done_at: null, last_done_at: null, missed_count: 0, created_at: stamp(new Date()) });
   data.tasks.push(task);
   save();
@@ -344,6 +371,9 @@ export function updateTask(id, input) {
   if (!task) throw new ValidationError('Aufgabe nicht gefunden');
   const next = taskInput(input, id);
   [next.window_start, next.window_end] = windowFor(next, input, task);
+  if (next.parent_id !== null && next.parent_id !== task.parent_id) {
+    next.sort_order = Math.max(-1, ...childrenOf(next.parent_id).map((t) => t.sort_order ?? 0)) + 1;
+  }
   Object.assign(task, next);
   save();
   return taskById(id);
@@ -490,7 +520,36 @@ function eventInput(input) {
       throw new ValidationError('Bitte eine Routine auswählen');
     }
   }
+  event.repeat = repeatInput(input.repeat, event.start_at);
   return event;
+}
+
+// Prüft die Eingaben, ohne zu speichern (z. B. bevor nach dem Umfang einer Serienänderung gefragt wird).
+export function checkEvent(input) {
+  eventInput(input);
+}
+
+// Wiederholung prüfen (Aufbau siehe repeat.js). null = wird nicht wiederholt.
+function repeatInput(raw, startAt) {
+  if (!raw) return null;
+  const freq = oneOf(raw, 'freq', ['daily', 'weekly', 'monthly', 'yearly']);
+  const repeat = { freq, interval: int(raw, 'interval', 1, 999, 1) };
+  if (freq === 'weekly') {
+    const days = [...new Set((raw.weekdays || []).map(Number))].filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+    repeat.weekdays = days.length ? days.sort() : [parseDate(startAt).getDay()];
+  }
+  if (freq === 'monthly') {
+    repeat.monthly = oneOf(raw, 'monthly', ['day', 'weekday']);
+    if (repeat.monthly === 'weekday') {
+      repeat.nth = [1, 2, 3, 4, -1].includes(Number(raw.nth)) ? Number(raw.nth) : repeating.nthOfMonth(parseDate(startAt));
+    }
+  }
+  repeat.until = pattern(raw, 'until', /^\d{4}-\d{2}-\d{2}$/);
+  repeat.count = repeat.until ? null : int(raw, 'count', 1, 999);
+  if (repeat.until && repeat.until < startAt.slice(0, 10)) {
+    throw new ValidationError('Das Ende der Wiederholung liegt vor dem ersten Termin');
+  }
+  return repeat;
 }
 
 export function createEvent(input) {
@@ -500,15 +559,62 @@ export function createEvent(input) {
   return event;
 }
 
-export function updateEvent(id, input) {
-  const event = data.events.find((e) => e.id === id);
+// scope bei wiederkehrenden Terminen (wie Google Kalender):
+//   'this'      – nur der Termin am Tag occurrence (wird aus der Serie herausgelöst)
+//   'following' – dieser und alle folgenden (Serie wird geteilt)
+//   'all'       – alle Termine der Serie
+export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}) {
+  const event = eventById(id);
   if (!event) throw new ValidationError('Termin nicht gefunden');
-  Object.assign(event, eventInput(input));
+  const next = eventInput(input);
+
+  if (!event.repeat || !occurrence) {
+    Object.assign(event, next, { exdates: next.repeat ? event.exdates || [] : [] });
+  } else if (scope === 'this') {
+    event.exdates = [...(event.exdates || []), occurrence];
+    const single = { id: nextId(), ...next, repeat: null };
+    data.events.push(single);
+    save();
+    return single;
+  } else if (scope === 'following' && occurrence > event.start_at.slice(0, 10)) {
+    const before = repeating.countBefore(event, occurrence);
+    const remaining = event.repeat.count ? Math.max(1, event.repeat.count - before) : null;
+    if (next.repeat && remaining && next.repeat.count === event.repeat.count) next.repeat.count = remaining;
+    const follow = { id: nextId(), ...next, exdates: (event.exdates || []).filter((d) => d >= occurrence) };
+    event.repeat = { ...event.repeat, until: isoDate(addDays(parseDate(occurrence), -1)), count: null };
+    event.exdates = (event.exdates || []).filter((d) => d < occurrence);
+    data.events.push(follow);
+    save();
+    return follow;
+  } else if (!next.repeat) {
+    // Wiederholung ausgeschaltet: übrig bleibt der bearbeitete Termin.
+    Object.assign(event, next, { exdates: [] });
+  } else {
+    // Alle Termine: Verschiebung gegenüber dem bearbeiteten Termin auf den Serienanfang übertragen.
+    const shift = parseDate(next.start_at) - parseDate(repeating.onDay(event.start_at, occurrence));
+    const duration = parseDate(next.end_at) - parseDate(next.start_at);
+    const start = new Date(+parseDate(event.start_at) + shift);
+    const dayShift = Math.round(shift / 86400000);
+    Object.assign(event, next, {
+      start_at: stamp(start),
+      end_at: stamp(new Date(+start + duration)),
+      exdates: (event.exdates || []).map((d) => isoDate(addDays(parseDate(d), dayShift))),
+    });
+    event.repeat = repeatInput(event.repeat, event.start_at);
+  }
   save();
   return event;
 }
 
-export function deleteEvent(id) {
-  data.events = data.events.filter((e) => e.id !== id);
+export function deleteEvent(id, { scope = 'all', occurrence = null } = {}) {
+  const event = eventById(id);
+  if (event?.repeat && occurrence && scope === 'this') {
+    event.exdates = [...(event.exdates || []), occurrence];
+  } else if (event?.repeat && occurrence && scope === 'following' && occurrence > event.start_at.slice(0, 10)) {
+    event.repeat = { ...event.repeat, until: isoDate(addDays(parseDate(occurrence), -1)), count: null };
+    event.exdates = (event.exdates || []).filter((d) => d < occurrence);
+  } else {
+    data.events = data.events.filter((e) => e.id !== id);
+  }
   save();
 }
