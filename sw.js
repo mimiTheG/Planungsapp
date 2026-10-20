@@ -2,7 +2,7 @@
 // Mit Internet wird immer die neueste Version geladen (am Browser-Cache vorbei), ohne Internet die
 // zuletzt gespeicherte. Bei Änderungen an der Dateiliste VERSION erhöhen.
 
-const VERSION = 'v14';
+const VERSION = 'v15';
 const CACHE = `planungsapp-${VERSION}`;
 const FILES = [
   './',

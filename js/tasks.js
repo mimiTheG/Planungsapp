@@ -3,12 +3,13 @@
 import {
   el, mount, field, select, formData, openDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, isoDate, parseDate } from './dates.js';
+import { daysBetween, formatDate, isoDate, isoDateTime, parseDate } from './dates.js';
 import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
 import { enableLongPressReorder } from './reorder.js';
 import { parentPicker } from './parent-picker.js';
+import { openEventEditor } from './calendar.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
 const NEW_TITLES = { todo: 'Neue Aufgabe', project: 'Neues Projekt', routine: 'Neue Routine' };
@@ -546,7 +547,22 @@ function routineCard(routine, refresh) {
     }, expanded ? '▴ Weniger anzeigen' : `▾ ${steps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null,
     el('div.buttons.routine-actions', {},
       el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start'),
-      el('button', { type: 'button', onclick: () => setEditing(true) }, '✎ Bearbeiten')));
+      el('button', { type: 'button', onclick: () => setEditing(true) }, '✎ Bearbeiten'),
+      el('button', { type: 'button', onclick: () => planRoutine(routine, refresh) }, '📅 Einplanen')));
+}
+
+// Routine als Termin in den Kalender legen (nächste volle Stunde, Dauer aus den Schritten).
+function planRoutine(routine, refresh) {
+  const start = new Date();
+  start.setMinutes(0, 0, 0);
+  start.setHours(start.getHours() + 1);
+  const minutes = store.routineMinutes(routine) || 30;
+  openEventEditor({
+    routine_id: routine.id,
+    topic_id: routine.topic_id,
+    start_at: isoDateTime(start),
+    end_at: isoDateTime(new Date(+start + minutes * 60000)),
+  }, refresh);
 }
 
 export function renderRoutinesView(root) {

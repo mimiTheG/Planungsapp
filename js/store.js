@@ -389,6 +389,7 @@ export function deleteTask(id) {
   data.tasks = data.tasks.filter((t) => !ids.has(t.id));
   data.log = data.log.filter((l) => !ids.has(l.task_id));
   for (const e of data.events) {
+    if (ids.has(e.routine_id)) e.routine_id = null;
     for (const side of ['before', 'after']) {
       if (ids.has(e[`${side}_routine_id`])) {
         e[`${side}_type`] = 'none';
@@ -504,10 +505,15 @@ function eventInput(input) {
     if (!value) throw new ValidationError(`Bitte „${LABELS[key]}“ angeben`);
     return stamp(parseDate(value));
   };
+  // Eingeplante Routine: Titel und Thema kommen von der Routine, wenn nichts anderes angegeben ist.
+  const routineId = ref(input, 'routine_id');
+  const routine = routineId ? data.tasks.find((t) => t.id === routineId && t.kind === 'routine') : null;
+  if (routineId && !routine) throw new ValidationError('Routine nicht gefunden');
   const event = {
-    title: text(input, 'title', 200, true),
+    title: routine ? text(input, 'title', 200) || routine.title : text(input, 'title', 200, true),
+    routine_id: routine ? routine.id : null,
     notes: text(input, 'notes', 5000),
-    topic_id: ref(input, 'topic_id'),
+    topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
     is_event: Boolean(input.is_event),
     start_at: dateTime('start_at'),
     end_at: dateTime('end_at'),
