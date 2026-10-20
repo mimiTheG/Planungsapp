@@ -19,6 +19,8 @@ const view = {
   mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
   showEvents: readSetting('showEvents', true),
+  pickMonth: false,
+  pickYear: new Date().getFullYear(),
 };
 
 function readSetting(key, fallback) {
@@ -90,13 +92,19 @@ export function renderCalendarView(root) {
         : `${from.getDate()}.${from.getMonth() + 1}.–${to.getDate()}.${to.getMonth() + 1}.`;
 
   // Kompakter Kopf, damit möglichst viel Platz für den Kalender bleibt.
+  // Antippen des Titels öffnet die Monats-/Jahresauswahl.
   mount(root,
     el('div.toolbar.cal-head', {},
       el('button.icon.nav', { type: 'button', 'aria-label': 'Zurück', onclick: () => step(-1) }, '‹'),
-      el('strong.cal-title', {}, title),
+      el('button.link.cal-title', {
+        type: 'button',
+        'aria-expanded': String(view.pickMonth),
+        onclick: () => { view.pickMonth = !view.pickMonth; view.pickYear = view.anchor.getFullYear(); refresh(); },
+      }, title, el('span.caret', {}, view.pickMonth ? '▴' : '▾')),
       el('button.icon.nav', { type: 'button', 'aria-label': 'Vor', onclick: () => step(1) }, '›'),
       el('span.spacer'),
-      el('button', { type: 'button', onclick: () => { view.anchor = new Date(); refresh(); } }, 'Heute')),
+      el('button', { type: 'button', onclick: () => { view.anchor = new Date(); view.pickMonth = false; refresh(); } }, 'Heute')),
+    view.pickMonth ? monthPicker(refresh) : null,
     el('div.segmented.modes', {}, Object.entries(MODES).map(([m, label]) =>
       el(`button${view.mode === m ? '.active' : ''}`, {
         type: 'button',
@@ -116,6 +124,32 @@ export function renderCalendarView(root) {
 
   const scroller = root.querySelector('.week-scroll');
   if (scroller) scroller.scrollTop = 6.5 * HOUR_PX;
+}
+
+// Monat und Jahr direkt wählen (Jahr mit ‹ ›).
+const MONTH_NAMES = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+function monthPicker(refresh) {
+  const now = new Date();
+  const year = view.pickYear;
+  const changeYear = (dir) => { view.pickYear += dir; refresh(); };
+  return el('div.month-picker', {},
+    el('div.dt-head', {},
+      el('button.icon', { type: 'button', 'aria-label': 'Voriges Jahr', onclick: () => changeYear(-1) }, '‹'),
+      el('strong', {}, String(year)),
+      el('button.icon', { type: 'button', 'aria-label': 'Nächstes Jahr', onclick: () => changeYear(1) }, '›')),
+    el('div.month-picker-grid', {}, MONTH_NAMES.map((name, m) => {
+      const isCurrent = view.anchor.getFullYear() === year && view.anchor.getMonth() === m;
+      const isNow = now.getFullYear() === year && now.getMonth() === m;
+      return el(`button${isCurrent ? '.selected' : ''}${isNow ? '.now' : ''}`, {
+        type: 'button',
+        onclick: () => {
+          view.anchor = new Date(year, m, 1);
+          view.pickMonth = false;
+          refresh();
+        },
+      }, name);
+    })));
 }
 
 function legend() {

@@ -501,6 +501,12 @@ function routineCard(routine, refresh) {
         el('strong', {}, routine.title),
         minutes ? el('span.badge', {}, `${minutes} min`) : null,
         el('span.spacer'),
+        el('button.icon.settings', {
+          type: 'button',
+          'aria-label': 'Einstellungen der Routine (Name, Thema, Löschen)',
+          title: 'Name, Thema, Löschen',
+          onclick: () => openTaskEditor(routine, refresh),
+        }, '⚙'),
         el('button.primary', { type: 'button', onclick: () => setEditing(false) }, '✓ Fertig')),
       el('p.edit-hint', {}, 'Bearbeiten: Schritt antippen zum Ändern, lang drücken zum Verschieben.'),
       steps.length
@@ -510,8 +516,7 @@ function routineCard(routine, refresh) {
         el('button', {
           type: 'button',
           onclick: () => openTaskEditor({ parent_id: routine.id, topic_id: routine.topic_id }, refresh),
-        }, '+ Schritt'),
-        el('button', { type: 'button', onclick: () => openTaskEditor(routine, refresh) }, 'Name, Thema & Löschen …')));
+        }, '+ Schritt')));
   }
 
   const long = steps.length >= ROUTINE_COLLAPSE_FROM;
@@ -525,7 +530,7 @@ function routineCard(routine, refresh) {
     routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
     steps.length
       ? taskTree(visible, refresh, { showDone: true, parentId: routine.id, mode: 'view' })
-      : el('p.empty', {}, 'Noch keine Schritte – über „Routine bearbeiten“ hinzufügen.'),
+      : el('p.empty', {}, 'Noch keine Schritte – über „Bearbeiten“ hinzufügen.'),
     long ? el('button.link.more-steps', {
       type: 'button',
       'aria-expanded': String(expanded),
@@ -536,7 +541,7 @@ function routineCard(routine, refresh) {
     }, expanded ? '▴ Weniger anzeigen' : `▾ ${steps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null,
     el('div.buttons.routine-actions', {},
       el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start'),
-      el('button', { type: 'button', onclick: () => setEditing(true) }, '✎ Routine bearbeiten')));
+      el('button', { type: 'button', onclick: () => setEditing(true) }, '✎ Bearbeiten')));
 }
 
 export function renderRoutinesView(root) {

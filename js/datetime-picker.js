@@ -80,17 +80,24 @@ export function dateTimeField(name, value, { required = false } = {}) {
       }, String(day.getDate()), busy.has(key) ? el('span.dt-busy') : null));
     }
 
-    const time = el('input', {
-      type: 'time',
-      value: `${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`,
-      'aria-label': 'Uhrzeit',
-      onchange: () => {
-        if (!time.value) return;
-        const [h, m] = time.value.split(':').map(Number);
-        const d = current();
-        set(new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m));
-      },
-    });
+    // Uhrzeit ebenfalls im App-Design (statt der Android-Uhr): Stunde und Minute antippen.
+    const setTime = (h, m) => {
+      const d = current();
+      set(new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m));
+    };
+    const pad = (n) => String(n).padStart(2, '0');
+    const hours = el('div.dt-times.hours', { role: 'group', 'aria-label': 'Stunde' },
+      [...Array(24)].map((_, h) => el(`button${h === selected.getHours() ? '.selected' : ''}`, {
+        type: 'button',
+        onclick: () => setTime(h, selected.getMinutes()),
+      }, pad(h))));
+    const minuteSteps = [...Array(12)].map((_, i) => i * 5);
+    if (!minuteSteps.includes(selected.getMinutes())) minuteSteps.push(selected.getMinutes());
+    const minutes = el('div.dt-times.minutes', { role: 'group', 'aria-label': 'Minute' },
+      minuteSteps.sort((a, b) => a - b).map((m) => el(`button${m === selected.getMinutes() ? '.selected' : ''}`, {
+        type: 'button',
+        onclick: () => setTime(selected.getHours(), m),
+      }, `:${pad(m)}`)));
 
     mount(panel,
       el('div.dt-head', {},
@@ -98,9 +105,13 @@ export function dateTimeField(name, value, { required = false } = {}) {
         el('strong', {}, month.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })),
         el('button.icon', { type: 'button', 'aria-label': 'Nächster Monat', onclick: () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderPanel(); } }, '›')),
       el('div.dt-grid', {}, WEEKDAYS.map((w) => el('span.dt-weekday', {}, w)), days),
-      el('div.dt-foot', {},
-        el('label.dt-time-label', {}, el('span', {}, 'Uhrzeit'), time),
-        el('button.primary', { type: 'button', onclick: close }, 'Fertig')));
+      el('div.dt-time-head', {}, el('span', {}, 'Uhrzeit'),
+        el('strong', {}, `${pad(selected.getHours())}:${pad(selected.getMinutes())}`)),
+      el('small.muted', {}, 'Stunde'),
+      hours,
+      el('small.muted', {}, 'Minute'),
+      minutes,
+      el('button.primary', { type: 'button', onclick: close }, 'Fertig'));
   }
 
   updateDisplay();
