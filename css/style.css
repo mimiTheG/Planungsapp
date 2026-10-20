@@ -541,6 +541,18 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
   color: var(--on);
   display: flex; flex-direction: column;
 }
+.block { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.block.drag-source { opacity: 0.35; }
+.block.drag-ghost {
+  position: fixed; z-index: 30; pointer-events: none; opacity: 0.92;
+  box-shadow: 0 6px 18px rgba(58, 38, 48, 0.35); outline: 2px solid var(--accent); overflow: visible;
+}
+.block.drag-ghost.nowhere { opacity: 0.5; }
+.drag-ghost .block-time { display: none; }
+.drag-time {
+  position: absolute; left: 0; bottom: 100%; margin-bottom: 3px; padding: 0.1rem 0.45rem; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+}
 .block.before, .block.after {
   background: repeating-linear-gradient(135deg,
     color-mix(in srgb, var(--c) 25%, var(--surface)) 0 5px,
