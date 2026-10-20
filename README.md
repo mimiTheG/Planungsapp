@@ -27,6 +27,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
+Farben wählt man aus einer abgestimmten Palette (Weinrot, Himbeere, Altrosa, Koralle, Pfirsich, Senf, Salbei,
+Eukalyptus, Petrol, Taubenblau, Lavendel, Pflaume) oder als eigene Farbe.
 
 **Aufgaben, Projekte und Routinen**
 - Wichtigkeit und Dringlichkeit jeweils **1–5, wobei 5 = sehr wichtig / sofort** und 1 = unwichtig / kein Zeitdruck –
@@ -49,6 +51,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
   selbst in den Kalender ein. In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
   **▶ Start**, geändert nur nach Tippen auf **✎ Routine bearbeiten** (Schritte hinzufügen, löschen, umsortieren).
+  Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.
   Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
   sich ausklappen. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte
   für das nächste Mal zurückgesetzt.

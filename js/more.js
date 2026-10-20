@@ -4,20 +4,21 @@ import { el, mount, toast, attempt } from './ui.js';
 import { isoDate } from './dates.js';
 import * as store from './store.js';
 import { nextTopicColor } from './topic-picker.js';
+import { colorChooser } from './color-chooser.js';
 import { loadSamples } from './samples.js';
 
 export function renderMoreView(root) {
   const refresh = () => renderMoreView(root);
   const topics = store.topics();
 
-  const nextColor = nextTopicColor();
+  const newColor = colorChooser(nextTopicColor());
   const newForm = el('form.inline-form', {
     onsubmit: (e) => {
       e.preventDefault();
-      if (attempt(() => store.createTopic({ name: newForm.elements.name.value, color: newForm.elements.color.value }))) refresh();
+      if (attempt(() => store.createTopic({ name: newForm.elements.name.value, color: newColor.value() }))) refresh();
     },
   },
-  el('input', { type: 'color', name: 'color', value: nextColor, 'aria-label': 'Farbe' }),
+  newColor.element,
   el('input', { name: 'name', required: true, maxlength: 60, placeholder: 'Neues Thema, z. B. Sport' }),
   el('button.primary', { type: 'submit' }, '+'));
 
@@ -52,18 +53,18 @@ export function renderMoreView(root) {
       el('p.muted', {}, 'Jedes Thema hat eine Farbe – für Aufgaben und Termine.'),
       newForm,
       topics.length
+        // Änderungen werden gespeichert, ohne die Liste neu aufzubauen (sonst springt ein offener Farbwähler zurück).
         ? el('ul.topic-list', {}, topics.map((topic) => el('li', {},
-          el('input', {
-            type: 'color',
-            value: topic.color,
-            'aria-label': `Farbe von ${topic.name}`,
-            onchange: (e) => { attempt(() => store.updateTopic(topic.id, { name: topic.name, color: e.target.value })); refresh(); },
-          }),
+          colorChooser(topic.color, (color) => {
+            attempt(() => store.updateTopic(topic.id, { name: store.topicById(topic.id).name, color }));
+          }).element,
           el('input', {
             value: topic.name,
             maxlength: 60,
             'aria-label': 'Name',
-            onchange: (e) => { attempt(() => store.updateTopic(topic.id, { name: e.target.value, color: topic.color })); refresh(); },
+            onchange: (e) => {
+              attempt(() => store.updateTopic(topic.id, { name: e.target.value, color: store.topicById(topic.id).color }));
+            },
           }),
           el('button.icon', {
             type: 'button',

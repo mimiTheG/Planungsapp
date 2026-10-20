@@ -2,12 +2,12 @@
 
 import { el, field, select, attempt } from './ui.js';
 import * as store from './store.js';
+import { TOPIC_PALETTE, colorChooser } from './color-chooser.js';
 
-export const TOPIC_COLORS = ['#9f1239', '#db2777', '#f472b6', '#c026d3', '#e11d48', '#7c3aed', '#f59e0b', '#0d9488'];
-
+// Erste Farbe der Palette, die noch kein Thema hat.
 export function nextTopicColor() {
   const used = new Set(store.topics().map((t) => t.color));
-  return TOPIC_COLORS.find((c) => !used.has(c)) || TOPIC_COLORS[0];
+  return (TOPIC_PALETTE.find(([c]) => !used.has(c)) || TOPIC_PALETTE[0])[0];
 }
 
 function options(value) {
@@ -20,19 +20,21 @@ export function topicPicker(value) {
   topicSelect.replaceChildren(...options(value));
 
   const nameInput = el('input', { maxlength: 60, placeholder: 'z. B. Sport', 'aria-label': 'Name des neuen Themas' });
-  const colorInput = el('input', { type: 'color', value: nextTopicColor(), 'aria-label': 'Farbe' });
+  let color = colorChooser(nextTopicColor(), () => {}, { open: true });
   const create = () => {
     let topic;
-    if (!attempt(() => { topic = store.createTopic({ name: nameInput.value, color: colorInput.value }); })) return;
+    if (!attempt(() => { topic = store.createTopic({ name: nameInput.value, color: color.value() }); })) return;
     topicSelect.replaceChildren(...options(topic.id));
     nameInput.value = '';
-    colorInput.value = nextTopicColor();
+    const fresh = colorChooser(nextTopicColor(), () => {}, { open: true });
+    color.element.replaceWith(fresh.element);
+    color = fresh;
     newBox.hidden = true;
   };
   const newBox = el('div.new-topic', { hidden: true },
-    colorInput,
     nameInput,
-    el('button.primary', { type: 'button', onclick: create }, 'Anlegen'));
+    el('button.primary', { type: 'button', onclick: create }, 'Anlegen'),
+    color.element);
   // Enter im Namensfeld legt das Thema an, statt das ganze Formular abzuschicken.
   nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); create(); } });
 
