@@ -126,6 +126,26 @@ export function renderCalendarView(root) {
   if (scroller) scroller.scrollTop = 6.5 * HOUR_PX;
 }
 
+// Tag aus der Monatsansicht öffnen. Der Schritt landet im Browser-Verlauf, damit die Zurück-Taste
+// des Handys wieder zur vorherigen Ansicht (z. B. Monat) führt statt die App zu verlassen.
+function openDay(day, refresh) {
+  history.replaceState({ ...history.state, cal: { mode: view.mode, anchor: +view.anchor } }, '');
+  view.anchor = day;
+  view.mode = '1';
+  history.pushState({ cal: { mode: view.mode, anchor: +view.anchor } }, '');
+  refresh();
+}
+
+window.addEventListener('popstate', (e) => {
+  if (!['', '#kalender'].includes(location.hash) || document.getElementById('dialog')?.open) return;
+  const saved = e.state?.cal;
+  if (!saved && view.mode === 'month') return;
+  view.mode = saved?.mode || 'month';
+  view.anchor = saved ? new Date(saved.anchor) : view.anchor;
+  view.pickMonth = false;
+  window.dispatchEvent(new HashChangeEvent('hashchange')); // Ansicht neu zeichnen
+});
+
 // Monat und Jahr direkt wählen (Jahr mit ‹ ›).
 const MONTH_NAMES = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
@@ -254,9 +274,7 @@ function monthGrid(from, to, events, refresh) {
     cells.push(el(`div.month-cell${day.getMonth() !== month ? '.other' : ''}${key === today ? '.today' : ''}`, {
       onclick: (e) => {
         if (e.target.closest('.chip')) return;
-        view.anchor = day;
-        view.mode = '1';
-        refresh();
+        openDay(day, refresh);
       },
     },
     el('span.month-day', {}, String(day.getDate())),

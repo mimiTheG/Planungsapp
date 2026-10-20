@@ -19,21 +19,64 @@ export const TOPIC_PALETTE = [
   ['#7b4a7a', 'Pflaume'],
 ];
 
+// Nur eine Farbauswahl gleichzeitig offen: Öffnen einer neuen schließt die vorherige.
+let closeOpen = null;
+
+// Farbumrechnung für die eigene Farbmischung (Farbton, Sättigung, Helligkeit).
+function hexToHsl(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, Math.round(l * 100)];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h *= 60;
+  return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function hslToHex(h, s, l) {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
 // Gibt { element, value() } zurück. onChange(color) wird bei jeder Auswahl aufgerufen.
 export function colorChooser(initial, onChange = () => {}, { open = false } = {}) {
   let color = initial;
   const preview = el('button.color-preview', {
     type: 'button',
-    'aria-label': 'Farbe wählen',
+    'aria-label': 'Farbe ändern',
     style: { background: color },
-    onclick: () => { panel.hidden = !panel.hidden; },
+    onclick: () => setOpen(panel.hidden),
   });
-  const custom = el('input', {
-    type: 'color',
-    value: color,
-    'aria-label': 'Eigene Farbe',
-    onchange: () => pick(custom.value),
-  });
+
+  // Eigene Farbe: direkt in der App mischen (statt des Farbdialogs des Handys).
+  const sliders = {};
+  const mixer = el('div.color-mixer', { hidden: true },
+    ['h', 's', 'l'].map((key) => {
+      const [label, max] = { h: ['Farbton', 360], s: ['Sättigung', 100], l: ['Helligkeit', 100] }[key];
+      sliders[key] = el('input', {
+        type: 'range', min: 0, max, 'aria-label': label,
+        oninput: () => pick(hslToHex(+sliders.h.value, +sliders.s.value, +sliders.l.value), false),
+      });
+      return el('label.mixer-row', {}, el('span', {}, label), sliders[key]);
+    }));
+  const customButton = el('button.custom-color', {
+    type: 'button',
+    'aria-expanded': 'false',
+    onclick: () => {
+      mixer.hidden = !mixer.hidden;
+      customButton.setAttribute('aria-expanded', String(!mixer.hidden));
+      if (!mixer.hidden) syncSliders();
+    },
+  }, el('span.custom-dot'), 'Eigene Farbe');
+
   const swatches = TOPIC_PALETTE.map(([value, name]) => el('button.swatch', {
     type: 'button',
     title: name,
@@ -42,18 +85,43 @@ export function colorChooser(initial, onChange = () => {}, { open = false } = {}
     style: { background: value },
     onclick: () => pick(value),
   }));
-  const panel = el('div.color-panel', { hidden: !open },
+  const panel = el('div.color-panel', { hidden: true },
     el('div.swatches', {}, swatches),
-    el('label.custom-color', {}, custom, el('span', {}, 'Eigene Farbe')));
+    customButton,
+    mixer);
 
-  function pick(value) {
+  function close() { setOpen(false); }
+  function setOpen(isOpen) {
+    if (isOpen && closeOpen && closeOpen !== close) closeOpen();
+    panel.hidden = !isOpen;
+    closeOpen = isOpen ? close : (closeOpen === close ? null : closeOpen);
+  }
+
+  function syncSliders() {
+    const [h, s, l] = hexToHsl(color);
+    sliders.h.value = h; sliders.s.value = s; sliders.l.value = l;
+    mixer.style.setProperty('--h', h);
+    mixer.style.setProperty('--s', `${s}%`);
+    mixer.style.setProperty('--l', `${l}%`);
+  }
+
+  function pick(value, fromSwatch = true) {
     color = value;
     preview.style.background = value;
-    if (custom.value !== value) custom.value = value;
+    customButton.querySelector('.custom-dot').style.background = value;
     for (const s of swatches) s.classList.toggle('selected', s.dataset.color === value);
+    if (fromSwatch) syncSliders();
+    else {
+      mixer.style.setProperty('--h', sliders.h.value);
+      mixer.style.setProperty('--s', `${sliders.s.value}%`);
+      mixer.style.setProperty('--l', `${sliders.l.value}%`);
+    }
     onChange(value);
   }
   for (const s of swatches) s.classList.toggle('selected', s.dataset.color === color);
+  customButton.querySelector('.custom-dot').style.background = color;
+  syncSliders();
+  if (open) setOpen(true);
 
   return { element: el('div.color-chooser', {}, preview, panel), value: () => color };
 }

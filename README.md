@@ -22,6 +22,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
   statt der Drehräder des Handys.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
+- Tippt man in der Monatsansicht auf einen Tag, führt die Zurück-Taste des Handys wieder zum Monat.
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
@@ -32,7 +33,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
 Farben wählt man aus einer abgestimmten Palette (Weinrot, Himbeere, Altrosa, Koralle, Pfirsich, Senf, Salbei,
-Eukalyptus, Petrol, Taubenblau, Lavendel, Pflaume) oder als eigene Farbe.
+Eukalyptus, Petrol, Taubenblau, Lavendel, Pflaume) oder als **eigene Farbe** mit Reglern für Farbton, Sättigung
+und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 
 **Aufgaben, Projekte und Routinen**
 - Wichtigkeit und Dringlichkeit jeweils **1–5, wobei 5 = sehr wichtig / sofort** und 1 = unwichtig / kein Zeitdruck –
