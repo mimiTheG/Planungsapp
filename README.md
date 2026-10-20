@@ -19,8 +19,9 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 **Kalender** (Tag, 3 Tage, Woche, Monat) – die Startseite der App, öffnet in der Monatsansicht
 - Termine mit Thema (Farbe). Davor und/oder danach kann ein **freier Bereich** (z. B. „Anfahrt“, 30 min)
   oder eine **Routine** (z. B. „Arbeit Morgendliche Aufgaben“) liegen – im Kalender schraffiert.
-- Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
-  statt der Drehräder des Handys.
+- Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt), die Uhrzeit per
+  Stunde und Minute – statt der Drehräder des Handys.
+- Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
@@ -52,7 +53,8 @@ Eukalyptus, Petrol, Taubenblau, Lavendel, Pflaume) oder als eigene Farbe.
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
   „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
   selbst in den Kalender ein. In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
-  **▶ Start**, geändert nur nach Tippen auf **✎ Routine bearbeiten** (Schritte hinzufügen, löschen, umsortieren).
+  **▶ Start**, geändert nur nach Tippen auf **✎ Bearbeiten** (Schritte hinzufügen, löschen, umsortieren; ⚙ für Name,
+  Thema und Löschen der Routine).
   Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.
   Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
   sich ausklappen. Eine Routine lässt sich als Checkliste starten; beim Abschließen werden die Schritte

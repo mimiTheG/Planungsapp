@@ -207,6 +207,9 @@ button.link { border: 0; background: none; padding: 0; min-height: 0; text-align
 /* Routinen */
 
 .routine-head { display: flex; align-items: center; gap: 0.5rem; }
+.routine-head strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.routine-head button { flex: none; white-space: nowrap; }
+.routine-head .spacer { display: none; }
 .routine .tree { margin: 0.4rem 0; }
 .routine-actions { margin-top: 0.4rem; }
 .routine-actions button { flex: 1; }
@@ -362,9 +365,24 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .dt-day.selected { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .dt-busy { position: absolute; bottom: 12%; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--pink); }
 .dt-day.selected .dt-busy { background: var(--on-accent); }
-.dt-foot { display: flex; align-items: center; gap: 0.5rem; }
-.dt-time-label { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
-.dt-time-label input { width: auto; flex: 1; }
+.dt-time-head { display: flex; justify-content: space-between; align-items: baseline; padding-top: 0.4rem; border-top: 1px solid var(--border); }
+.dt-time-head strong { font-size: 1.3rem; color: var(--accent); }
+.dt-times { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.3rem; }
+.dt-times button {
+  min-height: 2.3rem; padding: 0.2rem 0; border-radius: 999px; font-size: 0.9rem;
+  background: var(--surface); border-color: var(--border);
+}
+.dt-times button.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+
+/* Monat/Jahr wählen (Kalendertitel antippen) */
+.cal-title { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 700; }
+.cal-title .caret { font-size: 0.75rem; }
+.month-picker { display: grid; gap: 0.5rem; margin-bottom: 0.6rem; padding: 0.6rem; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
+.month-picker-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
+.month-picker-grid button { border-radius: 999px; background: var(--surface); }
+.month-picker-grid button.now { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.month-picker-grid button.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.icon.settings { font-size: 1.4rem; color: var(--accent); }
 
 /* Farbauswahl für Themen */
 
