@@ -3,7 +3,7 @@
 import {
   el, mount, field, select, formData, openDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, isoDate, isoDateTime, parseDate } from './dates.js';
+import { daysBetween, formatDate, formatDuration, isoDate, isoDateTime, parseDate } from './dates.js';
 import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
@@ -171,7 +171,7 @@ function taskNode(task, refresh, options) {
   const meta = [
     task.kind !== 'todo' && task.parent_id === null ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
     inRoutine || task.parent_id !== null ? null : prioBadge(task),
-    task.duration_min && inRoutine ? el('span.badge', {}, `${task.duration_min} min`) : null,
+    task.duration_min && inRoutine ? el('span.badge', {}, formatDuration(task.duration_min)) : null,
     task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
     windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
   ];
@@ -316,6 +316,10 @@ export function openTaskEditor(task, refresh) {
   };
 
   const kindSelect = select('kind', Object.entries(KIND_LABELS), t.kind);
+  // Routinen: Uhrzeit, zu der sie normalerweise beginnen (Vorschlag beim Einplanen im Kalender).
+  const defaultTimeField = field('Standardstartzeit (optional)',
+    el('input', { type: 'time', name: 'default_time', value: t.default_time || '' }),
+    'Wird beim Einplanen im Kalender vorgeschlagen.');
   const parent_ = parentPicker(t.parent_id, excluded);
   const parentSelect = parent_.input;
 
@@ -342,7 +346,13 @@ export function openTaskEditor(task, refresh) {
     field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: t.title || '' })),
     el('div.row', {},
       field('Art', kindSelect),
-      field('Dauer (min)', el('input', { type: 'number', name: 'duration_min', min: 1, inputmode: 'numeric', value: t.duration_min || '', placeholder: 'optional' }))),
+      el('div.field.duration-field', {}, el('span.field-label', {}, 'Dauer (optional)'),
+        el('div.duration-input', {},
+          el('input', { type: 'number', name: 'duration_h', min: 0, max: 24, inputmode: 'numeric', value: t.duration_min >= 60 ? Math.floor(t.duration_min / 60) : '', 'aria-label': 'Stunden', placeholder: '0' }),
+          el('span', {}, 'Std'),
+          el('input', { type: 'number', name: 'duration_m', min: 0, max: 59, inputmode: 'numeric', value: t.duration_min ? t.duration_min % 60 || '' : '', 'aria-label': 'Minuten', placeholder: '0' }),
+          el('span', {}, 'Min')))),
+    defaultTimeField,
     el('small.muted', {}, 'Projekt = freiwillig, macht Spaß. Routine = wiederverwendbare Abfolge von Schritten.'),
     topicPicker(t.topic_id),
     el('div.field', {}, el('span.field-label', {}, 'Gehört zu'), parent_.element),
@@ -365,6 +375,7 @@ export function openTaskEditor(task, refresh) {
     const routineLike = store.isInRoutine({ kind: kindSelect.value, parent_id: Number(parentSelect.value) || null });
     prioFieldset.hidden = routineLike;
     whenFieldset.hidden = routineLike;
+    defaultTimeField.hidden = !(kindSelect.value === 'routine' && !parentSelect.value);
   }
   kindSelect.addEventListener('change', showForKind);
   parentSelect.addEventListener('change', showForKind);
@@ -393,7 +404,8 @@ export function openTaskEditor(task, refresh) {
       window_start: d.recurrence === 'rhythm' ? d.rhythm_start : d.window_start,
       window_end: d.window_end,
       deadline_time: d.deadline_time,
-      duration_min: d.duration_min,
+      duration_min: (Number(d.duration_h) || 0) * 60 + (Number(d.duration_m) || 0) || '',
+      default_time: d.default_time,
       on_missed: d.on_missed,
     };
     const ok = attempt(() => (isNew ? store.createTask(payload) : store.updateTask(t.id, payload)));
@@ -505,7 +517,7 @@ function routineCard(routine, refresh) {
       el('div.routine-head', {},
         topicDot(routine),
         el('strong', {}, routine.title),
-        minutes ? el('span.badge', {}, `${minutes} min`) : null,
+        minutes ? el('span.badge', {}, formatDuration(minutes)) : null,
         el('span.spacer'),
         el('button.icon.settings', {
           type: 'button',
@@ -532,7 +544,7 @@ function routineCard(routine, refresh) {
     el('div.routine-head', {},
       topicDot(routine),
       el('strong', {}, routine.title),
-      minutes ? el('span.badge', {}, `${minutes} min`) : null),
+      minutes ? el('span.badge', {}, formatDuration(minutes)) : null),
     routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
     steps.length
       ? taskTree(visible, refresh, { showDone: true, parentId: routine.id, mode: 'view' })
@@ -551,11 +563,27 @@ function routineCard(routine, refresh) {
       el('button', { type: 'button', onclick: () => planRoutine(routine, refresh) }, '📅 Einplanen')));
 }
 
-// Routine als Termin in den Kalender legen (nächste volle Stunde, Dauer aus den Schritten).
+// Nächster Beginn einer Routine: ihre Standardstartzeit (heute, sonst morgen) oder die nächste volle Stunde.
+export function routineStart(routine, day = null) {
+  const now = new Date();
+  if (routine.default_time) {
+    const [h, m] = routine.default_time.split(':').map(Number);
+    const base = day || now;
+    const start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
+    if (!day && start < now) start.setDate(start.getDate() + 1);
+    return start;
+  }
+  const start = day ? new Date(day) : new Date(now);
+  if (!day) {
+    start.setMinutes(0, 0, 0);
+    start.setHours(start.getHours() + 1);
+  }
+  return start;
+}
+
+// Routine als Termin in den Kalender legen (Standardstartzeit, Dauer aus den Schritten).
 function planRoutine(routine, refresh) {
-  const start = new Date();
-  start.setMinutes(0, 0, 0);
-  start.setHours(start.getHours() + 1);
+  const start = routineStart(routine);
   const minutes = store.routineMinutes(routine) || 30;
   openEventEditor({
     routine_id: routine.id,
@@ -607,7 +635,7 @@ export function runRoutine(routine, refresh) {
             },
           }),
           step.title,
-          step.duration_min ? el('span.muted', {}, ` (${step.duration_min} min)`) : null)))),
+          step.duration_min ? el('span.muted', {}, ` (${formatDuration(step.duration_min)})`) : null)))),
       steps.length ? null : el('p.muted', {}, 'Diese Routine hat noch keine Schritte.'),
       el('div.buttons', {},
         el('button.primary', {

@@ -3,7 +3,7 @@
 import {
   el, mount, field, formData, openDialog, closeDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, formatTime, parseDate, stamp } from './dates.js';
+import { daysBetween, formatDate, formatDuration, formatTime, parseDate, stamp } from './dates.js';
 import * as store from './store.js';
 import {
   KIND_LABELS, completeTask, openTaskEditor, priority, progressBar, recurrenceText, runRoutine, topicDot, windowText,
@@ -182,7 +182,7 @@ function runningItem(item, refresh) {
           },
         }),
         step.title,
-        step.duration_min ? el('span.muted', {}, ` (${step.duration_min} min)`) : null)))),
+        step.duration_min ? el('span.muted', {}, ` (${formatDuration(step.duration_min)})`) : null)))),
     el('button.primary', { type: 'button', onclick: () => completeTask(item.routine, refresh) },
       done === steps.length ? '✓ Routine abschließen' : 'Trotzdem abschließen'));
 }

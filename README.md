@@ -59,7 +59,8 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
   „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
-  selbst in den Kalender ein. In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
+  selbst in den Kalender ein. Eine Routine kann eine **Standardstartzeit** haben, die beim Einplanen vorgeschlagen wird.
+  Dauern lassen sich in Stunden und Minuten angeben (Anzeige z. B. „1 h 30 min“). In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
   **▶ Start**, geändert nur nach Tippen auf **✎ Bearbeiten** (Schritte hinzufügen, löschen, umsortieren; ⚙ für Name,
   Thema und Löschen der Routine).
   Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.

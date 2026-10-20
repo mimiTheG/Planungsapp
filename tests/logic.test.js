@@ -251,3 +251,15 @@ test('Store: Routinen werden um 4:30 des Folgetages zurückgesetzt', () => {
   assert.equal(store.taskById(step.id).done_at, null);
   assert.equal(stamp(store.dayStart(new Date(2026, 9, 21, 3, 0))), '2026-10-20 04:30');
 });
+
+test('Store: Standardstartzeit nur für Routinen, Dauer über eine Stunde', () => {
+  store.load(memory());
+  const routine = store.createTask({ title: 'Abendroutine', kind: 'routine', default_time: '21:30', duration_min: 90 });
+  assert.equal(routine.default_time, '21:30');
+  assert.equal(routine.duration_min, 90);
+  const step = store.createTask({ title: 'Lesen', parent_id: routine.id, default_time: '22:00' });
+  assert.equal(step.default_time, null);
+  const todo = store.createTask({ title: 'Einkaufen', default_time: '10:00' });
+  assert.equal(todo.default_time, null);
+  assert.throws(() => store.createTask({ title: 'x', kind: 'routine', default_time: '9 Uhr' }), /Standardstartzeit/);
+});
