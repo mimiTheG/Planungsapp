@@ -150,6 +150,15 @@ button.link { border: 0; background: none; padding: 0; min-height: 0; text-align
 .running-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .running .checklist { margin: 0; }
 .running > .primary { justify-self: start; }
+/* Abgelaufene, noch nicht abgeschlossene Routine */
+.running.expired { margin: 0.2rem -0.6rem; padding: 0.6rem; border-radius: var(--radius); background: var(--warn-bg); border-top: 0; border-left: 4px solid var(--warn); }
+.badge.expired-badge { background: var(--warn); color: var(--on-accent); font-weight: 700; }
+/* Unteraufgaben bei "Steht gerade an" */
+.subtasks { list-style: none; margin: 0.35rem 0 0; padding: 0 0 0 0.2rem; display: grid; gap: 0.15rem; }
+.subtasks .subtasks { padding-left: 1.4rem; margin-top: 0.1rem; }
+.subtasks .check { font-size: 0.92rem; min-height: 2rem; }
+.subtasks .check input { width: 1.15rem; height: 1.15rem; }
+.subtasks .check.done span { text-decoration: line-through; color: var(--muted); }
 .card.wishes { background: var(--pink-soft); border-color: var(--p1); }
 .badge.wish { background: var(--surface); color: var(--pink); }
 .wish .done-btn { color: var(--pink); }

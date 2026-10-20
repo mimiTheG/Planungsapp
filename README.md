@@ -70,6 +70,9 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 **Was mache ich jetzt?**
 - **Läuft gerade:** Termine und Routinen, die jetzt stattfinden, stehen ganz oben; Routinen kann man dort direkt
   Schritt für Schritt abhaken und abschließen.
+  Nicht abgeschlossene Routinen bleiben nach ihrer Zeit stehen und sind als **abgelaufen** markiert. Um **4:30** am
+  Folgetag werden alle Routinen zurückgesetzt (Häkchen weg) und verschwinden aus „Jetzt“.
+- Bei „Steht gerade an“ stehen unter jeder Aufgabe ihre Unteraufgaben zum direkten Abhaken.
 - Alles, was gerade ansteht, nach Priorität (sachliche Wichtigkeit und Dringlichkeit);
   Überfälliges mit „täglich erinnern“ steht ganz oben.
 - **„Wollte ich schon länger mal wieder machen“** ist eine eigene Liste ohne Datum und Priorität. Mit ♥ markiert

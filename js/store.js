@@ -453,7 +453,27 @@ export function rollExpired(now = new Date()) {
     resetChildren(task.id);
     changed = true;
   }
+  if (resetRoutinesForNewDay(now)) changed = true;
   if (changed) save();
+}
+
+// Ein "Tag" in der App beginnt um 4:30 – wer nach Mitternacht noch wach ist, ist noch im alten Tag.
+export function dayStart(now = new Date()) {
+  const start = new Date(now);
+  start.setHours(4, 30, 0, 0);
+  if (now < start) start.setDate(start.getDate() - 1);
+  return start;
+}
+
+// Um 4:30 werden abgehakte Schritte aller Routinen wieder geöffnet.
+function resetRoutinesForNewDay(now) {
+  const boundary = stamp(dayStart(now));
+  if (data.routineResetAt === boundary) return false;
+  if (data.routineResetAt) {
+    for (const routine of data.tasks.filter((t) => t.kind === 'routine' && t.parent_id === null)) resetChildren(routine.id);
+  }
+  data.routineResetAt = boundary; // beim allerersten Mal nur merken, nichts zurücksetzen
+  return true;
 }
 
 // --- Wollte ich schon länger mal wieder machen ------------------------------------

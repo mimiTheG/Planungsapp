@@ -3,7 +3,7 @@
 import {
   el, mount, field, formData, openDialog, closeDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, formatTime, parseDate } from './dates.js';
+import { daysBetween, formatDate, formatTime, parseDate, stamp } from './dates.js';
 import * as store from './store.js';
 import {
   KIND_LABELS, completeTask, openTaskEditor, priority, progressBar, recurrenceText, runRoutine, topicDot, windowText,
@@ -36,6 +36,25 @@ function pickRandom(items) {
   return items[items.length - 1];
 }
 
+// Unteraufgaben (beliebig tief) zum direkten Abhaken; erledigte bleiben durchgestrichen sichtbar.
+function subtaskList(task, refresh) {
+  const children = store.childrenOf(task.id);
+  if (!children.length) return null;
+  return el('ul.subtasks', {}, children.map((child) => el('li', {},
+    el(`label.check${child.done_at ? '.done' : ''}`, {},
+      el('input', {
+        type: 'checkbox',
+        checked: Boolean(child.done_at),
+        disabled: child.recurrence !== 'once',
+        onchange: () => {
+          attempt(() => (child.done_at ? store.reopenTask(child.id) : store.completeTask(child.id)));
+          refresh();
+        },
+      }),
+      el('span', {}, child.title)),
+    subtaskList(child, refresh))));
+}
+
 function nowItem(task, refresh) {
   const openSubtasks = store.childrenOf(task.id).filter((c) => c.status !== 'done').length;
   return el(`li.now-item.status-${task.status}`, {},
@@ -47,7 +66,8 @@ function nowItem(task, refresh) {
         task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
         windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
         openSubtasks ? el('span.badge', {}, `${openSubtasks} offen`) : null),
-      progressBar(task)),
+      progressBar(task),
+      subtaskList(task, refresh)),
     el('button.done-btn', { type: 'button', 'aria-label': 'Erledigt', onclick: () => completeTask(task, refresh) }, '✓'));
 }
 
@@ -106,10 +126,12 @@ function openWishEditor(wish, refresh) {
 
 // --- Läuft gerade: Termine und Routinen, die jetzt stattfinden -----------------
 
+// Was heute (ab 4:30) läuft oder lief: laufende Termine sowie Routinen, die begonnen haben und
+// noch nicht abgeschlossen sind – auch wenn ihre Zeit schon vorbei ist (dann "abgelaufen").
 function runningNow(now = new Date()) {
-  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayStart = store.dayStart(now);
   const items = [];
-  for (const ev of store.eventsBetween(day, day)) {
+  for (const ev of store.eventsBetween(dayStart, now)) {
     const start = parseDate(ev.start_at);
     const end = parseDate(ev.end_at);
     const parts = [{ from: start, to: end, routineId: ev.routine_id, title: ev.title }];
@@ -120,10 +142,15 @@ function runningNow(now = new Date()) {
       parts.push({ from: end, to: new Date(+end + ev.after_minutes * 60000), routineId: ev.after_routine_id, title: null });
     }
     for (const part of parts) {
-      if (part.from > now || part.to <= now) continue;
+      if (part.from > now) continue;
       const routine = part.routineId ? store.taskById(part.routineId) : null;
-      if (!routine && !part.title) continue;
-      items.push({ ...part, routine, topicId: ev.topic_id, title: routine ? routine.title : part.title });
+      if (routine) {
+        // Seit Beginn abgeschlossen oder schon vor 4:30 begonnen → nicht mehr anzeigen.
+        if (part.from < dayStart || (routine.last_done_at && routine.last_done_at >= stamp(part.from))) continue;
+      } else if (!part.title || part.to <= now) {
+        continue;
+      }
+      items.push({ ...part, routine, topicId: ev.topic_id, title: routine ? routine.title : part.title, expired: part.to <= now });
     }
   }
   return items.sort((a, b) => a.from - b.from);
@@ -134,13 +161,14 @@ function runningItem(item, refresh) {
   const head = el('div.running-head', {},
     el('span.dot', { style: { background: store.topicColor(item.routine?.topic_id ?? item.topicId) } }),
     el('strong', {}, item.title),
-    el('span.badge', {}, item.routine ? `Routine · ${time}` : time));
+    el('span.badge', {}, item.routine ? `Routine · ${time}` : time),
+    item.expired ? el('span.badge.expired-badge', {}, 'abgelaufen') : null);
   if (!item.routine) return el('li.running', {}, head);
 
   // Routine: Schritte direkt hier abhaken.
   const steps = store.descendantsOf(item.routine.id).filter((s) => !store.childrenOf(s.id).length);
   const done = steps.filter((s) => s.done_at).length;
-  return el('li.running', {},
+  return el(`li.running${item.expired ? '.expired' : ''}`, {},
     head,
     steps.length ? el('progress', { max: steps.length, value: done }) : null,
     el('ul.checklist', {}, steps.map((step) => el('li', {},
@@ -209,7 +237,7 @@ export function renderNowView(root) {
   mount(root,
     el('div.toolbar', {}, el('h2', {}, 'Was mache ich jetzt?')),
     running.length ? el('section.card.running-now', {},
-      el('h3', {}, '● Läuft gerade'),
+      el('h3', {}, running.some((r) => !r.expired) ? '● Läuft gerade' : '● Heute noch offen'),
       el('ul.now-list', {}, running.map((item) => runningItem(item, refresh)))) : null,
     el('button.primary.big.wide', { type: 'button', onclick: decide, disabled: !candidates.length }, '🎲 Ich kann mich nicht entscheiden'),
 
