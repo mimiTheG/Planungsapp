@@ -229,7 +229,8 @@ function dayGrid(from, count, events, refresh) {
     });
 
     const blocks = events.flatMap((ev) => segments(ev).map((seg) => ({ ev, seg })))
-      .filter(({ seg }) => seg.end > dayStart && seg.start < dayEnd);
+      .filter(({ seg }) => seg.end > dayStart && seg.start < dayEnd)
+      .filter(({ ev, seg }) => isoDate(day) <= lastDay(parseDate(ev.start_at), seg.end));
     layoutLanes(blocks);
 
     for (const { ev, seg, lane, lanes } of blocks) {
@@ -267,6 +268,14 @@ function dayGrid(from, count, events, refresh) {
     el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)));
 }
 
+// Letzter Kalendertag eines Termins: Was nach Mitternacht vor 4:30 endet, gehört noch zum Vortag
+// (die App-Tage beginnen um 4:30) und erscheint nicht zusätzlich am Folgetag.
+const DAY_START_MS = (4 * 60 + 30) * 60000;
+function lastDay(start, end) {
+  const last = isoDate(new Date(+end - DAY_START_MS - 1));
+  return last < isoDate(start) ? isoDate(start) : last;
+}
+
 // Überlappende Blöcke nebeneinander anordnen.
 function layoutLanes(blocks) {
   blocks.sort((a, b) => a.seg.start - b.seg.start || b.seg.end - a.seg.end);
@@ -296,7 +305,8 @@ function monthGrid(from, to, events, refresh) {
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const day = new Date(d);
     const key = isoDate(day);
-    const dayEvents = events.filter((ev) => ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key);
+    const dayEvents = events.filter((ev) => ev.start_at.slice(0, 10) <= key
+      && lastDay(parseDate(ev.start_at), parseDate(ev.end_at)) >= key);
     cells.push(el(`div.month-cell${day.getMonth() !== month ? '.other' : ''}${key === today ? '.today' : ''}`, {
       onclick: (e) => {
         if (e.target.closest('.chip')) return;

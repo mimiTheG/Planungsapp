@@ -24,6 +24,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
 - In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
+- Termine über Mitternacht erscheinen am Folgetag nur, wenn sie nach **4:30** enden (vorher zählt die Nacht
+  noch zum Vortag, z. B. Party 22–2 Uhr).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
@@ -51,7 +53,9 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Bedarf auf. Neue Unteraufgaben übernehmen Wichtigkeit und Dringlichkeit der übergeordneten Aufgabe. Die **Reihenfolge** von Unteraufgaben und Routine-Schritten ändert man
   durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder unten. Zieht man nach **rechts**, wird der
   Eintrag zur Unteraufgabe des Eintrags darüber; nach **links** rückt er eine Ebene höher (Routine-Schritte bleiben
-  dabei in ihrer Routine). Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
+  dabei in ihrer Routine).
+  Kommt man beim Ziehen an den oberen oder unteren Rand, scrollt die Liste mit.
+  Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
   bis Dunkelrot (fertig).
 - **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.

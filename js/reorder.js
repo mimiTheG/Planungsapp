@@ -6,6 +6,27 @@
 const HOLD_MS = 450;
 const MOVE_TOLERANCE = 8;
 const LEVEL_DX = 48;
+const EDGE_PX = 70; // so nah am oberen/unteren Rand beginnt das Scrollen
+const MAX_SPEED = 14; // Pixel pro Bild, ganz am Rand
+
+// Nächster scrollbarer Bereich (z. B. die Seite selbst).
+function scrollParent(node) {
+  for (let n = node.parentElement; n && n !== document.body; n = n.parentElement) {
+    const { overflowY } = getComputedStyle(n);
+    if (/(auto|scroll)/.test(overflowY) && n.scrollHeight > n.clientHeight) return n;
+  }
+  return document.scrollingElement;
+}
+
+// Sichtbarer Bereich des Scrollers – bei der Seite ohne die Leisten unten (Navigation, laufende Routine).
+function visibleArea(scroller) {
+  if (scroller !== document.scrollingElement) {
+    const rect = scroller.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  }
+  const bars = [...document.querySelectorAll('.tabs, #player')].filter((b) => !b.hidden && b.offsetHeight);
+  return { top: 0, bottom: Math.min(window.innerHeight, ...bars.map((b) => b.getBoundingClientRect().top)) };
+}
 
 export function enableLongPressReorder(list, onReorder, level = null) {
   let timer = null;
@@ -13,12 +34,17 @@ export function enableLongPressReorder(list, onReorder, level = null) {
   let startY = 0;
   let startX = 0;
   let direction = 0;
+  let lastY = 0;
+  let scroller = null;
+  let frame = null;
 
   const items = () => [...list.children];
 
   const reset = () => {
     clearTimeout(timer);
     timer = null;
+    cancelAnimationFrame(frame);
+    frame = null;
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
@@ -29,6 +55,36 @@ export function enableLongPressReorder(list, onReorder, level = null) {
     list.classList.add('reordering');
     dragged.classList.add('dragging');
     navigator.vibrate?.(30);
+    scroller = scrollParent(list);
+    frame = requestAnimationFrame(autoScroll);
+  }
+
+  // Hält man den Eintrag nahe am oberen oder unteren Rand, scrollt die Liste mit – je näher, desto schneller.
+  function autoScroll() {
+    frame = requestAnimationFrame(autoScroll);
+    if (Math.abs(lastY - startY) < EDGE_PX / 3) return; // erst, wenn der Finger wirklich gezogen wird
+    const { top, bottom } = visibleArea(scroller);
+    let speed = 0;
+    if (lastY < top + EDGE_PX) speed = -MAX_SPEED * Math.min(1, (top + EDGE_PX - lastY) / EDGE_PX);
+    else if (lastY > bottom - EDGE_PX) speed = MAX_SPEED * Math.min(1, (lastY - (bottom - EDGE_PX)) / EDGE_PX);
+    if (!speed) return;
+    const before = scroller.scrollTop;
+    scroller.scrollTop += speed;
+    if (scroller.scrollTop !== before) moveTo(lastY);
+  }
+
+  // Eintrag an die Stelle unter dem Finger schieben (ein Platz pro Aufruf).
+  function moveTo(y) {
+    const previous = dragged.previousElementSibling;
+    const next = dragged.nextElementSibling;
+    if (previous) {
+      const rect = previous.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) list.insertBefore(dragged, previous);
+    }
+    if (next) {
+      const rect = next.getBoundingClientRect();
+      if (y > rect.top + rect.height / 2) list.insertBefore(next, dragged);
+    }
   }
 
   function onMove(e) {
@@ -42,16 +98,8 @@ export function enableLongPressReorder(list, onReorder, level = null) {
     }
     e.preventDefault();
     if (level) showLevel(e.clientX - startX);
-    const previous = dragged.previousElementSibling;
-    const next = dragged.nextElementSibling;
-    if (previous) {
-      const rect = previous.getBoundingClientRect();
-      if (e.clientY < rect.top + rect.height / 2) list.insertBefore(dragged, previous);
-    }
-    if (next) {
-      const rect = next.getBoundingClientRect();
-      if (e.clientY > rect.top + rect.height / 2) list.insertBefore(next, dragged);
-    }
+    lastY = e.clientY;
+    moveTo(lastY);
   }
 
   // Seitliches Ziehen: Eintrag folgt dem Finger ein Stück, ab LEVEL_DX zeigt ein Hinweis die neue Ebene.
@@ -94,6 +142,7 @@ export function enableLongPressReorder(list, onReorder, level = null) {
     dragged = li;
     startY = e.clientY;
     startX = e.clientX;
+    lastY = e.clientY;
     timer = setTimeout(start, HOLD_MS);
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', onUp);
