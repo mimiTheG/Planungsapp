@@ -51,6 +51,8 @@ export function clearAll() {
 
 function save() {
   storage?.setItem(STORAGE_KEY, JSON.stringify(data));
+  // Ansichten wie die Leiste der laufenden Routine hören darauf.
+  if (typeof Event === 'function') globalThis.dispatchEvent?.(new Event('planungsapp-change'));
 }
 
 function nextId() {
@@ -419,7 +421,16 @@ export function completeTask(id, now = new Date()) {
     resetChildren(id);
   } else {
     task.done_at = when;
+    // Oberaufgabe abgehakt → alle noch offenen Unteraufgaben sind damit auch erledigt.
+    for (const sub of descendantsOf(id)) {
+      const raw = data.tasks.find((t) => t.id === sub.id);
+      if (raw.recurrence !== 'once' || raw.done_at) continue;
+      raw.done_at = when;
+      raw.last_done_at = when;
+      data.log.push({ task_id: raw.id, action: 'done', at: when });
+    }
   }
+  if (task.kind === 'routine' && data.activeRoutine?.id === id) data.activeRoutine = null;
   save();
   return taskById(id);
 }
@@ -427,13 +438,37 @@ export function completeTask(id, now = new Date()) {
 export function reopenTask(id) {
   const task = data.tasks.find((t) => t.id === id);
   if (task?.done_at) {
-    // Den Verlaufseintrag des Abhakens wieder entfernen.
-    const index = data.log.findLastIndex((l) => l.task_id === id && l.action === 'done');
-    if (index >= 0) data.log.splice(index, 1);
-    task.done_at = null;
+    // Unteraufgaben, die nur durch das Abhaken der Oberaufgabe erledigt wurden, wieder öffnen.
+    const cascaded = descendantsOf(id).filter((sub) => sub.done_at === task.done_at);
+    for (const t of [task, ...cascaded.map((sub) => data.tasks.find((r) => r.id === sub.id))]) {
+      // Den Verlaufseintrag des Abhakens wieder entfernen.
+      const index = data.log.findLastIndex((l) => l.task_id === t.id && l.action === 'done');
+      if (index >= 0) data.log.splice(index, 1);
+      t.done_at = null;
+    }
   }
   save();
   return taskById(id);
+}
+
+// --- Laufende Routine (eine zur Zeit, angezeigt über der unteren Leiste) -------------------
+
+export function activeRoutine() {
+  const active = data.activeRoutine;
+  const routine = active ? taskById(active.id) : null;
+  return routine ? { routine, startedAt: active.started_at } : null;
+}
+
+export function startRoutine(id, now = new Date()) {
+  if (data.activeRoutine?.id !== id) data.activeRoutine = { id, started_at: stamp(now) };
+  save();
+}
+
+// Routine abbrechen: Sie läuft nicht mehr; abgehakte Schritte werden zurückgesetzt.
+export function cancelRoutine(id) {
+  resetChildren(id);
+  if (data.activeRoutine?.id === id) data.activeRoutine = null;
+  save();
 }
 
 // Unteraufgaben (alle Ebenen) wieder öffnen, z. B. für den nächsten Durchgang einer Routine.
@@ -476,6 +511,7 @@ function resetRoutinesForNewDay(now) {
     for (const routine of data.tasks.filter((t) => t.kind === 'routine' && t.parent_id === null)) resetChildren(routine.id);
   }
   data.routineResetAt = boundary; // beim allerersten Mal nur merken, nichts zurücksetzen
+  data.activeRoutine = null;
   return true;
 }
 

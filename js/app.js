@@ -7,6 +7,7 @@ import { renderCalendarView } from './calendar.js';
 import { renderTasksView, renderRoutinesView } from './tasks.js';
 import { renderMoreView } from './more.js';
 import { loadSamples } from './samples.js';
+import { initPlayer } from './player.js';
 
 const VIEWS = {
   jetzt: renderNowView,
@@ -16,7 +17,7 @@ const VIEWS = {
   mehr: renderMoreView,
 };
 
-function show() {
+function show(keepScroll = false) {
   const name = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'kalender';
   for (const link of document.querySelectorAll('.tabs a')) {
     link.classList.toggle('active', link.dataset.view === name);
@@ -28,7 +29,7 @@ function show() {
     root.textContent = `Fehler: ${err.message}`;
     console.error(err);
   }
-  window.scrollTo(0, 0);
+  if (!keepScroll) window.scrollTo(0, 0);
 }
 
 // Beim allerersten Start Beispieldaten anlegen (lassen sich unter "Themen" wieder löschen).
@@ -42,6 +43,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 show();
+initPlayer(() => show(true));
 
 // Offline-Unterstützung und dauerhafter Speicher.
 if ('serviceWorker' in navigator) {
