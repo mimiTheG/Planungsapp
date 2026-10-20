@@ -75,6 +75,18 @@ function range() {
   return [from, addDays(from, days - 1)];
 }
 
+// Neuer Termin über „+“: in Tag/3 Tage/Woche am angezeigten Tag (heute, falls sichtbar, sonst der erste) –
+// heute zur nächsten vollen Stunde, an anderen Tagen um 9 Uhr. In der Monatsansicht wie gewohnt ab jetzt.
+function newEventAt(from, to) {
+  if (view.mode === 'month') return {};
+  const today = startOfDay(new Date());
+  const isToday = today >= from && today <= to;
+  const day = isToday ? today : from;
+  const hour = isToday ? Math.min(23, new Date().getHours() + 1) : 9; // kurz vor Mitternacht: 23 Uhr
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour);
+  return { start_at: isoDateTime(start), end_at: isoDateTime(new Date(+start + 3600000)) };
+}
+
 export function renderCalendarView(root) {
   const refresh = () => renderCalendarView(root);
   const [from, to] = range();
@@ -116,7 +128,7 @@ export function renderCalendarView(root) {
         type: 'button',
         onclick: () => setMode(m, refresh),
       }, label))),
-    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor({}, refresh) }, '+'),
+    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
     el('div.legend', {},
       el('label.check.small', {},
         el('input', {
@@ -181,24 +193,48 @@ function moveEvent(ev, delta, refresh) {
 }
 
 // Wischen nach links = weiter (nächster Tag bzw. nächste Tage), nach rechts = zurück.
+// Der Kalender folgt dabei dem Finger; der neue Tag gleitet von der Seite herein. Bewegt wird nur der Inhalt
+// innerhalb des Kalenderrahmens (der schneidet ab), damit die Seite nicht seitlich verrutscht.
 const SWIPE_PX = 60;
+const SWIPE_OUT_MS = 140;
 let swiped = null;
 
 function onSwipe(node, go) {
   let start = null;
+  const parts = () => [...node.children];
+  const move = (dx, animate) => {
+    for (const part of parts()) {
+      part.style.transition = animate ? `transform ${SWIPE_OUT_MS}ms ease-out` : 'none';
+      part.style.transform = dx ? `translateX(${dx}px)` : '';
+    }
+  };
   node.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+    start = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now(), axis: null } : null;
   }, { passive: true });
-  node.addEventListener('touchend', (e) => {
-    if (!start || justDragged()) { start = null; return; }
-    const t = e.changedTouches[0];
+  node.addEventListener('touchmove', (e) => {
+    if (!start) return;
+    if (justDragged()) { move(0); start = null; return; } // Termin wird verschoben, nicht geblättert
+    const t = e.touches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
-    const quick = Date.now() - start.at < 800;
-    start = null;
-    if (quick && Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(dy)) go(dx < 0 ? 1 : -1);
+    // Erst entscheiden, ob seitlich gewischt oder senkrecht gescrollt wird – dann dabei bleiben.
+    if (!start.axis && Math.hypot(dx, dy) > 10) start.axis = Math.abs(dx) > 1.5 * Math.abs(dy) ? 'x' : 'y';
+    if (start.axis === 'x') move(dx);
   }, { passive: true });
+  const end = (e) => {
+    if (!start) return;
+    const { axis } = start;
+    const dx = e.changedTouches[0].clientX - start.x;
+    start = null;
+    if (axis !== 'x' || justDragged()) { move(0, true); return; }
+    if (Math.abs(dx) < SWIPE_PX) { move(0, true); return; } // zurückfedern
+    const dir = dx < 0 ? 1 : -1;
+    move(-dir * node.clientWidth, true); // alter Tag gleitet hinaus …
+    setTimeout(() => go(dir), SWIPE_OUT_MS); // … der neue herein
+  };
+  node.addEventListener('touchend', end, { passive: true });
+  node.addEventListener('touchcancel', end, { passive: true });
 }
 
 // Strich bei der aktuellen Uhrzeit; wandert jede Minute weiter, solange er angezeigt wird.
