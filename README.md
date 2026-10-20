@@ -24,6 +24,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
 - Tippt man in der Monatsansicht auf einen Tag, führt die Zurück-Taste des Handys wieder zum Monat.
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
+- **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
+  oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,

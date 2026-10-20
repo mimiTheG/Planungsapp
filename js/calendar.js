@@ -44,11 +44,16 @@ function segments(event) {
   if (event.before_type !== 'none' && event.before_minutes) {
     list.push({ part: 'before', start: new Date(start - event.before_minutes * 60000), end: start, label: sideLabel(event, 'before') });
   }
-  list.push({ part: 'main', start, end, label: event.title });
+  list.push({ part: 'main', start, end, label: eventTitle(event) });
   if (event.after_type !== 'none' && event.after_minutes) {
     list.push({ part: 'after', start: end, end: new Date(+end + event.after_minutes * 60000), label: sideLabel(event, 'after') });
   }
   return list;
+}
+
+// Eingeplante Routinen heißen im Kalender immer wie die Routine (auch nach Umbenennen).
+function eventTitle(event) {
+  return (event.routine_id && store.taskById(event.routine_id)?.title) || event.title;
 }
 
 function sideLabel(event, side) {
@@ -283,7 +288,7 @@ function monthGrid(from, to, events, refresh) {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${formatTime(parseDate(ev.start_at))} ${ev.title}`,
       onclick: () => openEventEditor(ev, refresh),
-    }, ev.title))));
+    }, eventTitle(ev)))));
   }
   return el('div.month', {}, ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div.month-head', {}, d)), cells);
 }
@@ -344,16 +349,46 @@ export function openEventEditor(event, refresh) {
 
   const repeat = repeatFields(ev.repeat || null, startInput);
 
-  const routineButtons = ['before', 'after']
-    .filter((side) => ev[`${side}_type`] === 'routine' && store.taskById(ev[`${side}_routine_id`]))
-    .map((side) => {
-      const r = store.taskById(ev[`${side}_routine_id`]);
+  const routineButtons = ['main', 'before', 'after']
+    .map((side) => (side === 'main' ? ev.routine_id : ev[`${side}_type`] === 'routine' && ev[`${side}_routine_id`]))
+    .filter((id) => id && store.taskById(id))
+    .map((id) => {
+      const r = store.taskById(id);
       return el('button', { type: 'button', onclick: () => runRoutine(r, () => {}) }, `▶ ${r.title}`);
     });
 
+  // Termin oder Routine einplanen. Bei einer Routine kommen Titel, Thema und Dauer von der Routine.
+  const routineList = store.routines();
+  const titleInput = el('input', { name: 'title', maxlength: 200, value: ev.routine_id ? '' : ev.title || '' });
+  const titleField = field('Titel', titleInput);
+  const routineSelect = select('routine_id', [['', '— Routine wählen —'], ...routineList.map((r) => [r.id, r.title])], ev.routine_id);
+  const routineField = field('Routine', routineSelect, routineList.length ? null : 'Lege zuerst unter „Routinen“ eine an.');
+  const topics = topicPicker(ev.topic_id);
+  const typeSwitch = el('div.segmented.radio', { role: 'group', 'aria-label': 'Art' },
+    [['event', 'Termin'], ['routine', 'Routine']].map(([v, label]) => el('label', {},
+      el('input', { type: 'radio', name: 'entry_type', value: v, checked: (v === 'routine') === Boolean(ev.routine_id), onchange: showType }),
+      label)));
+  function showType() {
+    const isRoutine = typeSwitch.querySelector('input:checked').value === 'routine';
+    titleField.hidden = isRoutine;
+    titleInput.required = !isRoutine;
+    routineField.hidden = !isRoutine;
+    routineSelect.required = isRoutine;
+  }
+  routineSelect.addEventListener('change', () => {
+    const r = store.taskById(routineSelect.value);
+    if (!r) return;
+    const topicSelect = topics.querySelector('select[name="topic_id"]');
+    if (r.topic_id) topicSelect.value = String(r.topic_id);
+    const minutes = store.routineMinutes(r);
+    if (minutes) endField.set(new Date(+parseDate(startInput.value) + minutes * 60000));
+  });
+
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
-    field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: ev.title || '' })),
-    topicPicker(ev.topic_id),
+    typeSwitch,
+    titleField,
+    routineField,
+    topics,
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
     el('div.field', {}, el('span.field-label', {}, 'Beginn'), startField.element),
@@ -367,8 +402,11 @@ export function openEventEditor(event, refresh) {
       routineButtons,
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
+  showType();
+
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
+    if (payload.entry_type !== 'routine') payload.routine_id = '';
     if (!attempt(() => store.checkEvent(payload))) return;
     const run = (scope) => {
       const ok = attempt(() => (isNew
@@ -395,5 +433,5 @@ export function openEventEditor(event, refresh) {
   }
 
   const topic = store.topicById(ev.topic_id);
-  const close = openDialog(isNew ? 'Neuer Termin' : `Termin${topic ? ` · ${topic.name}` : ''}`, form);
+  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : 'Neuer Termin') : `Termin${topic ? ` · ${topic.name}` : ''}`, form);
 }

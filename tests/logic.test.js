@@ -225,3 +225,15 @@ test('Store: neues Thema einer Routine gilt für alle Schritte', () => {
   assert.equal(store.taskById(sub.id).topic_id, arbeit.id);
   assert.equal(store.taskById(other.id).topic_id, sport.id);
 });
+
+test('Store: Routine im Kalender einplanen (Titel/Thema von der Routine, Löschen der Routine lässt Termin stehen)', () => {
+  store.load(memory());
+  const topic = store.createTopic({ name: 'Sport' });
+  const routine = store.createTask({ title: 'Sportroutine', kind: 'routine', topic_id: topic.id });
+  const ev = store.createEvent({ routine_id: routine.id, start_at: '2026-10-21T07:00', end_at: '2026-10-21T07:45' });
+  assert.equal(ev.title, 'Sportroutine');
+  assert.equal(ev.topic_id, topic.id);
+  assert.throws(() => store.createEvent({ routine_id: 9999, start_at: '2026-10-21T07:00', end_at: '2026-10-21T07:45' }), /Routine nicht gefunden/);
+  store.deleteTask(routine.id);
+  assert.equal(store.eventById(ev.id).routine_id, null);
+});
