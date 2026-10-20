@@ -64,7 +64,8 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   **▶ Start**, geändert nur nach Tippen auf **✎ Bearbeiten** (Schritte hinzufügen, löschen, umsortieren; ⚙ für Name,
   Thema und Löschen der Routine).
   Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.
-  Lange Routinen (ab 5 Schritten) zeigen zunächst nur die ersten 3 Schritte und lassen
+  Lange Routinen (ab 5 Schritten, Unterschritte zählen mit) zeigen zunächst nur die ersten 3 Einträge – egal ob Schritt
+  oder Unterschritt – und lassen
   sich ausklappen.
 - **Routine starten:** **▶ Start** öffnet die Checkliste mit allen Schritten und Unterschritten. Die Routine läuft
   dann – wie ein Song bei Spotify – als **Leiste über der unteren Navigation** weiter (Fortschritt, seit wann);

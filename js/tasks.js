@@ -131,6 +131,8 @@ const collapsed = new Set();
 // per langem Drücken umsortieren (Unteraufgaben und Schritte einer Routine).
 export function taskTree(tasks, refresh, options = {}) {
   const sortable = options.parentId && options.mode !== 'view';
+  // options.only: nur diese Einträge zeigen (eingeklappte Routine).
+  if (options.only) tasks = tasks.filter((t) => options.only.has(t.id));
   const list = el(`ul.tree${sortable ? '.sortable' : ''}`, {},
     tasks.map((task) => taskNode(task, refresh, { ...options, parentId: undefined })));
   if (sortable && tasks.length > 1) {
@@ -145,7 +147,8 @@ export function taskTree(tasks, refresh, options = {}) {
 // options.mode: undefined = normale Aufgaben, 'view' = Routine ansehen (nur lesen),
 // 'edit' = Routine bearbeiten (Schritte anlegen, löschen, umsortieren – aber nicht abhaken).
 function taskNode(task, refresh, options) {
-  const children = store.childrenOf(task.id).filter((c) => options.showDone || c.status !== 'done');
+  const children = store.childrenOf(task.id)
+    .filter((c) => (options.showDone || c.status !== 'done') && (!options.only || options.only.has(c.id)));
   const isCollapsed = collapsed.has(task.id);
   const checkable = !options.mode && (task.kind !== 'routine' || task.recurrence !== 'once');
   const isDone = task.status === 'done';
@@ -549,9 +552,11 @@ function routineCard(routine, refresh) {
         }, '+ Schritt')));
   }
 
-  const long = steps.length >= ROUTINE_COLLAPSE_FROM;
+  // Eingeklappt zählen Schritte und Unterschritte gleich: die ersten drei Einträge von oben.
+  const allSteps = store.descendantsOf(routine.id);
+  const long = allSteps.length >= ROUTINE_COLLAPSE_FROM;
   const expanded = !long || expandedRoutines.has(routine.id);
-  const visible = expanded ? steps : steps.slice(0, ROUTINE_PREVIEW);
+  const only = expanded ? null : new Set(allSteps.slice(0, ROUTINE_PREVIEW).map((t) => t.id));
   return el('div.card.routine', {},
     el('div.routine-head', {},
       topicDot(routine),
@@ -559,7 +564,7 @@ function routineCard(routine, refresh) {
       minutes ? el('span.badge', {}, formatDuration(minutes)) : null),
     routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
     steps.length
-      ? taskTree(visible, refresh, { showDone: true, parentId: routine.id, mode: 'view' })
+      ? taskTree(steps, refresh, { showDone: true, parentId: routine.id, mode: 'view', only })
       : el('p.empty', {}, 'Noch keine Schritte – über „Bearbeiten“ hinzufügen.'),
     long ? el('button.link.more-steps', {
       type: 'button',
@@ -568,7 +573,7 @@ function routineCard(routine, refresh) {
         if (expanded) expandedRoutines.delete(routine.id); else expandedRoutines.add(routine.id);
         refresh();
       },
-    }, expanded ? '▴ Weniger anzeigen' : `▾ ${steps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null,
+    }, expanded ? '▴ Weniger anzeigen' : `▾ ${allSteps.length - ROUTINE_PREVIEW} weitere Schritte anzeigen`) : null,
     el('div.buttons.routine-actions', {},
       el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start'),
       el('button', { type: 'button', onclick: () => setEditing(true) }, '✎ Bearbeiten'),
