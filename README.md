@@ -49,7 +49,9 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Routinen und die Wunschliste); einmalige Aufgaben lassen sich dort mit ↺ wieder öffnen.
 - Beliebig tief verschachtelte Unteraufgaben. Bei „Gehört zu“ sieht man zuerst nur die oberste Ebene und klappt bei
   Bedarf auf. Neue Unteraufgaben übernehmen Wichtigkeit und Dringlichkeit der übergeordneten Aufgabe. Die **Reihenfolge** von Unteraufgaben und Routine-Schritten ändert man
-  durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder unten. Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
+  durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder unten. Zieht man nach **rechts**, wird der
+  Eintrag zur Unteraufgabe des Eintrags darüber; nach **links** rückt er eine Ebene höher (Routine-Schritte bleiben
+  dabei in ihrer Routine). Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
   bis Dunkelrot (fertig).
 - **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.

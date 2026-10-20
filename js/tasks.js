@@ -135,10 +135,21 @@ export function taskTree(tasks, refresh, options = {}) {
   if (options.only) tasks = tasks.filter((t) => options.only.has(t.id));
   const list = el(`ul.tree${sortable ? '.sortable' : ''}`, {},
     tasks.map((task) => taskNode(task, refresh, { ...options, parentId: undefined })));
-  if (sortable && tasks.length > 1) {
+  if (sortable) {
+    // Lang drücken: hoch/runter = Reihenfolge, rechts/links = Ebene (Unteraufgabe oder nicht).
     enableLongPressReorder(list, (ids) => {
       store.reorderChildren(options.parentId, ids);
       refresh();
+    }, {
+      canOutdent: store.canOutdent({ parent_id: options.parentId }),
+      onChange: (id, ids, direction) => {
+        attempt(() => {
+          store.reorderChildren(options.parentId, ids);
+          const moved = direction > 0 ? store.indentTask(id) : store.outdentTask(id);
+          collapsed.delete(moved.parent_id); // neue Oberaufgabe aufklappen, damit man den Eintrag sieht
+        });
+        refresh();
+      },
     });
   }
   return list;
@@ -541,7 +552,8 @@ function routineCard(routine, refresh) {
           onclick: () => openTaskEditor(routine, refresh),
         }, '⚙'),
         el('button.primary', { type: 'button', onclick: () => setEditing(false) }, '✓ Fertig')),
-      el('p.edit-hint', {}, 'Bearbeiten: Schritt antippen zum Ändern, lang drücken zum Verschieben.'),
+      el('p.edit-hint', {}, 'Bearbeiten: Schritt antippen zum Ändern. Lang drücken und ziehen: hoch/runter ',
+        'verschiebt, nach rechts wird er zum Unterschritt, nach links eine Ebene höher.'),
       steps.length
         ? taskTree(steps, refresh, { showDone: true, parentId: routine.id, mode: 'edit' })
         : el('p.empty', {}, 'Noch keine Schritte.'),

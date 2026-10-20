@@ -296,3 +296,22 @@ test('Store: laufende Routine starten, abschließen und abbrechen', () => {
   store.completeTask(routine.id);
   assert.equal(store.activeRoutine(), null);
 });
+
+test('Store: Ebene ändern – einrücken unter den Vorgänger, ausrücken hinter die Oberaufgabe', () => {
+  store.load(memory());
+  const parent = store.createTask({ title: 'Umzug' });
+  const a = store.createTask({ title: 'Kisten', parent_id: parent.id });
+  const b = store.createTask({ title: 'Kisten kaufen', parent_id: parent.id });
+  const c = store.createTask({ title: 'Packen', parent_id: parent.id });
+  assert.throws(() => store.indentTask(a.id), /Darüber/);
+  store.indentTask(b.id);
+  assert.equal(store.taskById(b.id).parent_id, a.id);
+  assert.deepEqual(store.childrenOf(parent.id).map((t) => t.title), ['Kisten', 'Packen']);
+  store.outdentTask(b.id);
+  assert.deepEqual(store.childrenOf(parent.id).map((t) => t.title), ['Kisten', 'Kisten kaufen', 'Packen']);
+  store.outdentTask(c.id);
+  assert.equal(store.taskById(c.id).parent_id, null);
+  const routine = store.createTask({ title: 'Morgenroutine', kind: 'routine' });
+  const step = store.createTask({ title: 'Zähne', parent_id: routine.id });
+  assert.throws(() => store.outdentTask(step.id), /Routine/);
+});
