@@ -6,6 +6,7 @@ import { renderNowView } from './now.js';
 import { renderCalendarView } from './calendar.js';
 import { renderTasksView, renderRoutinesView } from './tasks.js';
 import { renderMoreView } from './more.js';
+import { loadSamples } from './samples.js';
 
 const VIEWS = {
   jetzt: renderNowView,
@@ -30,7 +31,8 @@ function show() {
   window.scrollTo(0, 0);
 }
 
-store.load();
+// Beim allerersten Start Beispieldaten anlegen (lassen sich unter "Themen" wieder löschen).
+if (!store.load()) loadSamples();
 window.addEventListener('hashchange', show);
 // Beim Zurückkehren in die App Fälligkeiten neu berechnen (z. B. am nächsten Morgen).
 document.addEventListener('visibilitychange', () => {

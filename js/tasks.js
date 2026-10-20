@@ -5,8 +5,11 @@ import {
 } from './ui.js';
 import { daysBetween, formatDate, isoDate, parseDate } from './dates.js';
 import * as store from './store.js';
+import { IMPORTANCE_LABELS, URGENCY_LABELS, TEXTS } from './matrix-texts.js';
+import { topicPicker } from './topic-picker.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
+const NEW_TITLES = { todo: 'Neue Aufgabe', project: 'Neues Projekt', routine: 'Neue Routine' };
 
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
@@ -43,10 +46,11 @@ export function windowText(task) {
   }
 }
 
+// Priorität 1–25 (höher = zuerst). Skala: Wichtigkeit/Dringlichkeit 1 = sehr wichtig/sofort … 5 = unwichtig/kein Zeitdruck.
 export function priority(task, level = 'sachlich') {
   return level === 'emotional'
-    ? task.importance_emo * task.urgency_emo
-    : task.importance * task.urgency;
+    ? (6 - task.importance_emo) * (6 - task.urgency_emo)
+    : (6 - task.importance) * (6 - task.urgency);
 }
 
 export function topicDot(task) {
@@ -56,10 +60,33 @@ export function topicDot(task) {
   });
 }
 
-function progress(task) {
+// Fortschritt über alle (einmaligen) Unteraufgaben, beliebig tief.
+export function progressInfo(task) {
   const all = store.descendantsOf(task.id).filter((t) => t.recurrence === 'once');
   if (!all.length) return null;
-  return el('span.badge', { title: 'Unteraufgaben erledigt' }, `${all.filter((t) => t.done_at).length}/${all.length}`);
+  const done = all.filter((t) => t.done_at).length;
+  return { done, total: all.length, pct: Math.round((done / all.length) * 100) };
+}
+
+// Farbstufe je nach Fortschritt: von zartem Rosa (wenig erledigt) bis Dunkelrot (fertig).
+function progressStep(pct) {
+  if (pct >= 100) return 4;
+  if (pct >= 67) return 3;
+  if (pct >= 34) return 2;
+  if (pct > 0) return 1;
+  return 0;
+}
+
+export function progressBar(task) {
+  const info = progressInfo(task);
+  if (!info) return null;
+  return el(`div.progress.p${progressStep(info.pct)}`, { title: `${info.done} von ${info.total} Unteraufgaben erledigt` },
+    el('span.progress-track', {}, el('span.progress-fill', { style: { width: `${info.pct}%` } })),
+    el('span.progress-label', {}, `${info.pct} %`));
+}
+
+function prioBadge(task) {
+  return el('span.badge', { title: 'Wichtigkeit / Dringlichkeit (1 = sehr wichtig / sofort)' }, `W${task.importance} · D${task.urgency}`);
 }
 
 // --- Aktionen --------------------------------------------------------------
@@ -107,6 +134,7 @@ function taskNode(task, refresh, options) {
   const isCollapsed = collapsed.has(task.id);
   const checkable = task.kind !== 'routine' || task.recurrence !== 'once';
   const isDone = task.status === 'done';
+  const inRoutine = store.isInRoutine(task);
 
   const toggle = children.length
     ? el('button.icon.twisty', {
@@ -126,13 +154,11 @@ function taskNode(task, refresh, options) {
     : null;
 
   const meta = [
-    task.kind !== 'todo' && task.parent_id === null ? el('span.badge.kind', {}, KIND_LABELS[task.kind]) : null,
-    options.inRoutine ? null : el('span.badge', { title: 'Wichtigkeit / Dringlichkeit (sachlich)' }, `W${task.importance} D${task.urgency}`),
-    options.inRoutine && task.duration_min ? el('span.badge', {}, `${task.duration_min} min`) : null,
+    task.kind !== 'todo' && task.parent_id === null ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
+    inRoutine || task.parent_id !== null ? null : prioBadge(task),
+    task.duration_min && inRoutine ? el('span.badge', {}, `${task.duration_min} min`) : null,
     task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
     windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
-    task.kind === 'routine' && store.routineMinutes(task) ? el('span.badge', {}, `${store.routineMinutes(task)} min`) : null,
-    progress(task),
   ];
 
   return el('li', {},
@@ -142,11 +168,12 @@ function taskNode(task, refresh, options) {
       el('div.task-main', {},
         el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) },
           topicDot(task), task.title),
-        el('span.meta', {}, meta)),
+        el('span.meta', {}, meta),
+        progressBar(task)),
       el('span.actions', {},
         el('button.icon', {
           type: 'button',
-          'aria-label': 'Unteraufgabe hinzufügen',
+          'aria-label': inRoutine ? 'Schritt hinzufügen' : 'Unteraufgabe hinzufügen',
           onclick: () => openTaskEditor({ parent_id: task.id, topic_id: task.topic_id }, refresh),
         }, '+'),
         el('button.icon', { type: 'button', 'aria-label': 'Löschen', onclick: () => deleteTask(task, refresh) }, '🗑'))),
@@ -155,53 +182,63 @@ function taskNode(task, refresh, options) {
 
 // --- Matrix ----------------------------------------------------------------
 
-const QUADRANTS = {
-  'hoch-hoch': 'Sofort erledigen',
-  'hoch-niedrig': 'Einplanen',
-  'niedrig-hoch': 'Abgeben / kurz erledigen',
-  'niedrig-niedrig': 'Später / weglassen',
-};
+const readFlag = (key) => { try { return localStorage.getItem(key) === '1'; } catch { return false; } };
+const writeFlag = (key, on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* egal */ } };
 
-// Interaktive 5×5-Matrix. values = { sachlich: {importance, urgency}, emotional: {…} }.
-function priorityMatrix(values, currentId, onChange) {
+// Interaktive 5×5-Matrix wie in den Excel-Tabellen: Zeilen = Wichtigkeit 1–5, Spalten = Dringlichkeit 1–5.
+// values = { sachlich: {importance, urgency}, emotional: {…} }.
+function priorityMatrix(values, currentId) {
   let level = 'sachlich';
+  let showInfo = readFlag('planungsapp.setting.matrixInfo');
   const wrap = el('div.matrix-wrap');
   const others = store.tasks().filter((t) => t.parent_id === null && t.id !== currentId
     && !['done', 'expired', 'routine'].includes(t.status));
 
   const render = () => {
     const v = values[level];
-    const grid = el('div.matrix', { role: 'grid' });
-    for (let imp = 5; imp >= 1; imp -= 1) {
-      grid.append(el('span.axis', {}, String(imp)));
+    const grid = el('div.matrix', { role: 'grid' },
+      el('span.corner', {}, 'W↓ D→'),
+      URGENCY_LABELS.map((label, i) => el('span.axis', { title: label }, String(i + 1))));
+    for (let imp = 1; imp <= 5; imp += 1) {
+      grid.append(el('span.axis', { title: IMPORTANCE_LABELS[imp - 1] }, String(imp)));
       for (let urg = 1; urg <= 5; urg += 1) {
-        const quadrant = `${imp >= 3 ? 'hoch' : 'niedrig'}-${urg >= 3 ? 'hoch' : 'niedrig'}`;
         const here = others.filter((t) => (level === 'sachlich'
           ? t.importance === imp && t.urgency === urg
           : t.importance_emo === imp && t.urgency_emo === urg));
-        grid.append(el(`button.cell.q-${quadrant}${v.importance === imp && v.urgency === urg ? '.selected' : ''}`, {
+        const heat = (6 - imp) * (6 - urg); // 1–25
+        grid.append(el(`button.cell${v.importance === imp && v.urgency === urg ? '.selected' : ''}`, {
           type: 'button',
-          'aria-label': `Wichtigkeit ${imp}, Dringlichkeit ${urg}`,
+          style: { '--heat': `${Math.round(6 + heat * 3.2)}%` },
+          'aria-label': `Wichtigkeit ${imp} (${IMPORTANCE_LABELS[imp - 1]}), Dringlichkeit ${urg} (${URGENCY_LABELS[urg - 1]})`,
           title: here.map((t) => t.title).join('\n'),
-          onclick: () => { v.importance = imp; v.urgency = urg; onChange(); render(); },
+          onclick: () => { v.importance = imp; v.urgency = urg; render(); },
         }, here.slice(0, 6).map((t) => el('span.dot.small', { style: { background: store.topicColor(t.topic_id) } }))));
       }
     }
-    grid.append(el('span.axis'), ...[1, 2, 3, 4, 5].map((u) => el('span.axis', {}, String(u))));
 
-    const q = `${v.importance >= 3 ? 'hoch' : 'niedrig'}-${v.urgency >= 3 ? 'hoch' : 'niedrig'}`;
     mount(wrap,
-      el('div.segmented', { role: 'group', 'aria-label': 'Ebene' },
-        ['sachlich', 'emotional'].map((l) => el(`button${l === level ? '.active' : ''}`, {
+      el('div.matrix-top', {},
+        el('div.segmented', { role: 'group', 'aria-label': 'Ebene' },
+          ['sachlich', 'emotional'].map((l) => el(`button${l === level ? '.active' : ''}`, {
+            type: 'button',
+            onclick: () => { level = l; render(); },
+          }, l === 'sachlich' ? 'Sachlich' : 'Emotional'))),
+        el(`button.icon.info${showInfo ? '.active' : ''}`, {
           type: 'button',
-          onclick: () => { level = l; render(); },
-        }, l === 'sachlich' ? 'Sachlich' : 'Emotional'))),
-      el('div.matrix-layout', {},
-        el('span.axis-label.vertical', {}, 'Wichtigkeit →'),
-        el('div', {}, grid, el('div.axis-label', {}, 'Dringlichkeit →'))),
-      el('p.muted', {},
-        `${level === 'sachlich' ? 'Sachlich' : 'Emotional'}: W${v.importance} / D${v.urgency} – ${QUADRANTS[q]}. `,
-        'Punkte = andere offene Aufgaben.'));
+          'aria-label': 'Erklärung anzeigen',
+          'aria-pressed': String(showInfo),
+          onclick: () => { showInfo = !showInfo; writeFlag('planungsapp.setting.matrixInfo', showInfo); render(); },
+        }, 'i')),
+      grid,
+      el('p.matrix-choice', {},
+        el('strong', {}, `Wichtigkeit ${v.importance}`), ` – ${IMPORTANCE_LABELS[v.importance - 1]} · `,
+        el('strong', {}, `Dringlichkeit ${v.urgency}`), ` – ${URGENCY_LABELS[v.urgency - 1]}`),
+      showInfo ? el('div.matrix-info', {},
+        el('p', {}, TEXTS[level][v.importance - 1][v.urgency - 1]),
+        el('small.muted', {}, level === 'sachlich'
+          ? 'Sachliche Ebene: Was bewirkt die Aufgabe, und bis wann muss sie fertig sein?'
+          : 'Emotionale Ebene: Wie fühlt sich die Aufgabe für mich an?')) : null,
+      others.length ? el('small.muted', {}, 'Punkte = andere offene Aufgaben.') : null);
   };
   render();
   return wrap;
@@ -229,17 +266,13 @@ export function openTaskEditor(task, refresh) {
     recurrence: 'once', on_missed: 'remind', rhythm_days: 7, buffer_days: 1,
     period_start: '03-01', period_end: '09-30', ...task,
   };
-  if (isNew && t.parent_id) t.kind = store.taskById(t.parent_id)?.kind === 'project' ? 'project' : 'todo';
+  const parent = t.parent_id ? store.taskById(t.parent_id) : null;
+  if (isNew && parent) t.kind = parent.kind === 'project' ? 'project' : 'todo';
 
   const values = {
     sachlich: { importance: t.importance, urgency: t.urgency },
     emotional: { importance: t.importance_emo, urgency: t.urgency_emo },
   };
-  const prioLabel = el('span.muted');
-  const updatePrioLabel = () => {
-    prioLabel.textContent = `sachlich W${values.sachlich.importance}/D${values.sachlich.urgency} · emotional W${values.emotional.importance}/D${values.emotional.urgency}`;
-  };
-  updatePrioLabel();
 
   const excluded = new Set(isNew ? [] : [t.id, ...store.descendantsOf(t.id).map((d) => d.id)]);
   const parentOptions = [['', '— keine (oberste Ebene) —'],
@@ -249,10 +282,11 @@ export function openTaskEditor(task, refresh) {
     once: el('div.row', {},
       field('Ab (optional)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
       field('Bis / Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
-    rhythm: el('div.row', {},
-      field('Alle … Tage', el('input', { type: 'number', name: 'rhythm_days', min: 1, inputmode: 'numeric', value: t.rhythm_days })),
-      field('Puffer (Tage)', el('input', { type: 'number', name: 'buffer_days', min: 1, inputmode: 'numeric', value: t.buffer_days }),
-        'So viele Tage hat man Zeit.'),
+    rhythm: el('div.form-grid', {},
+      el('div.row', {},
+        field('Alle … Tage', el('input', { type: 'number', name: 'rhythm_days', min: 1, inputmode: 'numeric', value: t.rhythm_days })),
+        field('Puffer (Tage)', el('input', { type: 'number', name: 'buffer_days', min: 1, inputmode: 'numeric', value: t.buffer_days }))),
+      el('small.muted', {}, 'Puffer = so viele Tage hat man Zeit, die Aufgabe zu erledigen.'),
       field('Nächstes Mal ab', el('input', {
         type: 'date', name: 'rhythm_start', value: t.recurrence === 'rhythm' ? t.window_start : isoDate(new Date()),
       }))),
@@ -261,37 +295,38 @@ export function openTaskEditor(task, refresh) {
       field('bis', monthDayInputs('period_end', t.period_end))),
   };
 
+  const kindSelect = select('kind', Object.entries(KIND_LABELS), t.kind);
+  const parentSelect = select('parent_id', parentOptions, t.parent_id);
+
+  // Routinen (und ihre Schritte) haben keine Priorität und kein "Wann?".
+  const prioFieldset = el('fieldset', {},
+    el('legend', {}, 'Wichtigkeit & Dringlichkeit'),
+    priorityMatrix(values, t.id));
+
+  const whenFieldset = el('fieldset', {},
+    el('legend', {}, 'Wann?'),
+    el('div.segmented.radio', {}, [['once', 'Einmalig'], ['rhythm', 'Rhythmus'], ['period', 'Zeitraum']]
+      .map(([v, label]) => el('label', {},
+        el('input', { type: 'radio', name: 'recurrence', value: v, checked: t.recurrence === v, onchange: showRecurrence }),
+        label))),
+    Object.values(recurrenceBoxes),
+    field('Spätestens um (optional)', el('input', { type: 'time', name: 'deadline_time', value: t.deadline_time || '' }),
+      'Uhrzeit am letzten Tag, z. B. Müll bis 6:00.'),
+    field('Wenn nicht rechtzeitig erledigt', select('on_missed', [
+      ['remind', 'Täglich erinnern (steht ganz oben)'],
+      ['expire', 'Verfällt (nicht nachholbar)'],
+    ], t.on_missed)));
+
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
     field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: t.title || '' })),
     el('div.row', {},
-      field('Art', select('kind', Object.entries(KIND_LABELS), t.kind)),
-      field('Thema', select('topic_id', [['', '— ohne —'], ...store.topics().map((tp) => [tp.id, tp.name])], t.topic_id))),
+      field('Art', kindSelect),
+      field('Dauer (min)', el('input', { type: 'number', name: 'duration_min', min: 1, inputmode: 'numeric', value: t.duration_min || '', placeholder: 'optional' }))),
     el('small.muted', {}, 'Projekt = freiwillig, macht Spaß. Routine = wiederverwendbare Abfolge von Schritten.'),
-    field('Gehört zu', select('parent_id', parentOptions, t.parent_id)),
-
-    el('fieldset', {},
-      el('legend', {}, 'Wichtigkeit & Dringlichkeit'),
-      prioLabel,
-      el('details', { open: isNew && !t.parent_id },
-        el('summary', {}, 'Matrix anzeigen'),
-        priorityMatrix(values, t.id, updatePrioLabel))),
-
-    el('fieldset', {},
-      el('legend', {}, 'Wann?'),
-      el('div.segmented.radio', {}, [['once', 'Einmalig'], ['rhythm', 'Rhythmus'], ['period', 'Zeitraum']]
-        .map(([v, label]) => el('label', {},
-          el('input', { type: 'radio', name: 'recurrence', value: v, checked: t.recurrence === v, onchange: showRecurrence }),
-          label))),
-      Object.values(recurrenceBoxes),
-      el('div.row', {},
-        field('Spätestens um', el('input', { type: 'time', name: 'deadline_time', value: t.deadline_time || '' }),
-          'Optional, z. B. Müll bis 6:00.'),
-        field('Dauer (min)', el('input', { type: 'number', name: 'duration_min', min: 1, inputmode: 'numeric', value: t.duration_min || '' }))),
-      field('Wenn nicht rechtzeitig erledigt', select('on_missed', [
-        ['remind', 'Täglich erinnern (steht ganz oben)'],
-        ['expire', 'Verfällt (nicht nachholbar)'],
-      ], t.on_missed))),
-
+    topicPicker(t.topic_id),
+    field('Gehört zu', parentSelect),
+    prioFieldset,
+    whenFieldset,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, t.notes || '')),
     !isNew && t.recurrence !== 'once' ? el('p.muted', {},
       `Zuletzt erledigt: ${t.last_done_at ? formatDate(t.last_done_at) : 'noch nie'}`,
@@ -304,7 +339,16 @@ export function openTaskEditor(task, refresh) {
     const current = form.elements.recurrence.value;
     for (const [key, box] of Object.entries(recurrenceBoxes)) box.hidden = key !== current;
   }
+
+  function showForKind() {
+    const routineLike = store.isInRoutine({ kind: kindSelect.value, parent_id: Number(parentSelect.value) || null });
+    prioFieldset.hidden = routineLike;
+    whenFieldset.hidden = routineLike;
+  }
+  kindSelect.addEventListener('change', showForKind);
+  parentSelect.addEventListener('change', showForKind);
   showRecurrence();
+  showForKind();
 
   function save() {
     const d = formData(form);
@@ -337,7 +381,12 @@ export function openTaskEditor(task, refresh) {
     refresh();
   }
 
-  const close = openDialog(isNew ? `Neue ${t.parent_id ? 'Unteraufgabe' : KIND_LABELS[t.kind]}` : 'Bearbeiten', form);
+  let title = 'Bearbeiten';
+  if (isNew) {
+    if (!parent) title = NEW_TITLES[t.kind];
+    else title = store.isInRoutine(parent) ? 'Neuer Schritt' : 'Neue Unteraufgabe';
+  }
+  const close = openDialog(title, form);
 }
 
 // --- Ansicht "Aufgaben & Projekte" ------------------------------------------
@@ -354,8 +403,7 @@ export function renderTasksView(root) {
     el('div.toolbar', {},
       el('h2', {}, 'Aufgaben'),
       el('span.spacer'),
-      el('button', { type: 'button', onclick: () => openTaskEditor({ kind: 'project' }, refresh) }, '+ Projekt'),
-      el('button.primary', { type: 'button', onclick: () => openTaskEditor({}, refresh) }, '+ Aufgabe')),
+      el('button.primary', { type: 'button', onclick: () => openTaskEditor({}, refresh) }, '+ Neu')),
     el('div.toolbar', {},
       el('div.segmented', {}, [['all', 'Alle'], ['todo', 'Aufgaben'], ['project', 'Projekte']].map(([v, label]) =>
         el(`button${filters.kind === v ? '.active' : ''}`, { type: 'button', onclick: () => { filters.kind = v; refresh(); } }, label))),
@@ -391,7 +439,7 @@ export function renderRoutinesView(root) {
           el('span.spacer'),
           el('button.primary', { type: 'button', onclick: () => runRoutine(routine, refresh) }, '▶ Start')),
         routine.last_done_at ? el('small.muted', {}, `zuletzt ${formatDate(routine.last_done_at)}`) : null,
-        steps.length ? taskTree(steps, refresh, { showDone: true, inRoutine: true }) : el('p.empty', {}, 'Noch keine Schritte.'),
+        steps.length ? taskTree(steps, refresh, { showDone: true }) : el('p.empty', {}, 'Noch keine Schritte.'),
         el('button', {
           type: 'button',
           onclick: () => openTaskEditor({ parent_id: routine.id, topic_id: routine.topic_id }, refresh),
