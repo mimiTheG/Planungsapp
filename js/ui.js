@@ -5,6 +5,12 @@ export function el(spec, attrs = {}, ...children) {
   const [tag, ...classes] = spec.split('.');
   const node = document.createElement(tag || 'div');
   if (classes.length) node.className = classes.join(' ');
+  // Keine Rechtschreibprüfung in Eingabefeldern: Antippen eines unterringelten Worts öffnete sonst
+  // Korrekturvorschläge und schloss dabei die Tastatur. (Notizen-Felder behalten sie.)
+  if (tag === 'input') {
+    node.spellcheck = false;
+    node.setAttribute('autocorrect', 'off');
+  }
   for (const [key, value] of Object.entries(attrs || {})) {
     if (value === null || value === undefined || value === false) continue;
     if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
