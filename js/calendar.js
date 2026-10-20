@@ -14,7 +14,7 @@ const HOUR_PX = 44;
 const MODES = { 1: 'Tag', 3: '3 Tage', 7: 'Woche', month: 'Monat' };
 
 const view = {
-  mode: readSetting('calendarMode', window.innerWidth < 700 ? '3' : '7'),
+  mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
   showEvents: readSetting('showEvents', true),
 };
@@ -94,7 +94,7 @@ export function renderCalendarView(root) {
       el('div.segmented', {}, Object.entries(MODES).map(([m, label]) =>
         el(`button${view.mode === m ? '.active' : ''}`, {
           type: 'button',
-          onclick: () => { view.mode = m; writeSetting('calendarMode', m); refresh(); },
+          onclick: () => { view.mode = m; refresh(); },
         }, label)))),
     el('div.toolbar', {},
       el('button.icon.nav', { type: 'button', 'aria-label': 'Zurück', onclick: () => step(-1) }, '‹'),

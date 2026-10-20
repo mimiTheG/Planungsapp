@@ -14,7 +14,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 
 ## Funktionen
 
-**Kalender** (Tag, 3 Tage, Woche, Monat)
+**Kalender** (Tag, 3 Tage, Woche, Monat) – die Startseite der App, öffnet in der Monatsansicht
 - Termine mit Thema (Farbe). Davor und/oder danach kann ein **freier Bereich** (z. B. „Anfahrt“, 30 min)
   oder eine **Routine** (z. B. „Arbeit Morgendliche Aufgaben“) liegen – im Kalender schraffiert.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
@@ -23,11 +23,13 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
 
 **Aufgaben, Projekte und Routinen**
-- Wichtigkeit und Dringlichkeit jeweils **1–5, wobei 1 = sehr wichtig / sofort** und 5 = unwichtig / kein Zeitdruck –
+- Wichtigkeit und Dringlichkeit jeweils **1–5, wobei 5 = sehr wichtig / sofort** und 1 = unwichtig / kein Zeitdruck –
   getrennt für die **sachliche** und die **emotionale** Ebene. Beim Anlegen zeigt eine Matrix alle Kombinationen
   (je dunkler, desto dringender und wichtiger; Punkte = andere offene Aufgaben). Der **Info-Button (i)** erklärt die
   gewählte Kombination – Texte aus `Prioritätsmatrix.xlsx` (sachlich) und `Gefühlsmatrix.xlsx` (emotional),
   hinterlegt in `js/matrix-texts.js`.
+- Unter *Aufgaben → Erledigt* steht alles Erledigte nach Tagen sortiert (auch wiederkehrende Aufgaben, abgeschlossene
+  Routinen und die Wunschliste); einmalige Aufgaben lassen sich dort mit ↺ wieder öffnen.
 - Beliebig tief verschachtelte Unteraufgaben. Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
   bis Dunkelrot (fertig).
 - **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.

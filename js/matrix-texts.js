@@ -1,6 +1,6 @@
 // Erklärungen zur Wichtigkeits-Dringlichkeits-Matrix (aus Prioritätsmatrix.xlsx und Gefühlsmatrix.xlsx).
-// Skala: 1 = sehr wichtig / sofort … 5 = unwichtig / kein Zeitdruck.
-// TEXTS[ebene][wichtigkeit - 1][dringlichkeit - 1]
+// Die Tabellen sind wie die Excel-Dateien geordnet (erste Zeile/Spalte = sehr wichtig/sofort).
+// In der App gilt: 5 = sehr wichtig / sofort … 1 = unwichtig / kein Zeitdruck – daher die Helfer unten.
 
 export const IMPORTANCE_LABELS = ["Sehr wichtig", "Wichtig", "Mittel", "Gering", "Unwichtig"];
 
@@ -82,3 +82,7 @@ export const TEXTS = {
     ],
   ],
 };
+
+export const importanceLabel = (value) => IMPORTANCE_LABELS[5 - value];
+export const urgencyLabel = (value) => URGENCY_LABELS[5 - value];
+export const matrixText = (level, importance, urgency) => TEXTS[level][5 - importance][5 - urgency];
