@@ -104,10 +104,6 @@ export function progressBar(task) {
     el('span.progress-label', {}, `${info.pct} %`));
 }
 
-function prioBadge(task) {
-  return el('span.badge', { title: 'Wichtigkeit / Dringlichkeit (5 = sehr wichtig / sofort)' }, `W${task.importance} · D${task.urgency}`);
-}
-
 // --- Aktionen --------------------------------------------------------------
 
 export function completeTask(task, refresh) {
@@ -146,7 +142,8 @@ const collapsed = new Set();
 // Rendert Aufgaben rekursiv mit allen Unteraufgaben. Mit options.parentId lassen sich die Einträge
 // per langem Drücken umsortieren (Unteraufgaben und Schritte einer Routine).
 export function taskTree(tasks, refresh, options = {}) {
-  const sortable = options.parentId && options.mode !== 'view';
+  // Sortierbar per langem Drücken: Unteraufgaben/Schritte (parentId) und die oberste Ebene der Aufgabenliste (parentId null).
+  const sortable = options.parentId !== undefined && options.mode !== 'view';
   // options.only: nur diese Einträge zeigen (eingeklappte Routine).
   if (options.only) tasks = tasks.filter((t) => options.only.has(t.id));
   const list = el(`ul.tree${sortable ? '.sortable' : ''}`, {},
@@ -200,7 +197,6 @@ function taskNode(task, refresh, options) {
 
   const meta = [
     task.kind !== 'todo' && task.parent_id === null ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
-    inRoutine || task.parent_id !== null ? null : prioBadge(task),
     task.duration_min && inRoutine ? el('span.badge', {}, formatDuration(task.duration_min)) : null,
     task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
     windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
@@ -543,7 +539,8 @@ function historyList(refresh) {
 
 export function renderTasksView(root) {
   const refresh = () => renderTasksView(root);
-  const top = store.tasks().filter((t) => t.parent_id === null && t.kind !== 'routine'
+  // Oberste Ebene in der selbst festgelegten Reihenfolge (lange drücken und ziehen).
+  const top = store.childrenOf(null).filter((t) => t.kind !== 'routine'
     && (filters.kind === 'all' || t.kind === filters.kind)
     && !['done', 'expired'].includes(t.status));
 
@@ -560,7 +557,7 @@ export function renderTasksView(root) {
     filters.view === 'done'
       ? historyList(refresh)
       : top.length
-        ? el('div.card', {}, taskTree(top, refresh, { showDone: true }))
+        ? el('div.card', {}, taskTree(top, refresh, { showDone: true, parentId: null }))
         : el('p.empty', {}, 'Nichts offen. Lege oben eine Aufgabe oder ein Projekt an.'));
 }
 

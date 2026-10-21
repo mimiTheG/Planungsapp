@@ -235,11 +235,21 @@ body.has-player { --player-h: 3.6rem; }
 
 .tree { list-style: none; margin: 0; padding: 0; }
 .tree .tree { padding-left: 1rem; border-left: 1px dashed var(--border); margin-left: 0.7rem; }
-.task-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0; }
+.task-row { display: flex; align-items: flex-start; gap: 0.35rem; padding: 0.25rem 0; }
+/* Kästchen, Pfeil und Knöpfe auf Höhe der ersten Titelzeile – auch wenn darunter noch Fälligkeit und Balken stehen. */
+.task-row > input[type="checkbox"] { margin-top: 0.12rem; }
+.task-row > .twisty { min-height: 1.5rem !important; height: 1.5rem; padding: 0; }
+.task-row > .actions { margin-top: -0.4rem; }
+.task-row > .actions button.icon { min-width: 2rem; padding: 0.1rem; }
+.task-main .meta { min-width: 0; }
+.task-main .meta .badge { white-space: normal; max-width: 100%; }
 .task-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .task-row.done .task-title { text-decoration: line-through; color: var(--muted); }
 .twisty { width: 1.6rem; min-width: 1.6rem !important; flex: none; display: inline-block; text-align: center; color: var(--muted); }
-.task-title { font-weight: 500; overflow-wrap: anywhere; }
+.task-title { font-weight: 500; overflow-wrap: break-word; hyphens: auto; }
+/* Farbpunkt bleibt neben dem Text (bricht nicht allein in eine eigene Zeile). */
+.tree .task-title { display: flex; align-items: flex-start; text-align: left; line-height: 1.5; }
+.tree .task-title > .dot { margin-top: 0.42em; }
 .meta { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.15rem; }
 .actions { display: flex; flex: none; color: var(--muted); }
 
