@@ -17,11 +17,11 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 ## Funktionen
 
 **Kalender** (Tag, 3 Tage, Woche, Monat) – die Startseite der App, öffnet in der Monatsansicht
-- Termine mit Thema (Farbe), mit Uhrzeit oder **ganztägig** (nur Datum; in Tag/Woche in einer eigenen Zeile oben). Davor und/oder danach kann ein **freier Bereich** (z. B. „Anfahrt“, 30 min)
-  oder eine **Routine** (z. B. „Arbeit Morgendliche Aufgaben“) liegen – im Kalender schraffiert.
+- Termine mit Thema (Farbe), mit Uhrzeit oder **ganztägig** (nur Datum; in Tag/Woche in einer eigenen Zeile oben).
 - Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
   statt der Drehräder des Handys.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
+- In der Monatsansicht öffnet Antippen immer den Tag – auch auf einem Termin; von dort öffnet man den Termin.
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
 - In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
 - In Tag, 3 Tage und Woche **wischt** man nach links zum nächsten und nach rechts zum vorigen Tag bzw. Zeitraum;
@@ -29,7 +29,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - **+** legt in Tag, 3 Tage und Woche einen Termin am angezeigten Tag an (heute zur nächsten vollen Stunde, sonst 9 Uhr).
 - **Termine verschieben:** In Tag, 3 Tage und Woche einen Termin lang drücken und ziehen – hoch/runter ändert die
   Uhrzeit (in 15-Minuten-Schritten), in eine andere Spalte den Tag. Hält man ihn am linken oder rechten Rand fest,
-  blättert der Kalender zum vorigen bzw. nächsten Tag. Bereiche davor/danach wandern mit; bei Serien fragt die App,
+  blättert der Kalender zum vorigen bzw. nächsten Tag. Bei Serien fragt die App,
   ob nur dieser oder alle Termine verschoben werden.
 - Termine über Mitternacht erscheinen am Folgetag nur, wenn sie nach **4:30** enden (vorher zählt die Nacht
   noch zum Vortag, z. B. Party 22–2 Uhr).
@@ -37,6 +37,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
+- **Geburtstage:** Häkchen „Geburtstag“ im Termin – ganztägig, wiederholt sich jedes Jahr an diesem Tag, im Kalender
+  mit 🎂. Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“). Lassen sich wie Veranstaltungen per Haken ausblenden.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
   Wochentage wählbar, endet nie / am Datum / nach n Terminen). Wiederkehrende Termine sind mit ↻ markiert.

@@ -1,4 +1,4 @@
-// Kalender: Tages-, 3-Tages-, Wochen- und Monatsansicht; Termine mit Bereichen davor/danach.
+// Kalender: Tages-, 3-Tages-, Wochen- und Monatsansicht; Termin-Editor.
 
 import {
   el, mount, field, select, formData, openDialog, toast, attempt,
@@ -20,6 +20,7 @@ const view = {
   mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
   showEvents: readSetting('showEvents', true),
+  showBirthdays: readSetting('showBirthdays', true),
   pickMonth: false,
   pickYear: new Date().getFullYear(),
 };
@@ -37,31 +38,21 @@ function writeSetting(key, value) {
   try { localStorage.setItem(`planungsapp.setting.${key}`, JSON.stringify(value)); } catch { /* egal */ }
 }
 
-// Termin in Blöcke zerlegen: davor, Termin, danach.
-function segments(event) {
-  const start = parseDate(event.start_at);
-  const end = parseDate(event.end_at);
-  const list = [];
-  if (event.before_type !== 'none' && event.before_minutes) {
-    list.push({ part: 'before', start: new Date(start - event.before_minutes * 60000), end: start, label: sideLabel(event, 'before') });
-  }
-  list.push({ part: 'main', start, end, label: eventTitle(event) });
-  if (event.after_type !== 'none' && event.after_minutes) {
-    list.push({ part: 'after', start: end, end: new Date(+end + event.after_minutes * 60000), label: sideLabel(event, 'after') });
-  }
-  return list;
+// Zeitraum eines Termins als Block im Kalender.
+function segment(event) {
+  return { start: parseDate(event.start_at), end: parseDate(event.end_at), label: eventTitle(event) };
 }
 
 // Eingeplante Routinen heißen im Kalender immer wie die Routine (auch nach Umbenennen).
 function eventTitle(event) {
+  if (event.is_birthday) return `🎂 ${event.title}${birthdayAge(event)}`;
   return (event.routine_id && store.taskById(event.routine_id)?.title) || event.title;
 }
 
-function sideLabel(event, side) {
-  if (event[`${side}_type`] === 'routine') {
-    return store.taskById(event[`${side}_routine_id`])?.title || 'Routine';
-  }
-  return event[`${side}_label`] || (side === 'before' ? 'Vorlauf' : 'Nachlauf');
+// Alter am Geburtstag, wenn das Geburtsjahr bekannt ist: " (36)".
+export function birthdayAge(event) {
+  const age = event.birth_year ? Number(event.start_at.slice(0, 4)) - event.birth_year : 0;
+  return age > 0 ? ` (${age})` : '';
 }
 
 function range() {
@@ -92,7 +83,9 @@ export function renderCalendarView(root) {
   const [from, to] = range();
   let events = store.eventsBetween(from, to);
   const hiddenCount = events.filter((e) => e.is_event).length;
+  const birthdayCount = events.filter((e) => e.is_birthday).length;
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
+  if (!view.showBirthdays) events = events.filter((e) => !e.is_birthday);
 
   const step = (dir) => {
     view.anchor = view.mode === 'month'
@@ -130,13 +123,20 @@ export function renderCalendarView(root) {
       }, label))),
     el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
     el('div.legend', {},
-      el('label.check.small', {},
+      el('div.legend-toggles', {}, el('label.check.small', {},
         el('input', {
           type: 'checkbox',
           checked: view.showEvents,
           onchange: (e) => { view.showEvents = e.target.checked; writeSetting('showEvents', view.showEvents); refresh(); },
         }),
         `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`),
+      el('label.check.small', {},
+        el('input', {
+          type: 'checkbox',
+          checked: view.showBirthdays,
+          onchange: (e) => { view.showBirthdays = e.target.checked; writeSetting('showBirthdays', view.showBirthdays); refresh(); },
+        }),
+        `Geburtstage${!view.showBirthdays && birthdayCount ? ` (${birthdayCount} aus)` : ''}`)),
       legend()),
     view.mode === 'month' ? monthGrid(from, to, events, refresh) : dayGrid(from, Number(view.mode), events, refresh));
 
@@ -171,7 +171,7 @@ export function renderCalendarView(root) {
   }
 }
 
-// Termin um delta Millisekunden verschieben (Bereiche davor/danach wandern mit).
+// Termin um delta Millisekunden verschieben.
 function moveEvent(ev, delta, refresh) {
   if (!delta) return;
   const start = new Date(+parseDate(ev.start_at) + delta);
@@ -339,7 +339,7 @@ function dayGrid(from, count, allEvents, refresh) {
       },
     });
 
-    const blocks = events.flatMap((ev) => segments(ev).map((seg) => ({ ev, seg })))
+    const blocks = events.map((ev) => ({ ev, seg: segment(ev) }))
       .filter(({ seg }) => seg.end > dayStart && seg.start < dayEnd)
       .filter(({ ev, seg }) => isoDate(day) <= lastDay(parseDate(ev.start_at), seg.end));
     layoutLanes(blocks);
@@ -349,7 +349,7 @@ function dayGrid(from, count, allEvents, refresh) {
       const e = Math.min(seg.end, dayEnd);
       const top = ((s - dayStart) / 3600000) * HOUR_PX;
       const height = Math.max(16, ((e - s) / 3600000) * HOUR_PX - 2);
-      const block = el(`button.block.${seg.part}${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
+      const block = el(`button.block${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
         type: 'button',
         style: {
           top: `${top}px`,
@@ -429,52 +429,19 @@ function monthGrid(from, to, events, refresh) {
     const dayEvents = events.filter((ev) => ev.start_at.slice(0, 10) <= key
       && lastDay(parseDate(ev.start_at), parseDate(ev.end_at)) >= key);
     cells.push(el(`div.month-cell${day.getMonth() !== month ? '.other' : ''}${key === today ? '.today' : ''}`, {
-      onclick: (e) => {
-        if (e.target.closest('.chip')) return;
-        openDay(day, refresh);
-      },
+      // Antippen öffnet immer den Tag – auch auf einem Termin (die sind zum gezielten Antippen zu klein).
+      onclick: () => openDay(day, refresh),
     },
     el('span.month-day', {}, String(day.getDate())),
-    dayEvents.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
-      type: 'button',
+    dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,
-      onclick: () => openEventEditor(ev, refresh),
     }, eventTitle(ev)))));
   }
   return el('div.month', {}, ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div.month-head', {}, d)), cells);
 }
 
 // --- Termin-Editor -----------------------------------------------------------
-
-function sideFields(side, ev) {
-  const type = ev[`${side}_type`] || 'none';
-  const routineList = store.routines();
-  const minutes = el('input', { type: 'number', name: `${side}_minutes`, min: 1, inputmode: 'numeric', value: ev[`${side}_minutes`] || 30 });
-  const routineSelect = select(`${side}_routine_id`, [['', '— Routine wählen —'], ...routineList.map((r) => [r.id, r.title])], ev[`${side}_routine_id`]);
-  routineSelect.addEventListener('change', () => {
-    const r = store.taskById(routineSelect.value);
-    if (r && store.routineMinutes(r)) minutes.value = store.routineMinutes(r);
-  });
-  const label = el('input', { name: `${side}_label`, maxlength: 100, value: ev[`${side}_label`] || '', placeholder: side === 'before' ? 'z. B. Anfahrt' : 'z. B. Heimweg' });
-
-  const details = el('div.row');
-  const radios = el('div.segmented.radio', {}, [['none', 'Nichts'], ['free', 'Frei'], ['routine', 'Routine']].map(([v, text]) =>
-    el('label', {}, el('input', { type: 'radio', name: `${side}_type`, value: v, checked: type === v, onchange: show }), text)));
-
-  function show() {
-    const current = radios.querySelector('input:checked').value;
-    mount(details, current === 'none' ? null : [
-      current === 'free'
-        ? field('Bezeichnung', label)
-        : field('Routine', routineSelect, routineList.length ? null : 'Lege zuerst unter „Routinen“ eine an.'),
-      field('Minuten', minutes),
-    ]);
-  }
-  show();
-
-  return el('fieldset', {}, el('legend', {}, side === 'before' ? 'Davor (z. B. Anfahrt)' : 'Danach'), radios, details);
-}
 
 export function openEventEditor(event, refresh) {
   const isNew = !event.id;
@@ -501,13 +468,11 @@ export function openEventEditor(event, refresh) {
 
   const repeat = repeatFields(ev.repeat || null, startInput);
 
-  const routineButtons = ['main', 'before', 'after']
-    .map((side) => (side === 'main' ? ev.routine_id : ev[`${side}_type`] === 'routine' && ev[`${side}_routine_id`]))
-    .filter((id) => id && store.taskById(id))
-    .map((id) => {
-      const r = store.taskById(id);
-      return el('button', { type: 'button', onclick: () => runRoutine(r, () => {}) }, `▶ ${r.title}`);
-    });
+  // Eingeplante Routine direkt aus dem Termin starten.
+  const plannedRoutine = ev.routine_id && store.taskById(ev.routine_id);
+  const routineButtons = plannedRoutine
+    ? el('button', { type: 'button', onclick: () => runRoutine(plannedRoutine, () => {}) }, `▶ ${plannedRoutine.title}`)
+    : null;
 
   // Termin oder Routine einplanen. Bei einer Routine kommen Titel, Thema und Dauer von der Routine.
   const routineList = store.routines();
@@ -526,19 +491,37 @@ export function openEventEditor(event, refresh) {
     titleInput.required = !isRoutine;
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
-    allDayLabel.hidden = isRoutine; // eine Routine braucht eine Uhrzeit
+    allDayLabel.hidden = isRoutine || birthdayInput.checked; // eine Routine braucht eine Uhrzeit
+    birthdayLabel.hidden = isRoutine;
+    if (isRoutine && birthdayInput.checked) { birthdayInput.checked = false; showBirthday(); }
     if (isRoutine && allDayInput.checked) { allDayInput.checked = false; showAllDay(); }
   }
 
-  // Ganztägig: nur Datum (ohne Uhrzeit), keine Bereiche davor/danach.
+  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder – Ende und Wiederholen braucht es dann nicht.
+  const birthdayInput = el('input', { type: 'checkbox', name: 'is_birthday', checked: Boolean(ev.is_birthday), onchange: () => showBirthday() });
+  const birthdayLabel = el('label.check', {}, birthdayInput, 'Geburtstag (jedes Jahr an diesem Tag)');
+  const birthYearField = field('Geburtsjahr (optional, für das Alter)',
+    el('input', { type: 'number', name: 'birth_year', min: 1900, max: new Date().getFullYear(), inputmode: 'numeric', value: ev.birth_year || '' }));
+  const endBox = el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element);
+  const startLabel = el('span.field-label', {}, 'Beginn');
+  function showBirthday() {
+    const on = birthdayInput.checked;
+    if (on) allDayInput.checked = true;
+    allDayLabel.hidden = on || typeSwitch.querySelector('input:checked').value === 'routine';
+    endBox.hidden = on;
+    repeat.element.hidden = on;
+    birthYearField.hidden = !on;
+    startLabel.textContent = on ? 'Datum' : 'Beginn';
+    showAllDay();
+  }
+
+  // Ganztägig: nur Datum (ohne Uhrzeit).
   const allDayInput = el('input', { type: 'checkbox', name: 'all_day', checked: Boolean(ev.all_day), onchange: () => showAllDay(true) });
   const allDayLabel = el('label.check', {}, allDayInput, 'Ganztägig');
-  const sides = [sideFields('before', ev), sideFields('after', ev)];
   function showAllDay(changed = false) {
     const on = allDayInput.checked;
     startField.setDateOnly(on);
     endField.setDateOnly(on);
-    for (const side of sides) side.hidden = on;
     // Von ganztägig zurück auf eine Uhrzeit: 9–10 Uhr am ersten Tag vorschlagen.
     const start = parseDate(startInput.value);
     if (changed && !on && start.getHours() === 0 && start.getMinutes() === 0) {
@@ -565,11 +548,12 @@ export function openEventEditor(event, refresh) {
     topics,
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
+    birthdayLabel,
     allDayLabel,
-    el('div.field', {}, el('span.field-label', {}, 'Beginn'), startField.element),
-    el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element),
+    el('div.field', {}, startLabel, startField.element),
+    endBox,
+    birthYearField,
     repeat.element,
-    sides,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, ev.notes || '')),
     el('div.buttons.sticky', {},
       el('button.primary', { type: 'submit' }, isNew ? 'Anlegen' : 'Speichern'),
@@ -577,7 +561,7 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   showType();
-  showAllDay();
+  showBirthday();
 
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
@@ -592,8 +576,8 @@ export function openEventEditor(event, refresh) {
       toast(isNew ? 'Termin angelegt' : 'Termin gespeichert');
       refresh();
     };
-    // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll.
-    if (ev.series) askScope('Wiederkehrenden Termin speichern', run);
+    // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll (Geburtstage gelten immer für alle Jahre).
+    if (ev.series && !(ev.is_birthday && payload.is_birthday)) askScope('Wiederkehrenden Termin speichern', run);
     else run('all');
   }
 
@@ -603,10 +587,11 @@ export function openEventEditor(event, refresh) {
       close();
       refresh();
     };
-    if (ev.series) askScope('Wiederkehrenden Termin löschen', run);
-    else if (window.confirm(`Termin „${ev.title}“ löschen?`)) run('all');
+    if (ev.series && !ev.is_birthday) askScope('Wiederkehrenden Termin löschen', run);
+    else if (window.confirm(ev.is_birthday ? `Geburtstag „${ev.title}“ löschen?` : `Termin „${ev.title}“ löschen?`)) run('all');
   }
 
   const topic = store.topicById(ev.topic_id);
-  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : 'Neuer Termin') : `Termin${topic ? ` · ${topic.name}` : ''}`, form);
+  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : 'Neuer Termin')
+    : `${ev.is_birthday ? 'Geburtstag' : 'Termin'}${topic ? ` · ${topic.name}` : ''}`, form);
 }
