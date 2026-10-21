@@ -52,6 +52,9 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
   man erledigt jeweils pünktlich).
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
+- **Termin nachträglich zur Aufgabe machen:** Termin öffnen und oben „Aufgabe“ wählen. Datum und Uhrzeit werden zur
+  Deadline, der Termin verschwindet aus dem Kalender. Bei Serien: *dieser* → einmalige Aufgabe, *dieser und folgende*
+  bzw. *alle* → regelmäßige Aufgabe mit derselben Wiederholung und Deadline-Häkchen.
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.

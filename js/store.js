@@ -832,6 +832,35 @@ export function deleteEvent(id, { scope = 'all', occurrence = null } = {}) {
   save();
 }
 
+// Termin nachträglich zur Aufgabe machen. Datum (und Uhrzeit) des Termins werden zur Deadline.
+//   scope 'this' (oder kein Serientermin): einmalige Aufgabe, nur dieser Termin verschwindet.
+//   scope 'following' / 'all': regelmäßige Aufgabe mit derselben Wiederholung (Deadline-Häkchen gesetzt),
+//   die ab diesem Termin gilt; die Termine (ab hier bzw. alle) verschwinden.
+export function eventToTask(id, { scope = 'all', occurrence = null } = {}) {
+  const event = eventById(id);
+  if (!event) throw new ValidationError('Termin nicht gefunden');
+  if (event.is_birthday) throw new ValidationError('Geburtstage bleiben Termine');
+  if (event.routine_id) throw new ValidationError('Eingeplante Routinen bleiben Termine');
+  const repeat = seriesRepeat(event);
+  const day = occurrence || event.start_at.slice(0, 10);
+  const time = event.all_day ? null : repeating.onDay(event.start_at, day).slice(11, 16);
+  const asSeries = repeat && scope !== 'this';
+  const task = createTask({
+    title: event.title,
+    notes: event.notes,
+    topic_id: event.topic_id,
+    deadline_time: time,
+    ...(asSeries
+      ? {
+        recurrence: 'rhythm', window_start: day, buffer: 0, has_deadline: true,
+        repeat: { ...repeat, until: null, count: null },
+      }
+      : { recurrence: 'once', window_end: day }),
+  });
+  deleteEvent(id, { scope: repeat ? scope : 'all', occurrence: repeat ? day : null });
+  return taskById(task.id);
+}
+
 function exceptionsOf(seriesId) {
   return data.events.filter((e) => e.series_id === seriesId);
 }

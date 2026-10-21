@@ -188,6 +188,65 @@ describe('Ganztägig, Geburtstage, Veranstaltungen', () => {
   });
 });
 
+describe('Termin nachträglich zur Aufgabe machen', () => {
+  test('einzelner Termin → einmalige Aufgabe mit Deadline (Datum und Uhrzeit), Termin weg', () => {
+    fresh();
+    const topic = store.createTopic({ name: 'Arbeit', color: '#9b2948' });
+    const ev = store.createEvent({ title: 'Bericht', topic_id: topic.id, notes: 'Kapitel 3', start_at: '2099-03-03T14:00', end_at: '2099-03-03T15:00' });
+    const task = store.eventToTask(ev.id);
+    assert.deepEqual([task.title, task.topic_id, task.notes, task.recurrence, task.window_end, task.deadline_time],
+      ['Bericht', topic.id, 'Kapitel 3', 'once', '2099-03-03', '14:00']);
+    assert.equal(store.eventById(ev.id), null);
+    assert.deepEqual(store.deadlinesBetween(new Date(2099, 2, 1), new Date(2099, 2, 31)).map((t) => t.title), ['Bericht']);
+  });
+
+  test('ganztägiger Termin → Deadline ohne Uhrzeit', () => {
+    fresh();
+    const ev = store.createEvent({ title: 'Steuer', all_day: true, start_at: '2099-05-31T00:00', end_at: '2099-05-31T00:00' });
+    const task = store.eventToTask(ev.id);
+    assert.equal(task.deadline_time, null);
+    assert.equal(task.window_end, '2099-05-31');
+  });
+
+  test('Serie: nur dieser Termin → einmalige Aufgabe, Serie bleibt sonst', () => {
+    fresh();
+    weekly('Kurs', '2099-01-05T18:00');
+    const o = occ('Kurs', '2099-01-12');
+    const task = store.eventToTask(o.id, { scope: 'this', occurrence: o.occurrence });
+    assert.equal(task.recurrence, 'once');
+    assert.equal(task.window_end, '2099-01-12');
+    assert.deepEqual(days(new Date(2099, 0, 1), new Date(2099, 0, 20), 'Kurs').map((d) => d.slice(0, 5)), ['01-05', '01-19']);
+  });
+
+  test('Serie: dieser und folgende → regelmäßige Aufgabe mit Deadline, frühere Termine bleiben', () => {
+    fresh();
+    weekly('Kurs', '2099-01-05T18:00');
+    const o = occ('Kurs', '2099-01-19');
+    const task = store.eventToTask(o.id, { scope: 'following', occurrence: o.occurrence });
+    assert.deepEqual([task.recurrence, task.repeat.freq, task.has_deadline, task.window_start, task.deadline_time],
+      ['rhythm', 'weekly', true, '2099-01-19', '18:00']);
+    assert.deepEqual(days(new Date(2099, 0, 1), new Date(2099, 1, 28), 'Kurs').map((d) => d.slice(0, 5)), ['01-05', '01-12']);
+    assert.deepEqual(store.deadlinesBetween(new Date(2099, 0, 1), new Date(2099, 1, 9)).map((t) => t.deadline_date), ['2099-01-19', '2099-01-26', '2099-02-02', '2099-02-09']);
+  });
+
+  test('Serie: alle → keine Termine mehr', () => {
+    fresh();
+    weekly('Kurs', '2099-01-05T18:00');
+    const o = occ('Kurs', '2099-01-12');
+    store.eventToTask(o.id, { scope: 'all', occurrence: o.occurrence });
+    assert.equal(store.eventsBetween(new Date(2099, 0, 1), new Date(2099, 11, 31)).length, 0);
+  });
+
+  test('Geburtstage und eingeplante Routinen bleiben Termine', () => {
+    fresh();
+    const b = store.createEvent({ title: 'Anna', topic_id: store.birthdayTopic().id, start_at: '2099-03-05T00:00', end_at: '2099-03-05T00:00' });
+    assert.throws(() => store.eventToTask(b.id), /Geburtstage/);
+    const r = store.createTask({ title: 'Morgen', kind: 'routine' });
+    const e = store.createEvent({ routine_id: r.id, start_at: '2099-03-05T07:00', end_at: '2099-03-05T07:30' });
+    assert.throws(() => store.eventToTask(e.id), /Routinen/);
+  });
+});
+
 describe('Aufgaben: einmalig, Unteraufgaben, Erledigen', () => {
   test('Oberaufgabe abhaken, wieder öffnen, Unteraufgabe einzeln wieder öffnen', () => {
     fresh();

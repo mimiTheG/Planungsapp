@@ -492,12 +492,19 @@ export function openEventEditor(event, refresh) {
   const routineField = field('Routine', routineSelect, routineList.length ? null : 'Lege zuerst unter „Routinen“ eine an.');
   const topics = topicPicker(ev.topic_id);
   const typeSwitch = el('div.segmented.radio', { role: 'group', 'aria-label': 'Art' },
-    [['event', 'Termin'], ['routine', 'Routine'], ...(isNew ? [['task', 'Aufgabe']] : [])].map(([v, label]) => el('label', {},
+    // „Aufgabe“: neu anlegen bzw. einen bestehenden Termin nachträglich zur Aufgabe machen
+    // (nicht bei Geburtstagen und eingeplanten Routinen).
+    [['event', 'Termin'], ['routine', 'Routine'], ...(isNew || !(ev.is_birthday || ev.routine_id) ? [['task', 'Aufgabe']] : [])]
+      .map(([v, label]) => el('label', {},
       el('input', { type: 'radio', name: 'entry_type', value: v, checked: (v === 'routine') === Boolean(ev.routine_id) && v !== 'task', onchange: showType }),
       label)));
   function showType() {
     // „Aufgabe“: Aufgabe mit Deadline am gewählten Tag anlegen (erscheint knallrot im Kalender).
     if (typeSwitch.querySelector('input:checked').value === 'task') {
+      if (!isNew) {
+        toTask();
+        return;
+      }
       close();
       openTaskEditor({ title: titleInput.value.trim() || undefined, recurrence: 'once', window_end: startInput.value.slice(0, 10) }, refresh);
       return;
@@ -598,6 +605,20 @@ export function openEventEditor(event, refresh) {
       || (keyAfter === 'custom' && JSON.stringify(normalize(payload.repeat)) !== JSON.stringify(normalize(before)));
     if (ev.series && !(ev.is_birthday && isBirthday())) askScope('Wiederkehrenden Termin speichern', run, { withoutThis: repeatChanged });
     else run('all');
+  }
+
+  function toTask() {
+    const run = (scope) => {
+      let task;
+      if (!attempt(() => { task = store.eventToTask(ev.id, { scope, occurrence: ev.occurrence }); })) return;
+      close();
+      toast('In Aufgabe umgewandelt – Datum und Uhrzeit sind jetzt die Deadline');
+      refresh();
+      openTaskEditor(task, refresh); // gleich Wichtigkeit & Co. einstellen
+    };
+    if (ev.series) askScope('Termin in Aufgabe umwandeln', run);
+    else if (window.confirm(`„${ev.title}“ in eine Aufgabe umwandeln? Der Termin verschwindet dabei aus dem Kalender.`)) run('all');
+    else typeSwitch.querySelector('input[value="event"]').checked = true; // abgebrochen: bleibt ein Termin
   }
 
   function remove() {
