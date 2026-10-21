@@ -60,3 +60,29 @@ export function formatDuration(minutes) {
   if (!h) return `${m} min`;
   return m ? `${h} h ${m} min` : `${h} h`;
 }
+
+// Zeitspanne lesbar in passender Einheit: bis 13 Tage in Tagen, bis knapp 2 Monate in Wochen, bis knapp
+// 1 Jahr in Monaten, darüber in Jahren (gerundet). dative für „seit/vor/in …“: „seit 3 Wochen“, „vor 1 Monat“.
+const SPAN_UNITS = {
+  day: ['Tag', 'Tage', 'Tagen'],
+  week: ['Woche', 'Wochen', 'Wochen'],
+  month: ['Monat', 'Monate', 'Monaten'],
+  year: ['Jahr', 'Jahre', 'Jahren'],
+};
+
+export function spanText(days, { dative = false } = {}) {
+  const d = Math.max(0, Math.round(days));
+  let unit = 'day';
+  let n = d;
+  if (d >= 365) { unit = 'year'; n = Math.round(d / 365); }
+  else if (d >= 56) { unit = 'month'; n = Math.max(2, Math.round(d / 30.44)); }
+  else if (d >= 14) { unit = 'week'; n = Math.round(d / 7); }
+  const [one, many, manyDative] = SPAN_UNITS[unit];
+  return `${n} ${n === 1 ? one : dative ? manyDative : many}`;
+}
+
+// Stunden/Minuten bis bzw. seit einem Zeitpunkt (für den letzten Tag mit Uhrzeit): „3 Std.“, „20 Min.“.
+export function hoursText(ms) {
+  const minutes = Math.max(0, Math.round(Math.abs(ms) / 60000));
+  return minutes < 60 ? `${Math.max(1, minutes)} Min.` : `${Math.round(minutes / 60)} Std.`;
+}

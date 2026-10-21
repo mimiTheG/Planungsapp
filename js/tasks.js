@@ -4,7 +4,7 @@ import {
   el, mount, field, select, formData, openDialog, toast, attempt,
 } from './ui.js';
 import {
-  addDays, daysBetween, formatDate, formatDuration, isoDate, isoDateTime, parseDate,
+  addDays, daysBetween, formatDate, formatDuration, hoursText, isoDate, isoDateTime, parseDate, spanText,
 } from './dates.js';
 import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
@@ -49,13 +49,14 @@ export function windowText(task) {
   switch (task.status) {
     case 'upcoming': {
       const days = daysBetween(now, parseDate(task.window_start));
-      return `ab ${formatDate(task.window_start)} (in ${days} ${days === 1 ? 'Tag' : 'Tagen'})`;
+      return `ab ${formatDate(task.window_start)} (${days === 1 ? 'morgen' : `in ${spanText(days, { dative: true })}`})`;
     }
     case 'due':
       return task.window_end ? `fällig bis ${formatDate(task.window_end)}${time}` : 'offen';
     case 'overdue': {
       const days = Math.max(0, daysBetween(parseDate(task.closes_at), now));
-      return days === 0 ? 'überfällig (heute)' : `überfällig seit ${days} ${days === 1 ? 'Tag' : 'Tagen'}`;
+      if (days > 0) return `überfällig seit ${spanText(days, { dative: true })}`;
+      return task.deadline_time ? `überfällig seit ${hoursText(now - parseDate(task.closes_at))}` : 'überfällig (seit heute)';
     }
     // Einmalige Aufgaben verschwinden nicht – sie gelten als überfällig.
     case 'expired': return task.recurrence === 'once' ? windowText({ ...task, status: 'overdue' }) : 'verfallen';

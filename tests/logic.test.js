@@ -474,3 +474,17 @@ test('Deadlines künftiger Durchgänge: fest, ab dem Erledigen, alte Form, Zeitr
   assert.deepEqual(schedule.upcomingDeadlines(period, '2028-12-31'), ['2027-05-31', '2028-05-31']);
   assert.deepEqual(schedule.upcomingDeadlines({ recurrence: 'once', window_end: '2026-11-01' }, '2030-01-01'), ['2026-11-01']);
 });
+
+test('Zeitspannen in passender Einheit (Tage, Wochen, Monate, Jahre)', async () => {
+  const { spanText, hoursText } = await import('../js/dates.js');
+  assert.equal(spanText(1), '1 Tag');
+  assert.equal(spanText(13), '13 Tage');
+  assert.equal(spanText(14), '2 Wochen');
+  assert.equal(spanText(40, { dative: true }), '6 Wochen');
+  assert.equal(spanText(90), '3 Monate');
+  assert.equal(spanText(90, { dative: true }), '3 Monaten');
+  assert.equal(spanText(400), '1 Jahr');
+  assert.equal(spanText(800, { dative: true }), '2 Jahren');
+  assert.equal(hoursText(3 * 3600000), '3 Std.');
+  assert.equal(hoursText(20 * 60000), '20 Min.');
+});
