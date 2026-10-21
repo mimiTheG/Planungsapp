@@ -70,10 +70,13 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Kommt man beim Ziehen an den oberen oder unteren Rand, scrollt die Liste mit.
   Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
   bis Dunkelrot (fertig).
-- **Einmalig** (optional mit Zeitraum/Deadline), **fester Rhythmus** mit Puffer oder **fester Zeitraum** im Jahr.
+- **Einmalig** (optional mit Zeitraum/Deadline), **regelmäßig** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
-- Rhythmus-Beispiel: alle 7 Tage, Puffer 3 Tage. Erledigt an Tag 1 → wieder fällig Tag 7–9,
-  erledigt an Tag 3 → Tag 9–11.
+- **Regelmäßig** funktioniert wie ein wiederkehrender Termin: „Erstes Mal am“ plus Täglich, Wöchentlich am …,
+  Monatlich am 14. bzw. am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/
+  Monate/Jahre, Wochentage wählbar). Der **Puffer** sagt, wie viele Tage man ab dem Termintag Zeit hat.
+  Die Tage stehen fest (Müll alle 2 Wochen am Freitag) – oder man zählt **ab dem Erledigen neu**
+  (Friseur 6 Wochen nach dem letzten Mal: erledigt am Do., 5.11. → wieder fällig ab Do., 17.12.).
 - Wenn nicht rechtzeitig erledigt: **verfällt** (der nächste Durchgang beginnt, wird als verpasst gezählt) oder
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
@@ -137,7 +140,7 @@ css/style.css
 js/
   app.js               Einstieg, Navigation
   store.js             Daten auf dem Gerät (localStorage), Anlegen/Ändern/Erledigen, Sicherung
-  schedule.js          Fälligkeitslogik (Rhythmus, Puffer, Zeitraum, Deadline)
+  schedule.js          Fälligkeitslogik (regelmäßig, Puffer, Zeitraum, Deadline)
   dates.js             Datumshelfer
   ui.js                DOM-Helfer, Dialog, Hinweise
   now.js               „Was mache ich jetzt?“

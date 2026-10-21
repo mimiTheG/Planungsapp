@@ -10,16 +10,19 @@ const UNIT_OPTIONS = [['daily', 'Tag(e)'], ['weekly', 'Woche(n)'], ['monthly', '
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mo … So
 
 // Gibt { element, value() } zurück; value() liefert das repeat-Objekt oder null.
-export function repeatFields(initial, startInput) {
+// options.required: ohne „Wird nicht wiederholt“ (z. B. regelmäßige Aufgaben); options.noEnd: ohne „Endet“.
+export function repeatFields(initial, startInput, { required = false, noEnd = false } = {}) {
   const startAt = () => (startInput.value || isoDate(new Date())).replace('T', ' ');
   let custom = initial ? normalize(initial) : null;
   let selected = presetKey(initial, startAt());
+  if (required && selected === 'none') selected = 'weekly';
+  const offered = () => presets(startAt()).filter((p) => !(required && p.key === 'none'));
 
   const repeatSelect = el('select', { 'aria-label': 'Wiederholen' });
   const customBox = el('div.repeat-custom');
 
   function renderOptions() {
-    const options = presets(startAt()).map((p) => [p.key, p.label]);
+    const options = offered().map((p) => [p.key, p.label]);
     if (custom && selected === 'custom') options.push(['custom', repeatText(custom, startAt())]);
     options.push(['edit-custom', 'Benutzerdefiniert …']);
     repeatSelect.replaceChildren(...options.map(([value, label]) =>
@@ -107,7 +110,7 @@ export function repeatFields(initial, startInput) {
       el('div.repeat-every', {}, el('span', {}, 'Alle'), interval, unit),
       weekdays,
       monthly,
-      el('fieldset.repeat-end', {},
+      noEnd ? null : el('fieldset.repeat-end', {},
         el('legend', {}, 'Endet'),
         endRadio('never', 'Nie'),
         endRadio('until', 'Am', untilInput),

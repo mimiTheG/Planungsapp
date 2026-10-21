@@ -398,3 +398,37 @@ test('Store: alte Geburtstage (Häkchen) bekommen beim Laden das Thema „Geburt
   store.load(old);
   assert.equal(store.eventById(2).topic_id, store.birthdayTopic().id);
 });
+
+test('Regelmäßig wie ein wiederkehrender Termin: feste Tage, Puffer, ab dem Erledigen', async () => {
+  const schedule = await import('../js/schedule.js');
+  // Jeden Montag und Donnerstag, Puffer 2 Tage, ab Mo 2.11.2026.
+  const task = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 1, weekdays: [1, 4] }, repeat_start: '2026-11-02', buffer_days: 2, on_missed: 'remind' };
+  assert.deepEqual(schedule.initialWindow(task, '2026-11-02'), ['2026-11-02', '2026-11-03']);
+  // Erst am Mittwoch erledigt → nächster fester Tag ist Donnerstag.
+  const w = { ...task, window_start: '2026-11-02', window_end: '2026-11-03' };
+  assert.deepEqual(schedule.windowAfterDone(w, new Date(2026, 10, 4)), ['2026-11-05', '2026-11-06']);
+  // Monatlich am 14.: früh erledigt → trotzdem erst nächsten Monat.
+  const monthly = { recurrence: 'rhythm', repeat: { freq: 'monthly', interval: 1, monthly: 'day' }, repeat_start: '2026-11-14', buffer_days: 3, window_start: '2026-11-14', window_end: '2026-11-16' };
+  assert.deepEqual(schedule.windowAfterDone(monthly, new Date(2026, 10, 14)), ['2026-12-14', '2026-12-16']);
+  // Ab dem Erledigen: alle 6 Wochen nach dem letzten Mal.
+  const hair = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 6 }, repeat_from_done: true, buffer_days: 7, window_start: '2026-11-02', window_end: '2026-11-08' };
+  assert.deepEqual(schedule.windowAfterDone(hair, new Date(2026, 10, 5)), ['2026-12-17', '2026-12-23']);
+  // Verfällt: rückt auf den nächsten Termintag, der noch nicht vorbei ist.
+  const missed = { ...w, on_missed: 'expire' };
+  // Di 10.11. mittags: Do 5.11. ist vorbei, Mo 9.–Di 10.11. läuft noch.
+  assert.deepEqual(schedule.windowAfterMissed(missed, new Date(2026, 10, 10, 12)), ['2026-11-09', '2026-11-10']);
+  assert.deepEqual(schedule.windowAfterMissed(missed, new Date(2026, 10, 11, 12)), ['2026-11-12', '2026-11-13']);
+});
+
+test('Store: regelmäßige Aufgabe mit Wiederholung anlegen (ohne Ende)', () => {
+  store.load(memory());
+  const t = store.createTask({
+    title: 'Müll', recurrence: 'rhythm', window_start: '2099-01-05', buffer_days: 1,
+    repeat: { freq: 'weekly', interval: 2, weekdays: [1], count: 5 },
+  });
+  assert.equal(t.repeat.freq, 'weekly');
+  assert.equal(t.repeat.count, null, 'Aufgaben haben kein Ende der Wiederholung');
+  assert.equal(t.repeat_start, '2099-01-05');
+  assert.equal(t.window_start, '2099-01-05');
+  assert.equal(t.rhythm_days, null);
+});

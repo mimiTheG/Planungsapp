@@ -10,6 +10,8 @@ import { topicPicker } from './topic-picker.js';
 import { enableLongPressReorder } from './reorder.js';
 import { parentPicker } from './parent-picker.js';
 import { openEventEditor } from './calendar.js';
+import { repeatFields } from './repeat-fields.js';
+import { repeatText } from './repeat.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
 const NEW_TITLES = { todo: 'Neue Aufgabe', project: 'Neues Projekt', routine: 'Neue Routine' };
@@ -18,9 +20,18 @@ const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 
 
 // --- Beschreibungen --------------------------------------------------------
 
+const UNIT_ONE = { daily: 'Tag', weekly: 'Woche', monthly: 'Monat', yearly: 'Jahr' };
+const UNIT_MANY = { daily: 'Tage', weekly: 'Wochen', monthly: 'Monate', yearly: 'Jahre' };
+
 export function recurrenceText(task) {
   if (task.recurrence === 'rhythm') {
-    return `alle ${task.rhythm_days} Tage, Puffer ${task.buffer_days} ${task.buffer_days === 1 ? 'Tag' : 'Tage'}`;
+    const buffer = `Puffer ${task.buffer_days} ${task.buffer_days === 1 ? 'Tag' : 'Tage'}`;
+    if (!task.repeat) return `alle ${task.rhythm_days} Tage, ${buffer}`;
+    if (task.repeat_from_done) {
+      const n = Math.max(1, task.repeat.interval || 1);
+      return `${n} ${(n === 1 ? UNIT_ONE : UNIT_MANY)[task.repeat.freq]} nach dem Erledigen, ${buffer}`;
+    }
+    return `${repeatText(task.repeat, task.repeat_start)}, ${buffer}`;
   }
   if (task.recurrence === 'period') {
     const md = (v) => { const [m, d] = v.split('-').map(Number); return `${d}. ${MONTHS[m - 1]}`; };
@@ -312,20 +323,31 @@ export function openTaskEditor(task, refresh) {
 
   const excluded = new Set(isNew ? [] : [t.id, ...store.descendantsOf(t.id).map((d) => d.id)]);
 
+  // Regelmäßig: wie ein wiederkehrender Termin (Täglich, Wöchentlich am …, Monatlich am 14., Benutzerdefiniert …).
+  // Ältere Aufgaben „alle n Tage ab dem Erledigen“ erscheinen als „Alle n Tage“ mit Häkchen „ab dem Erledigen“.
+  const rhythmStartInput = el('input', {
+    type: 'date', name: 'rhythm_start', value: t.recurrence === 'rhythm' && t.window_start ? t.window_start : isoDate(new Date()),
+  });
+  const rhythmStart = field('Erstes Mal am', rhythmStartInput);
+  if (t.recurrence === 'rhythm' && !t.repeat && t.rhythm_days) {
+    t.repeat = { freq: 'daily', interval: t.rhythm_days };
+    t.repeat_from_done = true;
+  }
+  const rhythmRepeat = repeatFields(t.repeat || null, rhythmStartInput, { required: true, noEnd: true });
+
   const recurrenceBoxes = {
     once: el('div.form-grid', {},
       el('div.row', {},
         field('Ab (optional)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
         field('Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
       el('small.muted', {}, 'Die Deadline erscheint im Kalender in Rot.')),
-    rhythm: el('div.form-grid', {},
-      el('div.row', {},
-        field('Alle … Tage', el('input', { type: 'number', name: 'rhythm_days', min: 1, inputmode: 'numeric', value: t.rhythm_days })),
-        field('Puffer (Tage)', el('input', { type: 'number', name: 'buffer_days', min: 1, inputmode: 'numeric', value: t.buffer_days }))),
-      el('small.muted', {}, 'Puffer = so viele Tage hat man Zeit, die Aufgabe zu erledigen.'),
-      field('Nächstes Mal ab', el('input', {
-        type: 'date', name: 'rhythm_start', value: t.recurrence === 'rhythm' ? t.window_start : isoDate(new Date()),
-      }))),
+    rhythm: el('div.form-grid', {}, rhythmStart, rhythmRepeat.element,
+      field('Puffer (Tage)', el('input', { type: 'number', name: 'buffer_days', min: 1, inputmode: 'numeric', value: t.buffer_days })),
+      el('small.muted', {}, 'Puffer = so viele Tage hat man ab dem Termintag Zeit, die Aufgabe zu erledigen.'),
+      el('label.check', {},
+        el('input', { type: 'checkbox', name: 'repeat_from_done', checked: Boolean(t.repeat_from_done) }),
+        'Ab dem Erledigen neu zählen (z. B. 6 Wochen nach dem letzten Mal)'),
+      el('small.muted', {}, 'Dann zählt nur „alle … Tage/Wochen/Monate“ – Wochentag oder Datum ergeben sich aus dem Tag des Erledigens.')),
     period: el('div.row', {},
       field('Jedes Jahr von', monthDayInputs('period_start', t.period_start)),
       field('bis', monthDayInputs('period_end', t.period_end))),
@@ -347,7 +369,7 @@ export function openTaskEditor(task, refresh) {
 
   const whenFieldset = el('fieldset', {},
     el('legend', {}, 'Wann?'),
-    el('div.segmented.radio', {}, [['once', 'Einmalig'], ['rhythm', 'Rhythmus'], ['period', 'Zeitraum']]
+    el('div.segmented.radio', {}, [['once', 'Einmalig'], ['rhythm', 'Regelmäßig'], ['period', 'Zeitraum']]
       .map(([v, label]) => el('label', {},
         el('input', { type: 'radio', name: 'recurrence', value: v, checked: t.recurrence === v, onchange: showRecurrence }),
         label))),
@@ -414,7 +436,8 @@ export function openTaskEditor(task, refresh) {
       importance_emo: values.emotional.importance,
       urgency_emo: values.emotional.urgency,
       recurrence: d.recurrence,
-      rhythm_days: d.rhythm_days,
+      repeat: d.recurrence === 'rhythm' ? rhythmRepeat.value() : null,
+      repeat_from_done: d.repeat_from_done,
       buffer_days: d.buffer_days,
       period_start: md('period_start'),
       period_end: md('period_end'),
