@@ -1,0 +1,19 @@
+# Automatische Tests: laufen bei jedem Pull Request und bei jedem Push auf main.
+# Im Pull Request erscheint dann ein grüner Haken (alles ok) oder ein rotes Kreuz (ein Test schlägt fehl).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests (npm test)
+        run: npm test
