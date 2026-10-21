@@ -65,6 +65,7 @@ body {
   padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom));
 }
 
+[hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
 input, select, textarea {
@@ -447,7 +448,7 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .icon.settings { font-size: 1.4rem; color: var(--accent); }
 
 /* "Veranstaltungen" eigene Zeile, darunter die Themenfarben */
-.legend > .check.small { flex-basis: 100%; }
+.legend-toggles { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; }
 
 /* "Gehört zu": oberste Ebene, aufklappbar */
 .parent-picker { display: grid; gap: 0.4rem; }

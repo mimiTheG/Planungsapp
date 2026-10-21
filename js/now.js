@@ -10,6 +10,7 @@ import {
   routineProgress, runRoutine, topicDot, windowText,
 } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
+import { birthdayAge } from './calendar.js';
 
 const ACTIVE = ['open', 'due', 'overdue'];
 
@@ -135,7 +136,8 @@ function runningNow(now = new Date()) {
   for (const ev of store.eventsBetween(dayStart, now)) {
     const start = parseDate(ev.start_at);
     const end = parseDate(ev.end_at);
-    const parts = [{ from: start, to: end, routineId: ev.routine_id, title: ev.title, allDay: ev.all_day }];
+    const title = ev.is_birthday ? `🎂 ${ev.title}${birthdayAge(ev)}` : ev.title;
+    const parts = [{ from: start, to: end, routineId: ev.routine_id, title, allDay: ev.all_day }];
     if (ev.before_type === 'routine' && ev.before_minutes) {
       parts.push({ from: new Date(+start - ev.before_minutes * 60000), to: start, routineId: ev.before_routine_id, title: null });
     }

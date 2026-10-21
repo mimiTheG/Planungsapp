@@ -329,3 +329,19 @@ test('Store: ganztägige Termine – nur Datum, ohne Bereiche davor/danach', () 
   const timed = store.createEvent({ title: 'Arzt', start_at: '2026-10-22T09:00', end_at: '2026-10-22T10:00' });
   assert.equal(timed.all_day, false);
 });
+
+test('Store: Geburtstage – ganztägig, jedes Jahr, optional mit Geburtsjahr', () => {
+  store.load(memory());
+  const ev = store.createEvent({
+    title: 'Anna', is_birthday: true, start_at: '2026-03-05T14:00', end_at: '2026-03-07T10:00', birth_year: '1990',
+    repeat: { freq: 'weekly', interval: 2 },
+  });
+  assert.equal(ev.all_day, true);
+  assert.equal(ev.start_at, '2026-03-05 00:00');
+  assert.equal(ev.end_at, '2026-03-05 23:59');
+  assert.equal(ev.repeat.freq, 'yearly');
+  assert.equal(ev.birth_year, 1990);
+  const next = store.eventsBetween(new Date(2028, 2, 1), new Date(2028, 2, 31)).filter((e) => e.title === 'Anna');
+  assert.deepEqual(next.map((e) => e.start_at), ['2028-03-05 00:00']);
+  assert.throws(() => store.createEvent({ title: 'X', is_birthday: true, start_at: '2026-03-05T00:00', end_at: '2026-03-05T00:00', birth_year: '2030' }), /Geburtsjahr/);
+});

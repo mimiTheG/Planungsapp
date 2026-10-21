@@ -20,6 +20,7 @@ const view = {
   mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
   showEvents: readSetting('showEvents', true),
+  showBirthdays: readSetting('showBirthdays', true),
   pickMonth: false,
   pickYear: new Date().getFullYear(),
 };
@@ -54,7 +55,14 @@ function segments(event) {
 
 // Eingeplante Routinen heißen im Kalender immer wie die Routine (auch nach Umbenennen).
 function eventTitle(event) {
+  if (event.is_birthday) return `🎂 ${event.title}${birthdayAge(event)}`;
   return (event.routine_id && store.taskById(event.routine_id)?.title) || event.title;
+}
+
+// Alter am Geburtstag, wenn das Geburtsjahr bekannt ist: " (36)".
+export function birthdayAge(event) {
+  const age = event.birth_year ? Number(event.start_at.slice(0, 4)) - event.birth_year : 0;
+  return age > 0 ? ` (${age})` : '';
 }
 
 function sideLabel(event, side) {
@@ -92,7 +100,9 @@ export function renderCalendarView(root) {
   const [from, to] = range();
   let events = store.eventsBetween(from, to);
   const hiddenCount = events.filter((e) => e.is_event).length;
+  const birthdayCount = events.filter((e) => e.is_birthday).length;
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
+  if (!view.showBirthdays) events = events.filter((e) => !e.is_birthday);
 
   const step = (dir) => {
     view.anchor = view.mode === 'month'
@@ -130,13 +140,20 @@ export function renderCalendarView(root) {
       }, label))),
     el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
     el('div.legend', {},
-      el('label.check.small', {},
+      el('div.legend-toggles', {}, el('label.check.small', {},
         el('input', {
           type: 'checkbox',
           checked: view.showEvents,
           onchange: (e) => { view.showEvents = e.target.checked; writeSetting('showEvents', view.showEvents); refresh(); },
         }),
         `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`),
+      el('label.check.small', {},
+        el('input', {
+          type: 'checkbox',
+          checked: view.showBirthdays,
+          onchange: (e) => { view.showBirthdays = e.target.checked; writeSetting('showBirthdays', view.showBirthdays); refresh(); },
+        }),
+        `Geburtstage${!view.showBirthdays && birthdayCount ? ` (${birthdayCount} aus)` : ''}`)),
       legend()),
     view.mode === 'month' ? monthGrid(from, to, events, refresh) : dayGrid(from, Number(view.mode), events, refresh));
 
@@ -522,8 +539,28 @@ export function openEventEditor(event, refresh) {
     titleInput.required = !isRoutine;
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
-    allDayLabel.hidden = isRoutine; // eine Routine braucht eine Uhrzeit
+    allDayLabel.hidden = isRoutine || birthdayInput.checked; // eine Routine braucht eine Uhrzeit
+    birthdayLabel.hidden = isRoutine;
+    if (isRoutine && birthdayInput.checked) { birthdayInput.checked = false; showBirthday(); }
     if (isRoutine && allDayInput.checked) { allDayInput.checked = false; showAllDay(); }
+  }
+
+  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder – Ende und Wiederholen braucht es dann nicht.
+  const birthdayInput = el('input', { type: 'checkbox', name: 'is_birthday', checked: Boolean(ev.is_birthday), onchange: () => showBirthday() });
+  const birthdayLabel = el('label.check', {}, birthdayInput, 'Geburtstag (jedes Jahr an diesem Tag)');
+  const birthYearField = field('Geburtsjahr (optional, für das Alter)',
+    el('input', { type: 'number', name: 'birth_year', min: 1900, max: new Date().getFullYear(), inputmode: 'numeric', value: ev.birth_year || '' }));
+  const endBox = el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element);
+  const startLabel = el('span.field-label', {}, 'Beginn');
+  function showBirthday() {
+    const on = birthdayInput.checked;
+    if (on) allDayInput.checked = true;
+    allDayLabel.hidden = on || typeSwitch.querySelector('input:checked').value === 'routine';
+    endBox.hidden = on;
+    repeat.element.hidden = on;
+    birthYearField.hidden = !on;
+    startLabel.textContent = on ? 'Datum' : 'Beginn';
+    showAllDay();
   }
 
   // Ganztägig: nur Datum (ohne Uhrzeit), keine Bereiche davor/danach.
@@ -561,9 +598,11 @@ export function openEventEditor(event, refresh) {
     topics,
     el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
       'Veranstaltung (lässt sich im Kalender ausblenden)'),
+    birthdayLabel,
     allDayLabel,
-    el('div.field', {}, el('span.field-label', {}, 'Beginn'), startField.element),
-    el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element),
+    el('div.field', {}, startLabel, startField.element),
+    endBox,
+    birthYearField,
     repeat.element,
     sides,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, ev.notes || '')),
@@ -573,7 +612,7 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   showType();
-  showAllDay();
+  showBirthday();
 
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
@@ -588,8 +627,8 @@ export function openEventEditor(event, refresh) {
       toast(isNew ? 'Termin angelegt' : 'Termin gespeichert');
       refresh();
     };
-    // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll.
-    if (ev.series) askScope('Wiederkehrenden Termin speichern', run);
+    // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll (Geburtstage gelten immer für alle Jahre).
+    if (ev.series && !(ev.is_birthday && payload.is_birthday)) askScope('Wiederkehrenden Termin speichern', run);
     else run('all');
   }
 
@@ -599,10 +638,11 @@ export function openEventEditor(event, refresh) {
       close();
       refresh();
     };
-    if (ev.series) askScope('Wiederkehrenden Termin löschen', run);
-    else if (window.confirm(`Termin „${ev.title}“ löschen?`)) run('all');
+    if (ev.series && !ev.is_birthday) askScope('Wiederkehrenden Termin löschen', run);
+    else if (window.confirm(ev.is_birthday ? `Geburtstag „${ev.title}“ löschen?` : `Termin „${ev.title}“ löschen?`)) run('all');
   }
 
   const topic = store.topicById(ev.topic_id);
-  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : 'Neuer Termin') : `Termin${topic ? ` · ${topic.name}` : ''}`, form);
+  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : 'Neuer Termin')
+    : `${ev.is_birthday ? 'Geburtstag' : 'Termin'}${topic ? ` · ${topic.name}` : ''}`, form);
 }

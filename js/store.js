@@ -269,6 +269,7 @@ function monthDay(input, key) {
 }
 
 const LABELS = {
+  birth_year: 'Geburtsjahr',
   name: 'Name', title: 'Titel', notes: 'Notizen', rhythm_days: 'Rhythmus', buffer_days: 'Puffer',
   period_start: 'Beginn des Zeitraums', period_end: 'Ende des Zeitraums', duration_min: 'Dauer',
   start_at: 'Beginn', end_at: 'Ende', before_minutes: 'Minuten davor', after_minutes: 'Minuten danach',
@@ -611,10 +612,18 @@ function eventInput(input) {
     notes: text(input, 'notes', 5000),
     topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
     is_event: Boolean(input.is_event),
+    is_birthday: Boolean(input.is_birthday) && !routine,
     all_day: Boolean(input.all_day) && !routine,
     start_at: dateTime('start_at'),
     end_at: dateTime('end_at'),
   };
+  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder; das Geburtsjahr (optional) ergibt das Alter.
+  event.birth_year = null;
+  if (event.is_birthday) {
+    event.all_day = true;
+    event.end_at = event.start_at;
+    event.birth_year = int(input, 'birth_year', 1900, Number(event.start_at.slice(0, 4)));
+  }
   // Ganztägig: vom ersten Tag 0:00 bis zum letzten Tag 23:59, ohne Bereiche davor/danach.
   if (event.all_day) {
     event.start_at = `${event.start_at.slice(0, 10)} 00:00`;
@@ -633,7 +642,7 @@ function eventInput(input) {
       throw new ValidationError('Bitte eine Routine auswählen');
     }
   }
-  event.repeat = repeatInput(input.repeat, event.start_at);
+  event.repeat = repeatInput(event.is_birthday ? { freq: 'yearly', interval: 1 } : input.repeat, event.start_at);
   return event;
 }
 
