@@ -52,7 +52,9 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine*
   (ändert man die Wiederholung selbst, z. B. „endet am …“, nur die beiden letzten) –
   auch bei einem Termin, der schon einmal einzeln geändert wurde (er gehört weiter zu seiner Serie).
-- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit) –
+- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰). Mit Uhrzeit („spätestens um“)
+  erscheinen sie in Tag/3 Tage/Woche als **Zeitpunkt** (rote Linie mit Fähnchen genau zur Uhrzeit), ohne Uhrzeit oben
+  in der Ganztägig-Zeile –
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
   man erledigt jeweils pünktlich).
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
