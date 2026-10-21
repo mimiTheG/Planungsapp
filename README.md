@@ -36,10 +36,12 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
-- Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
-- **Geburtstage:** Thema **„Geburtstag“** wählen (gibt es immer, lässt sich umbenennen, aber nicht löschen) – dann ist
-  der Termin ganztägig, wiederholt sich jedes Jahr an diesem Tag und ist keine Veranstaltung; im Kalender
-  mit 🎂. Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“). Lassen sich wie Veranstaltungen per Haken ausblenden.
+- **Veranstaltungen:** Thema **„Veranstaltung“** wählen – solche Termine lassen sich im Kalender per Haken
+  „Veranstaltungen“ ein- und ausblenden.
+- **Geburtstage:** Thema **„Geburtstag“** wählen – dann ist der Termin ganztägig, wiederholt sich jedes Jahr an diesem
+  Tag und steht im Kalender mit 🎂 (immer sichtbar). Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“).
+- „Geburtstag“ und „Veranstaltung“ sind feste Themen: Es gibt sie immer, man kann sie umbenennen und umfärben,
+  aber nicht löschen.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
   Wochentage wählbar, endet nie / am Datum / nach n Terminen). Wiederkehrende Termine sind mit ↻ markiert.

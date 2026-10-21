@@ -105,10 +105,10 @@ export function loadSamples(today = new Date()) {
     repeat: { freq: 'weekly', interval: 2 },
   });
   store.createEvent({
-    title: 'Konzert', topic_id: freizeit, is_event: true, start_at: at(4, '20:00'), end_at: at(4, '22:30'),
+    title: 'Konzert', topic_id: store.eventTopic().id, start_at: at(4, '20:00'), end_at: at(4, '22:30'),
   });
   store.createEvent({
-    title: 'Flohmarkt', topic_id: freizeit, is_event: true, start_at: at(5, '10:00'), end_at: at(5, '14:00'),
+    title: 'Flohmarkt', topic_id: store.eventTopic().id, start_at: at(5, '10:00'), end_at: at(5, '14:00'),
   });
   store.createEvent({
     title: 'Steuerberaterin', topic_id: finanzen, start_at: at(8, '14:00'), end_at: at(8, '15:00'),

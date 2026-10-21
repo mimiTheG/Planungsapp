@@ -66,9 +66,9 @@ export function renderMoreView(root) {
               attempt(() => store.updateTopic(topic.id, { name: e.target.value, color: store.topicById(topic.id).color }));
             },
           }),
-          // „Geburtstag“ gibt es immer (Termine mit diesem Thema sind Geburtstage) – umbenennen ja, löschen nein.
-          topic.birthday
-            ? el('span.icon-placeholder', { title: 'Für Geburtstage – lässt sich nicht löschen' }, '🎂')
+          // „Geburtstag“ und „Veranstaltung“ gibt es immer – umbenennen ja, löschen nein.
+          store.isFixedTopic(topic)
+            ? el('span.icon-placeholder', { title: 'Festes Thema – lässt sich nicht löschen' }, topic.birthday ? '🎂' : '🎫')
             : el('button.icon', {
               type: 'button',
               'aria-label': 'Löschen',

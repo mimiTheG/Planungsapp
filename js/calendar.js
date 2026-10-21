@@ -20,7 +20,6 @@ const view = {
   mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
   showEvents: readSetting('showEvents', true),
-  showBirthdays: readSetting('showBirthdays', true),
   pickMonth: false,
   pickYear: new Date().getFullYear(),
 };
@@ -83,9 +82,7 @@ export function renderCalendarView(root) {
   const [from, to] = range();
   let events = store.eventsBetween(from, to);
   const hiddenCount = events.filter((e) => e.is_event).length;
-  const birthdayCount = events.filter((e) => e.is_birthday).length;
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
-  if (!view.showBirthdays) events = events.filter((e) => !e.is_birthday);
   const deadlines = store.deadlinesBetween(from, to);
 
   const step = (dir) => {
@@ -130,14 +127,7 @@ export function renderCalendarView(root) {
           checked: view.showEvents,
           onchange: (e) => { view.showEvents = e.target.checked; writeSetting('showEvents', view.showEvents); refresh(); },
         }),
-        `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`),
-      el('label.check.small', {},
-        el('input', {
-          type: 'checkbox',
-          checked: view.showBirthdays,
-          onchange: (e) => { view.showBirthdays = e.target.checked; writeSetting('showBirthdays', view.showBirthdays); refresh(); },
-        }),
-        `Geburtstage${!view.showBirthdays && birthdayCount ? ` (${birthdayCount} aus)` : ''}`)),
+        `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`)),
       legend()),
     view.mode === 'month'
       ? monthGrid(from, to, events, deadlines, refresh)
@@ -470,7 +460,6 @@ export function openEventEditor(event, refresh) {
   const ev = {
     start_at: isoDateTime(next),
     end_at: isoDateTime(new Date(+next + 3600000)),
-    is_event: false,
     ...event,
   };
   // Datum & Uhrzeit mit Monatskalender (statt der Drehräder des Handys).
@@ -521,25 +510,19 @@ export function openEventEditor(event, refresh) {
     showBirthday();
   }
 
-  // Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung –
-  // Ende, Wiederholen und „Veranstaltung“ braucht es dann nicht.
+  // Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder – Ende und Wiederholen braucht es dann nicht.
+  // (Veranstaltung ist ebenfalls ein Thema; ein Termin hat nur eins, also ist ein Geburtstag nie eine Veranstaltung.)
   const topicSelect = topics.querySelector('select[name="topic_id"]');
   topicSelect.addEventListener('change', () => showBirthday());
   const isBirthday = () => typeSwitch.querySelector('input:checked').value !== 'routine'
     && topicSelect.value !== '' && topicSelect.value === String(store.birthdayTopic()?.id);
-  const eventInput = el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) });
-  const eventLabel = el('label.check', {}, eventInput, 'Veranstaltung (lässt sich im Kalender ausblenden)');
   const birthYearField = field('Geburtsjahr (optional, für das Alter)',
     el('input', { type: 'number', name: 'birth_year', min: 1900, max: new Date().getFullYear(), inputmode: 'numeric', value: ev.birth_year || '' }));
   const endBox = el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element);
   const startLabel = el('span.field-label', {}, 'Beginn');
   function showBirthday() {
     const on = isBirthday();
-    if (on) {
-      allDayInput.checked = true;
-      eventInput.checked = false;
-    }
-    eventLabel.hidden = on;
+    if (on) allDayInput.checked = true;
     allDayLabel.hidden = on || typeSwitch.querySelector('input:checked').value === 'routine';
     endBox.hidden = on;
     repeat.element.hidden = on;
@@ -578,7 +561,6 @@ export function openEventEditor(event, refresh) {
     titleField,
     routineField,
     topics,
-    eventLabel,
     allDayLabel,
     el('div.field', {}, startLabel, startField.element),
     endBox,

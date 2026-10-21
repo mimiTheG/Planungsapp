@@ -74,9 +74,9 @@ test('Store: Sicherung exportieren und wieder einlesen', () => {
   store.createTopic({ name: 'Sport', color: '#16a34a' });
   const backup = store.exportJson();
   store.load(memory());
-  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag']); // gibt es immer
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Veranstaltung']); // gibt es immer
   store.importJson(backup);
-  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport']);
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport', 'Veranstaltung']);
   assert.throws(() => store.importJson('{"foo":1}'), /keine gültige Sicherung/);
 });
 
@@ -487,4 +487,22 @@ test('Zeitspannen in passender Einheit (Tage, Wochen, Monate, Jahre)', async () 
   assert.equal(spanText(800, { dative: true }), '2 Jahren');
   assert.equal(hoursText(3 * 3600000), '3 Std.');
   assert.equal(hoursText(20 * 60000), '20 Min.');
+});
+
+test('Store: Veranstaltung ist ein festes Thema (statt Häkchen)', () => {
+  store.load(memory());
+  const topic = store.eventTopic();
+  assert.equal(topic.name, 'Veranstaltung');
+  const konzert = store.createEvent({ title: 'Konzert', topic_id: topic.id, start_at: '2026-11-06T20:00', end_at: '2026-11-06T22:00' });
+  assert.equal(konzert.is_event, true);
+  assert.equal(store.createEvent({ title: 'X', is_event: true, start_at: '2026-11-06T20:00', end_at: '2026-11-06T21:00' }).is_event, false, 'nur das Thema zählt');
+  assert.throws(() => store.deleteTopic(topic.id), /Veranstaltung/);
+  // alte Daten mit Häkchen bekommen das Thema
+  const old = memory();
+  old.setItem('planungsapp.v1', JSON.stringify({
+    scale: 'high5', nextId: 3, topics: [{ id: 1, name: 'Freizeit', color: '#9c8ad0' }], tasks: [], wishes: [], log: [],
+    events: [{ id: 2, title: 'Flohmarkt', topic_id: 1, is_event: true, start_at: '2026-11-07 10:00', end_at: '2026-11-07 14:00' }],
+  }));
+  store.load(old);
+  assert.equal(store.eventById(2).topic_id, store.eventTopic().id);
 });
