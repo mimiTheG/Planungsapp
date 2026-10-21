@@ -43,16 +43,25 @@ export class ValidationError extends Error {}
 // --- Laden & Speichern -------------------------------------------------------
 
 // Lädt die gespeicherten Daten. Gibt false zurück, wenn noch nie etwas gespeichert wurde (erster Start).
-// Das Thema „Geburtstag“ gibt es immer: Termine mit diesem Thema sind Geburtstage (jährlich, ganztägig).
-function withBirthdayTopic(d) {
-  let topic = d.topics.find((t) => t.birthday);
-  if (!topic) {
-    topic = { id: d.nextId, name: 'Geburtstag', color: '#e9a66b', birthday: true };
-    d.nextId += 1;
-    d.topics.push(topic);
+// Feste Themen, die es immer gibt (umbenennen ja, löschen nein):
+//   „Geburtstag“    – Termine mit diesem Thema sind Geburtstage (jährlich, ganztägig).
+//   „Veranstaltung“ – Termine mit diesem Thema lassen sich im Kalender ausblenden.
+// Termine aus der Zeit mit eigenem Häkchen (is_birthday / is_event) bekommen beim Laden das passende Thema.
+const FIXED_TOPICS = [
+  { flag: 'birthday', name: 'Geburtstag', color: '#e9a66b', eventKey: 'is_birthday' },
+  { flag: 'events', name: 'Veranstaltung', color: '#7b4a7a', eventKey: 'is_event' },
+];
+
+function withFixedTopics(d) {
+  for (const { flag, name, color, eventKey } of FIXED_TOPICS) {
+    let topic = d.topics.find((t) => t[flag]);
+    if (!topic) {
+      topic = { id: d.nextId, name, color, [flag]: true };
+      d.nextId += 1;
+      d.topics.push(topic);
+      for (const ev of d.events) if (ev[eventKey] && !(eventKey === 'is_event' && ev.is_birthday)) ev.topic_id = topic.id;
+    }
   }
-  // Geburtstage aus der Zeit mit eigenem Häkchen bekommen das Thema.
-  for (const ev of d.events) if (ev.is_birthday) ev.topic_id = topic.id;
   return d;
 }
 
@@ -61,16 +70,16 @@ export function load(customStorage) {
   let raw = null;
   try {
     raw = storage?.getItem(STORAGE_KEY);
-    data = withBirthdayTopic(raw ? migrate(JSON.parse(raw)) : EMPTY());
+    data = withFixedTopics(raw ? migrate(JSON.parse(raw)) : EMPTY());
   } catch {
-    data = withBirthdayTopic(EMPTY());
+    data = withFixedTopics(EMPTY());
   }
   rollExpired();
   return raw !== null;
 }
 
 export function clearAll() {
-  data = withBirthdayTopic(EMPTY());
+  data = withFixedTopics(EMPTY());
   save();
 }
 
@@ -95,7 +104,7 @@ export function importJson(text) {
   if (!parsed || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.topics) || !Array.isArray(parsed.events)) {
     throw new ValidationError('Das ist keine gültige Sicherung');
   }
-  data = withBirthdayTopic(migrate(parsed));
+  data = withFixedTopics(migrate(parsed));
   save();
   rollExpired();
 }
@@ -106,6 +115,8 @@ export const topics = () => [...data.topics].sort((a, b) => a.name.localeCompare
 export const topicById = (id) => data.topics.find((t) => t.id === Number(id)) || null;
 export const topicColor = (id) => topicById(id)?.color || '#94a3b8';
 export const birthdayTopic = () => data.topics.find((t) => t.birthday) || null;
+export const eventTopic = () => data.topics.find((t) => t.events) || null;
+export const isFixedTopic = (topic) => Boolean(topic?.birthday || topic?.events);
 
 // Aufgaben mit berechnetem Status (status, closes_at).
 export function tasks(now = new Date()) {
@@ -351,7 +362,8 @@ export function updateTopic(id, input) {
 }
 
 export function deleteTopic(id) {
-  if (topicById(id)?.birthday) throw new ValidationError('Das Thema „Geburtstag“ wird für Geburtstage gebraucht');
+  const topic = topicById(id);
+  if (isFixedTopic(topic)) throw new ValidationError(`Das Thema „${topic.name}“ gibt es immer – es lässt sich nur umbenennen`);
   data.topics = data.topics.filter((t) => t.id !== id);
   for (const item of [...data.tasks, ...data.events, ...data.wishes]) {
     if (item.topic_id === id) item.topic_id = null;
@@ -435,6 +447,8 @@ function isDescendantOrSelf(candidate, id) {
 // Fälligkeitsfenster aus den Eingaben bestimmen. Ein Fenster, das beim Speichern schon vorbei ist
 // (z. B. Müll bis 6:00, angelegt um 9:00), rückt bei "verfällt" gleich weiter – ohne als verpasst zu zählen.
 function windowFor(task, input, old) {
+  // Routinen und ihre Schritte haben keine Fälligkeit (auch wenn ein Datum mitgeschickt wird).
+  if (isInRoutine(task)) return [null, null];
   const window = rawWindowFor(task, input, old);
   const candidate = { ...task, window_start: window[0], window_end: window[1] };
   if (task.recurrence !== 'once' && schedule.status(candidate) === 'expired') {
@@ -579,12 +593,16 @@ export function rollExpired(now = new Date()) {
   let changed = false;
   for (const task of data.tasks) {
     if (task.on_missed !== 'expire' || task.recurrence === 'once' || !task.window_end) continue;
-    if (schedule.status(task, now) !== 'expired') continue;
-    [task.window_start, task.window_end] = schedule.windowAfterMissed(task, now);
-    task.missed_count = (task.missed_count || 0) + 1;
-    data.log.push({ task_id: task.id, action: 'missed', at: stamp(now) });
-    resetChildren(task.id);
-    changed = true;
+    // Jeden verpassten Durchgang einzeln zählen (z. B. drei Wochen nicht in die App geschaut = 3 verpasst).
+    let guard = 0;
+    while (schedule.status(task, now) === 'expired' && guard++ < 5000) {
+      const closed = schedule.closesAt(task);
+      [task.window_start, task.window_end] = schedule.windowAfterMissed(task, closed);
+      task.missed_count = (task.missed_count || 0) + 1;
+      data.log.push({ task_id: task.id, action: 'missed', at: stamp(closed) });
+      resetChildren(task.id);
+      changed = true;
+    }
   }
   if (resetRoutinesForNewDay(now)) changed = true;
   if (changed) save();
@@ -668,7 +686,7 @@ function eventInput(input) {
     routine_id: routine ? routine.id : null,
     notes: text(input, 'notes', 5000),
     topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
-    is_event: Boolean(input.is_event),
+    is_event: false,
     is_birthday: false,
     all_day: Boolean(input.all_day) && !routine,
     start_at: dateTime('start_at'),
@@ -677,6 +695,8 @@ function eventInput(input) {
   // Geburtstag = Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung;
   // das Geburtsjahr (optional) ergibt das Alter.
   event.is_birthday = !routine && event.topic_id !== null && event.topic_id === birthdayTopic()?.id;
+  // Veranstaltung = Thema „Veranstaltung“ (lässt sich im Kalender ausblenden).
+  event.is_event = event.topic_id !== null && event.topic_id === eventTopic()?.id;
   event.birth_year = null;
   if (event.is_birthday) {
     event.is_event = false;
@@ -810,6 +830,35 @@ export function deleteEvent(id, { scope = 'all', occurrence = null } = {}) {
     data.events = data.events.filter((e) => e.id !== id && e.series_id !== id);
   }
   save();
+}
+
+// Termin nachträglich zur Aufgabe machen. Datum (und Uhrzeit) des Termins werden zur Deadline.
+//   scope 'this' (oder kein Serientermin): einmalige Aufgabe, nur dieser Termin verschwindet.
+//   scope 'following' / 'all': regelmäßige Aufgabe mit derselben Wiederholung (Deadline-Häkchen gesetzt),
+//   die ab diesem Termin gilt; die Termine (ab hier bzw. alle) verschwinden.
+export function eventToTask(id, { scope = 'all', occurrence = null } = {}) {
+  const event = eventById(id);
+  if (!event) throw new ValidationError('Termin nicht gefunden');
+  if (event.is_birthday) throw new ValidationError('Geburtstage bleiben Termine');
+  if (event.routine_id) throw new ValidationError('Eingeplante Routinen bleiben Termine');
+  const repeat = seriesRepeat(event);
+  const day = occurrence || event.start_at.slice(0, 10);
+  const time = event.all_day ? null : repeating.onDay(event.start_at, day).slice(11, 16);
+  const asSeries = repeat && scope !== 'this';
+  const task = createTask({
+    title: event.title,
+    notes: event.notes,
+    topic_id: event.topic_id,
+    deadline_time: time,
+    ...(asSeries
+      ? {
+        recurrence: 'rhythm', window_start: day, buffer: 0, has_deadline: true,
+        repeat: { ...repeat, until: null, count: null },
+      }
+      : { recurrence: 'once', window_end: day }),
+  });
+  deleteEvent(id, { scope: repeat ? scope : 'all', occurrence: repeat ? day : null });
+  return taskById(task.id);
 }
 
 function exceptionsOf(seriesId) {

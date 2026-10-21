@@ -40,8 +40,19 @@ function nthWeekday(year, month, weekday, nth) {
   return date.getMonth() === month ? date : null;
 }
 
-// Mögliche Termintage der Serie in zeitlicher Reihenfolge (ohne Ende/Ausnahmen).
+// Mögliche Termintage der Serie in zeitlicher Reihenfolge (ohne Ende/Ausnahmen). Der Starttag gehört immer
+// dazu – auch wenn er nicht zur Regel passt (z. B. ein auf Dienstag verschobener Termin einer Montagsserie, ab dem
+// „dieser und alle folgenden“ geändert wird). So machen es auch andere Kalender.
 export function* candidateDays(repeat, first) {
+  const days = ruleDays(repeat, first);
+  const next = days.next();
+  if (next.done) return;
+  if (+next.value !== +first) yield first;
+  yield next.value;
+  yield* days;
+}
+
+function* ruleDays(repeat, first) {
   const interval = Math.max(1, repeat.interval || 1);
   if (repeat.freq === 'daily') {
     for (let k = 0; ; k += interval) yield addDays(first, k);

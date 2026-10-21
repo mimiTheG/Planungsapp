@@ -36,19 +36,25 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
-- Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
-- **Geburtstage:** Thema **„Geburtstag“** wählen (gibt es immer, lässt sich umbenennen, aber nicht löschen) – dann ist
-  der Termin ganztägig, wiederholt sich jedes Jahr an diesem Tag und ist keine Veranstaltung; im Kalender
-  mit 🎂. Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“). Lassen sich wie Veranstaltungen per Haken ausblenden.
+- **Veranstaltungen:** Thema **„Veranstaltung“** wählen – solche Termine lassen sich im Kalender per Haken
+  „Veranstaltungen“ ein- und ausblenden.
+- **Geburtstage:** Thema **„Geburtstag“** wählen – dann ist der Termin ganztägig, wiederholt sich jedes Jahr an diesem
+  Tag und steht im Kalender mit 🎂 (immer sichtbar). Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“).
+- „Geburtstag“ und „Veranstaltung“ sind feste Themen: Es gibt sie immer, man kann sie umbenennen und umfärben,
+  aber nicht löschen.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
   Wochentage wählbar, endet nie / am Datum / nach n Terminen). Wiederkehrende Termine sind mit ↻ markiert.
-  Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine* –
+  Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine*
+  (ändert man die Wiederholung selbst, z. B. „endet am …“, nur die beiden letzten) –
   auch bei einem Termin, der schon einmal einzeln geändert wurde (er gehört weiter zu seiner Serie).
 - **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit) –
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
   man erledigt jeweils pünktlich).
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
+- **Termin nachträglich zur Aufgabe machen:** Termin öffnen und oben „Aufgabe“ wählen. Datum und Uhrzeit werden zur
+  Deadline, der Termin verschwindet aus dem Kalender. Bei Serien: *dieser* → einmalige Aufgabe, *dieser und folgende*
+  bzw. *alle* → regelmäßige Aufgabe mit derselben Wiederholung und Deadline-Häkchen.
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
@@ -108,9 +114,11 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 - Reihenfolge der Aufgaben:
   1. **⚠ Überfällig** – alles, dessen Zeit abgelaufen ist, auch einmalige Aufgaben und Unteraufgaben
      (am längsten überfällig zuerst).
-  2. **📅 Heute fällig** – alles, dessen Zeitraum gerade läuft, nach verbleibenden Tagen (letzter Tag zuerst).
+  2. **📅 Heute fällig** – alles, dessen Zeitraum gerade läuft, nach verbleibender Zeit (letzter Tag zuerst).
   3. **Weitere Aufgaben** – nach Wichtigkeit × Dringlichkeit (sachlich), höchste zuerst.
 - Unter jeder Aufgabe stehen ihre Unteraufgaben zum direkten Abhaken.
+- Zeitangaben in passender Einheit: „noch 3 Tage“, „noch 6 Wochen“, „überfällig seit 2 Monaten“, „in 1 Jahr“ –
+  am letzten Tag mit Uhrzeit „noch 3 Std.“.
 - **„Wollte ich schon länger mal wieder machen“** ist eine eigene Liste ohne Datum und Priorität. Mit ♥ markiert
   man, dass man es gemacht hat – der Eintrag bleibt und rutscht nach hinten (am längsten nicht Gemachtes zuerst).
 - **„Ich kann mich nicht entscheiden“** wählt per Zufall eine offene Aufgabe, ein Projekt oder einen Eintrag der
@@ -133,8 +141,13 @@ nächsten Start. Wenn Dateien hinzukommen oder wegfallen, in `sw.js` die Liste `
 
 ```bash
 python3 -m http.server 8000   # dann http://localhost:8000 öffnen
-npm test                      # Tests für Fälligkeitslogik und Datenhaltung (Node 18+)
+npm test                      # Tests (Node 18+): Fälligkeitslogik, Datenhaltung und Szenarien
 ```
+
+`tests/logic.test.js` prüft einzelne Regeln, `tests/scenarios.test.js` ganze Abläufe wie auf dem Handy – z. B. eine
+Serie auf „endet am …“ und wieder zurück auf „endet nie“ stellen, Einzeltermine verschieben und danach „dieser und
+alle folgenden“ ändern, Aufgaben von einmalig auf regelmäßig umstellen, verpasste Durchgänge, Sicherung einlesen.
+Gefundene Fehler bekommen hier einen eigenen Test, damit sie nicht wiederkommen.
 
 ## Aufbau
 
@@ -162,5 +175,5 @@ js/
   reorder.js           Umsortieren per langem Drücken
   samples.js           Beispieldaten
 icons/                 App-Icons
-tests/                 node:test-Tests
+tests/                 node:test-Tests (logic = Regeln, scenarios = Abläufe)
 ```

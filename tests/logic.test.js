@@ -74,9 +74,9 @@ test('Store: Sicherung exportieren und wieder einlesen', () => {
   store.createTopic({ name: 'Sport', color: '#16a34a' });
   const backup = store.exportJson();
   store.load(memory());
-  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag']); // gibt es immer
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Veranstaltung']); // gibt es immer
   store.importJson(backup);
-  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport']);
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport', 'Veranstaltung']);
   assert.throws(() => store.importJson('{"foo":1}'), /keine gültige Sicherung/);
 });
 
@@ -162,7 +162,8 @@ test('Wiederholung: wöchentlich an mehreren Tagen, alle 2 Wochen, Ende nach Anz
   assert.deepEqual(days({ freq: 'weekly', interval: 2, until: '2026-11-17' }), ['2026-10-20', '2026-11-03', '2026-11-17']);
   assert.deepEqual(days({ freq: 'daily', interval: 3, count: 3 }), ['2026-10-20', '2026-10-23', '2026-10-26']);
   assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: 3, count: 3 }), ['2026-10-20', '2026-11-17', '2026-12-15']);
-  assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: -1, count: 2 }, new Date(2027, 1, 1)), ['2026-10-27', '2026-11-24']);
+  // Der Starttag (20.10., kein letzter Dienstag) ist immer der erste Termin, danach gilt die Regel.
+  assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: -1, count: 3 }, new Date(2027, 1, 1)), ['2026-10-20', '2026-10-27', '2026-11-24']);
   assert.equal(repeating.repeatText({ freq: 'weekly', interval: 1, weekdays: [1, 2, 3, 4, 5] }, ev.start_at), 'Wöchentlich am Mo–Fr');
   const keys = repeating.presets(ev.start_at).map((p) => p.label);
   assert.ok(keys.includes('Wöchentlich am Dienstag') && keys.includes('Monatlich am dritten Dienstag'));
@@ -473,4 +474,36 @@ test('Deadlines künftiger Durchgänge: fest, ab dem Erledigen, alte Form, Zeitr
   const period = { recurrence: 'period', period_start: '03-01', period_end: '05-31', window_start: '2027-03-01', window_end: '2027-05-31' };
   assert.deepEqual(schedule.upcomingDeadlines(period, '2028-12-31'), ['2027-05-31', '2028-05-31']);
   assert.deepEqual(schedule.upcomingDeadlines({ recurrence: 'once', window_end: '2026-11-01' }, '2030-01-01'), ['2026-11-01']);
+});
+
+test('Zeitspannen in passender Einheit (Tage, Wochen, Monate, Jahre)', async () => {
+  const { spanText, hoursText } = await import('../js/dates.js');
+  assert.equal(spanText(1), '1 Tag');
+  assert.equal(spanText(13), '13 Tage');
+  assert.equal(spanText(14), '2 Wochen');
+  assert.equal(spanText(40, { dative: true }), '6 Wochen');
+  assert.equal(spanText(90), '3 Monate');
+  assert.equal(spanText(90, { dative: true }), '3 Monaten');
+  assert.equal(spanText(400), '1 Jahr');
+  assert.equal(spanText(800, { dative: true }), '2 Jahren');
+  assert.equal(hoursText(3 * 3600000), '3 Std.');
+  assert.equal(hoursText(20 * 60000), '20 Min.');
+});
+
+test('Store: Veranstaltung ist ein festes Thema (statt Häkchen)', () => {
+  store.load(memory());
+  const topic = store.eventTopic();
+  assert.equal(topic.name, 'Veranstaltung');
+  const konzert = store.createEvent({ title: 'Konzert', topic_id: topic.id, start_at: '2026-11-06T20:00', end_at: '2026-11-06T22:00' });
+  assert.equal(konzert.is_event, true);
+  assert.equal(store.createEvent({ title: 'X', is_event: true, start_at: '2026-11-06T20:00', end_at: '2026-11-06T21:00' }).is_event, false, 'nur das Thema zählt');
+  assert.throws(() => store.deleteTopic(topic.id), /Veranstaltung/);
+  // alte Daten mit Häkchen bekommen das Thema
+  const old = memory();
+  old.setItem('planungsapp.v1', JSON.stringify({
+    scale: 'high5', nextId: 3, topics: [{ id: 1, name: 'Freizeit', color: '#9c8ad0' }], tasks: [], wishes: [], log: [],
+    events: [{ id: 2, title: 'Flohmarkt', topic_id: 1, is_event: true, start_at: '2026-11-07 10:00', end_at: '2026-11-07 14:00' }],
+  }));
+  store.load(old);
+  assert.equal(store.eventById(2).topic_id, store.eventTopic().id);
 });

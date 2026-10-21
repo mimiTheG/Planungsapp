@@ -3,7 +3,9 @@
 import {
   el, mount, field, formData, openDialog, closeDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, formatDuration, formatTime, parseDate, stamp } from './dates.js';
+import {
+  daysBetween, formatDate, formatDuration, formatTime, hoursText, parseDate, spanText, stamp,
+} from './dates.js';
 import * as store from './store.js';
 import {
   KIND_LABELS, cancelRoutine, completeTask, openTaskEditor, priority, progressBar, recurrenceText, routineChecklist,
@@ -30,6 +32,13 @@ function daysLeft(task) {
 }
 
 const byPriority = (a, b) => priority(b) - priority(a);
+
+// Verbleibende Zeit: „noch 3 Tage“, „noch 2 Wochen“ – am letzten Tag mit Uhrzeit „noch 3 Std.“.
+function leftText(task, days) {
+  if (days > 0) return `noch ${spanText(days)}`;
+  if (task.deadline_time && task.closes_at) return `noch ${hoursText(parseDate(task.closes_at) - new Date())}`;
+  return 'letzter Tag';
+}
 
 function pickRandom(items) {
   const total = items.reduce((sum, t) => sum + weight(t), 0);
@@ -72,7 +81,7 @@ function nowItem(task, refresh, { left = false } = {}) {
         el('span.badge', { title: 'Wichtigkeit / Dringlichkeit' }, `W${task.importance} · D${task.urgency}`),
         task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
         windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
-        left ? el('span.badge.days-left', {}, days === 0 ? 'letzter Tag' : `noch ${days} ${days === 1 ? 'Tag' : 'Tage'}`) : null,
+        left ? el('span.badge.days-left', {}, leftText(task, days)) : null,
         parent ? el('span.badge', {}, `in: ${parent.title}`) : null,
         openSubtasks ? el('span.badge', {}, `${openSubtasks} offen`) : null),
       progressBar(task),
@@ -87,7 +96,7 @@ function lastDoneText(wish) {
   const days = daysBetween(parseDate(wish.last_done_at), new Date());
   if (days === 0) return 'heute gemacht';
   if (days === 1) return 'gestern gemacht';
-  return `zuletzt vor ${days} Tagen`;
+  return `zuletzt vor ${spanText(days, { dative: true })}`;
 }
 
 function doneWish(wish, refresh) {
