@@ -14,6 +14,14 @@ const SIDE_KEYS = ['type', 'minutes', 'label', 'routine_id'].flatMap((k) => [`be
 
 function migrate(parsed) {
   const result = { ...EMPTY(), ...parsed };
+  // Puffer zählt jetzt in beide Richtungen (± Tage, 0 = nur am Termintag). Früher: so viele Tage ab dem
+  // Termintag (1 = nur an dem Tag) → umrechnen: 1 → 0, 2–3 → 1, 4–5 → 2 …
+  for (const t of result.tasks) {
+    if (t.buffer_days !== undefined) {
+      if (t.buffer === undefined || t.buffer === null) t.buffer = t.buffer_days ? Math.ceil((t.buffer_days - 1) / 2) : null;
+      delete t.buffer_days;
+    }
+  }
   // Bereiche davor/danach gibt es nicht mehr – alte Angaben an Terminen entfernen.
   for (const ev of result.events) for (const key of SIDE_KEYS) delete ev[key];
   if (!parsed.scale) {
@@ -310,7 +318,7 @@ function monthDay(input, key) {
 
 const LABELS = {
   birth_year: 'Geburtsjahr',
-  name: 'Name', title: 'Titel', notes: 'Notizen', rhythm_days: 'Rhythmus', buffer_days: 'Puffer',
+  name: 'Name', title: 'Titel', notes: 'Notizen', rhythm_days: 'Rhythmus', buffer: 'Puffer',
   period_start: 'Beginn des Zeitraums', period_end: 'Ende des Zeitraums', duration_min: 'Dauer',
   start_at: 'Beginn', end_at: 'Ende',
   window_start: 'Beginn', window_end: 'Ende', deadline_time: 'Uhrzeit', default_time: 'Standardstartzeit',
@@ -371,7 +379,7 @@ function taskInput(input, id) {
     repeat_start: null,
     repeat_from_done: false,
     has_deadline: recurrence !== 'once' && Boolean(input.has_deadline),
-    buffer_days: null,
+    buffer: null,
     period_start: null,
     period_end: null,
     deadline_time: pattern(input, 'deadline_time', /^\d{2}:\d{2}$/),
@@ -383,12 +391,12 @@ function taskInput(input, id) {
     task.repeat_start = pattern(input, 'window_start', /^\d{4}-\d{2}-\d{2}$/) || isoDate(new Date());
     task.repeat = repeatInput({ ...input.repeat, until: null, count: null }, task.repeat_start);
     task.repeat_from_done = Boolean(input.repeat_from_done);
-    task.buffer_days = int(input, 'buffer_days', 1, 3650, 1);
+    task.buffer = int(input, 'buffer', 0, 365, 0);
   } else if (recurrence === 'rhythm') {
     // Ältere Form: alle n Tage ab dem Erledigen.
     task.rhythm_days = int(input, 'rhythm_days', 1, 3650);
     if (task.rhythm_days === null) throw new ValidationError('Bitte angeben, wie oft die Aufgabe wiederkommt');
-    task.buffer_days = int(input, 'buffer_days', 1, 3650, 1);
+    task.buffer = int(input, 'buffer', 0, 365, 0);
   } else if (recurrence === 'period') {
     task.period_start = monthDay(input, 'period_start');
     task.period_end = monthDay(input, 'period_end');
@@ -407,7 +415,7 @@ function taskInput(input, id) {
   if (isInRoutine(task)) {
     Object.assign(task, {
       recurrence: 'once', rhythm_days: null, repeat: null, repeat_start: null, repeat_from_done: false, has_deadline: false,
-      buffer_days: null, period_start: null, period_end: null,
+      buffer: null, period_start: null, period_end: null,
       deadline_time: null, on_missed: 'remind',
     });
   }

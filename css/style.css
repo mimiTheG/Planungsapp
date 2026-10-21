@@ -207,7 +207,10 @@ body.has-player { --player-h: 3.6rem; }
 .segmented.radio { display: flex; }
 .segmented.radio > label { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; }
 .segmented.radio > label:has(input:checked) { background: var(--accent-soft); font-weight: 600; }
-.segmented.radio input { position: absolute; opacity: 0; pointer-events: none; }
+/* Unsichtbarer Auswahlknopf im Feld selbst verankern – sonst ragt er aus dem Dialog heraus, und beim Antippen
+   verschiebt das Handy den ganzen Dialog (unten leer, oben abgeschnitten). */
+.segmented.radio > label { position: relative; }
+.segmented.radio input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
 
 .check { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; }
 

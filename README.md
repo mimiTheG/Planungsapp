@@ -75,10 +75,10 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
 - **Regelmäßig** funktioniert wie ein wiederkehrender Termin: „Erstes Mal am“ plus Täglich, Wöchentlich am …,
   Monatlich am 14. bzw. am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/
-  Monate/Jahre, Wochentage wählbar). Der **Puffer** sagt, wie viele Tage man ab dem Termintag Zeit hat
-  (1 = nur an diesem Tag, 3 = am Termintag und an den 2 Tagen danach; früher geht nicht).
+  Monate/Jahre, Wochentage wählbar). Der **Puffer** gilt in beide Richtungen (± Tage):
+  0 = nur am Termintag, 1 = einen Tag vorher bis einen Tag nachher, 2 = zwei Tage vorher bis zwei Tage nachher.
   Die Tage stehen fest (Müll alle 2 Wochen am Freitag) – oder man zählt **ab dem Erledigen neu**
-  (Friseur 6 Wochen nach dem letzten Mal: erledigt am Do., 5.11. → wieder fällig ab Do., 17.12.).
+  (Friseur 6 Wochen nach dem letzten Mal: erledigt am Do., 5.11. → nächster Termintag Do., 17.12.).
 - Wenn nicht rechtzeitig erledigt: **verfällt** (der nächste Durchgang beginnt, wird als verpasst gezählt) oder
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,

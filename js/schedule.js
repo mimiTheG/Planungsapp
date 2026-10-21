@@ -1,12 +1,12 @@
 // Fälligkeitslogik für Aufgaben (reine Funktionen, ohne Speicherzugriff).
 //
 // Regelmäßig (recurrence 'rhythm'): Wiederholung wie bei Terminen (task.repeat, z. B. wöchentlich am Montag,
-// monatlich am 14.), beginnend am Tag repeat_start. Jedes Fenster dauert buffer_days Tage ab dem Termintag.
+// monatlich am 14.), beginnend am Tag repeat_start.
+//   - Puffer (task.buffer) gilt in beide Richtungen: 0 = nur am Termintag, 1 = vom Tag davor bis zum Tag danach.
 //   - Fest (Standard): Die Termintage stehen fest – wann man erledigt, ändert nichts daran.
 //   - repeat_from_done: Gezählt wird ab dem Erledigen, z. B. alle 6 Wochen nach dem letzten Haareschneiden.
-// Ältere Aufgaben ohne repeat haben rhythm_days: Wird die Aufgabe an Tag D erledigt (Tag 1 = erster Tag
-// des Fensters), beginnt das nächste Fenster an Tag D + rhythm_days - 1.
-// Beispiel Rhythmus 7, Puffer 3: erledigt an Tag 1 → fällig Tag 7–9, an Tag 3 → Tag 9–11.
+// Ältere Aufgaben ohne repeat haben rhythm_days: nächster Termintag = Tag des Erledigens + rhythm_days.
+// Beispiel alle 7 Tage, Puffer 1: erledigt am 1. → Termintag 8., fällig 7.–9.
 //
 // Fester Zeitraum: jedes Jahr zwischen period_start und period_end (MM-TT), z. B. 03-01 bis 09-30.
 
@@ -34,13 +34,19 @@ function fromDoneRepeat(repeat, day) {
 }
 
 export function nextRhythmStart(doneDay, rhythmDays) {
-  return addDays(startOfDay(doneDay), Math.max(1, rhythmDays - 1));
+  return addDays(startOfDay(doneDay), Math.max(1, rhythmDays));
 }
 
-// Fenster für einen Rhythmus, das an start beginnt.
-export function rhythmWindow(start, bufferDays) {
-  const s = startOfDay(start);
-  return [s, addDays(s, Math.max(1, bufferDays) - 1)];
+// Fenster um einen Termintag: buffer Tage davor bis buffer Tage danach (0 = nur der Tag selbst).
+export function rhythmWindow(day, buffer) {
+  const d = startOfDay(day);
+  const b = Math.max(0, Number(buffer) || 0);
+  return [addDays(d, -b), addDays(d, b)];
+}
+
+// Termintag des aktuellen Fensters (die Mitte).
+function currentDay(task) {
+  return addDays(parseDate(task.window_start), Math.max(0, Number(task.buffer) || 0));
 }
 
 function monthDay(md, year) {
@@ -99,10 +105,10 @@ const asStrings = ([start, end]) => [isoDate(start), isoDate(end)];
 export function initialWindow(task, startDate, today = new Date()) {
   if (task.recurrence === 'rhythm' && usesRepeat(task)) {
     const anchor = startDate ? parseDate(startDate) : today;
-    return asStrings(rhythmWindow(nextRepeatDay(task.repeat, anchor, anchor), task.buffer_days));
+    return asStrings(rhythmWindow(nextRepeatDay(task.repeat, anchor, anchor), task.buffer));
   }
   if (task.recurrence === 'rhythm') {
-    return asStrings(rhythmWindow(startDate ? parseDate(startDate) : today, task.buffer_days));
+    return asStrings(rhythmWindow(startDate ? parseDate(startDate) : today, task.buffer));
   }
   if (task.recurrence === 'period') {
     return asStrings(periodWindow(task.period_start, task.period_end, today));
@@ -116,15 +122,15 @@ export function windowAfterDone(task, doneAt) {
     const doneDay = startOfDay(doneAt);
     if (task.repeat_from_done) {
       // Neu zählen ab dem Erledigen: nächster Tag einer Serie, die heute beginnt.
-      return asStrings(rhythmWindow(nextRepeatDay(fromDoneRepeat(task.repeat, doneDay), doneDay, addDays(doneDay, 1)), task.buffer_days));
+      return asStrings(rhythmWindow(nextRepeatDay(fromDoneRepeat(task.repeat, doneDay), doneDay, addDays(doneDay, 1)), task.buffer));
     }
     // Feste Tage: nächster Termintag nach dem aktuellen Fenster (bzw. nach heute, wenn man spät dran war).
-    const current = task.window_start ? parseDate(task.window_start) : doneDay;
+    const current = task.window_start ? currentDay(task) : doneDay;
     const after = addDays(new Date(Math.max(current, doneDay)), 1);
-    return asStrings(rhythmWindow(nextRepeatDay(task.repeat, task.repeat_start || current, after), task.buffer_days));
+    return asStrings(rhythmWindow(nextRepeatDay(task.repeat, task.repeat_start || current, after), task.buffer));
   }
   if (task.recurrence === 'rhythm') {
-    return asStrings(rhythmWindow(nextRhythmStart(doneAt, task.rhythm_days), task.buffer_days));
+    return asStrings(rhythmWindow(nextRhythmStart(doneAt, task.rhythm_days), task.buffer));
   }
   if (task.recurrence === 'period') {
     // Im aktuellen Zeitraum erledigt → nächster Zeitraum (ein Jahr später).
@@ -138,24 +144,24 @@ export function windowAfterDone(task, doneAt) {
 // Fenster nach einem verpassten (verfallenen) Durchgang: so weit schieben, bis es wieder offen ist.
 export function windowAfterMissed(task, now = new Date()) {
   if (task.recurrence === 'rhythm' && usesRepeat(task)) {
-    const anchor = task.repeat_from_done ? task.window_start : task.repeat_start || task.window_start;
-    const repeat = task.repeat_from_done ? fromDoneRepeat(task.repeat, parseDate(task.window_start)) : task.repeat;
-    let start = parseDate(task.window_start);
+    let start = currentDay(task);
+    const anchor = task.repeat_from_done ? start : task.repeat_start || start;
+    const repeat = task.repeat_from_done ? fromDoneRepeat(task.repeat, start) : task.repeat;
     let window;
     let steps = 0;
     do {
       start = nextRepeatDay(repeat, anchor, addDays(start, 1));
-      window = asStrings(rhythmWindow(start, task.buffer_days));
+      window = asStrings(rhythmWindow(start, task.buffer));
     } while (closesAt({ ...task, window_end: window[1] }) <= now && ++steps < 5000);
     return window;
   }
   if (task.recurrence === 'rhythm') {
     const step = Math.max(1, task.rhythm_days);
-    let start = parseDate(task.window_start);
+    let start = currentDay(task);
     let window;
     do {
       start = addDays(start, step);
-      window = asStrings(rhythmWindow(start, task.buffer_days));
+      window = asStrings(rhythmWindow(start, task.buffer));
     } while (closesAt({ ...task, window_end: window[1] }) <= now);
     return window;
   }
