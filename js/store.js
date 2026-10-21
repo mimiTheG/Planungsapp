@@ -365,6 +365,9 @@ function taskInput(input, id) {
     default_time: pattern(input, 'default_time', /^\d{2}:\d{2}$/),
     recurrence,
     rhythm_days: null,
+    repeat: null,
+    repeat_start: null,
+    repeat_from_done: false,
     buffer_days: null,
     period_start: null,
     period_end: null,
@@ -372,9 +375,16 @@ function taskInput(input, id) {
     on_missed: oneOf(input, 'on_missed', ['remind', 'expire']),
   };
 
-  if (recurrence === 'rhythm') {
+  if (recurrence === 'rhythm' && input.repeat) {
+    // Regelmäßig: Wiederholung wie bei Terminen (ohne Ende), ab dem Tag „Erstes Mal am“.
+    task.repeat_start = pattern(input, 'window_start', /^\d{4}-\d{2}-\d{2}$/) || isoDate(new Date());
+    task.repeat = repeatInput({ ...input.repeat, until: null, count: null }, task.repeat_start);
+    task.repeat_from_done = Boolean(input.repeat_from_done);
+    task.buffer_days = int(input, 'buffer_days', 1, 3650, 1);
+  } else if (recurrence === 'rhythm') {
+    // Ältere Form: alle n Tage ab dem Erledigen.
     task.rhythm_days = int(input, 'rhythm_days', 1, 3650);
-    if (task.rhythm_days === null) throw new ValidationError('Bitte den Rhythmus (Tage) angeben');
+    if (task.rhythm_days === null) throw new ValidationError('Bitte angeben, wie oft die Aufgabe wiederkommt');
     task.buffer_days = int(input, 'buffer_days', 1, 3650, 1);
   } else if (recurrence === 'period') {
     task.period_start = monthDay(input, 'period_start');
@@ -393,7 +403,8 @@ function taskInput(input, id) {
   // Routinen und ihre Schritte trägt man selbst in den Kalender ein: keine Fälligkeit.
   if (isInRoutine(task)) {
     Object.assign(task, {
-      recurrence: 'once', rhythm_days: null, buffer_days: null, period_start: null, period_end: null,
+      recurrence: 'once', rhythm_days: null, repeat: null, repeat_start: null, repeat_from_done: false,
+      buffer_days: null, period_start: null, period_end: null,
       deadline_time: null, on_missed: 'remind',
     });
   }

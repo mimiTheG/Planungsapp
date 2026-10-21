@@ -41,7 +41,7 @@ function nthWeekday(year, month, weekday, nth) {
 }
 
 // Mögliche Termintage der Serie in zeitlicher Reihenfolge (ohne Ende/Ausnahmen).
-function* candidateDays(repeat, first) {
+export function* candidateDays(repeat, first) {
   const interval = Math.max(1, repeat.interval || 1);
   if (repeat.freq === 'daily') {
     for (let k = 0; ; k += interval) yield addDays(first, k);
