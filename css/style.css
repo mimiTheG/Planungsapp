@@ -484,6 +484,7 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .mixer-row input[type="range"]::-moz-range-thumb { width: 1.3rem; height: 1.3rem; border-radius: 50%; background: #fff; border: 3px solid var(--text); }
 .topic-list li { flex-wrap: wrap; }
 .inline-form { flex-wrap: wrap; align-items: center; }
+.icon-placeholder { min-width: 2.4rem; text-align: center; flex: none; }
 .topic-list li input:not([type]), .inline-form input:not([type]) { width: auto; flex: 1; min-width: 0; }
 
 /* Themenauswahl mit "+ Neues Thema anlegen" */

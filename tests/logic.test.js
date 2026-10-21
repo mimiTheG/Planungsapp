@@ -73,9 +73,9 @@ test('Store: Sicherung exportieren und wieder einlesen', () => {
   store.createTopic({ name: 'Sport', color: '#16a34a' });
   const backup = store.exportJson();
   store.load(memory());
-  assert.equal(store.topics().length, 0);
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag']); // gibt es immer
   store.importJson(backup);
-  assert.equal(store.topics()[0].name, 'Sport');
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport']);
   assert.throws(() => store.importJson('{"foo":1}'), /keine gültige Sicherung/);
 });
 
@@ -322,12 +322,15 @@ test('Store: ganztägige Termine – nur Datum', () => {
   assert.equal(timed.all_day, false);
 });
 
-test('Store: Geburtstage – ganztägig, jedes Jahr, optional mit Geburtsjahr', () => {
+test('Store: Geburtstage (Thema „Geburtstag“) – ganztägig, jedes Jahr, keine Veranstaltung, optional mit Geburtsjahr', () => {
   store.load(memory());
   const ev = store.createEvent({
-    title: 'Anna', is_birthday: true, start_at: '2026-03-05T14:00', end_at: '2026-03-07T10:00', birth_year: '1990',
+    title: 'Anna', topic_id: store.birthdayTopic().id, is_event: true,
+    start_at: '2026-03-05T14:00', end_at: '2026-03-07T10:00', birth_year: '1990',
     repeat: { freq: 'weekly', interval: 2 },
   });
+  assert.equal(ev.is_birthday, true);
+  assert.equal(ev.is_event, false, 'ein Geburtstag ist keine Veranstaltung');
   assert.equal(ev.all_day, true);
   assert.equal(ev.start_at, '2026-03-05 00:00');
   assert.equal(ev.end_at, '2026-03-05 23:59');
@@ -335,7 +338,9 @@ test('Store: Geburtstage – ganztägig, jedes Jahr, optional mit Geburtsjahr', 
   assert.equal(ev.birth_year, 1990);
   const next = store.eventsBetween(new Date(2028, 2, 1), new Date(2028, 2, 31)).filter((e) => e.title === 'Anna');
   assert.deepEqual(next.map((e) => e.start_at), ['2028-03-05 00:00']);
-  assert.throws(() => store.createEvent({ title: 'X', is_birthday: true, start_at: '2026-03-05T00:00', end_at: '2026-03-05T00:00', birth_year: '2030' }), /Geburtsjahr/);
+  assert.throws(() => store.deleteTopic(store.birthdayTopic().id), /Geburtstag/);
+  assert.equal(store.createEvent({ title: 'Y', is_birthday: true, start_at: '2026-03-05T10:00', end_at: '2026-03-05T11:00' }).is_birthday, false);
+  assert.throws(() => store.createEvent({ title: 'X', topic_id: store.birthdayTopic().id, start_at: '2026-03-05T00:00', end_at: '2026-03-05T00:00', birth_year: '2030' }), /Geburtsjahr/);
 });
 
 test('Store: alte Angaben zu Bereichen davor/danach werden beim Laden entfernt', () => {
@@ -382,4 +387,14 @@ test('Store: Deadlines für den Kalender – nur offene einmalige Aufgaben mit D
   const list = store.deadlinesBetween(new Date(2026, 10, 1), new Date(2026, 10, 30));
   assert.deepEqual(list.map((t) => t.id), [steuer.id]);
   assert.equal(store.deadlinesBetween(new Date(2026, 10, 11), new Date(2026, 10, 30)).length, 0);
+});
+
+test('Store: alte Geburtstage (Häkchen) bekommen beim Laden das Thema „Geburtstag“', () => {
+  const old = memory();
+  old.setItem('planungsapp.v1', JSON.stringify({
+    scale: 'high5', nextId: 3, topics: [{ id: 1, name: 'Familie', color: '#9b2948' }], tasks: [], wishes: [], log: [],
+    events: [{ id: 2, title: 'Anna', topic_id: 1, is_birthday: true, all_day: true, start_at: '2026-03-05 00:00', end_at: '2026-03-05 23:59', repeat: { freq: 'yearly', interval: 1 } }],
+  }));
+  store.load(old);
+  assert.equal(store.eventById(2).topic_id, store.birthdayTopic().id);
 });

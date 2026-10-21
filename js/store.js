@@ -35,21 +35,34 @@ export class ValidationError extends Error {}
 // --- Laden & Speichern -------------------------------------------------------
 
 // Lädt die gespeicherten Daten. Gibt false zurück, wenn noch nie etwas gespeichert wurde (erster Start).
+// Das Thema „Geburtstag“ gibt es immer: Termine mit diesem Thema sind Geburtstage (jährlich, ganztägig).
+function withBirthdayTopic(d) {
+  let topic = d.topics.find((t) => t.birthday);
+  if (!topic) {
+    topic = { id: d.nextId, name: 'Geburtstag', color: '#e9a66b', birthday: true };
+    d.nextId += 1;
+    d.topics.push(topic);
+  }
+  // Geburtstage aus der Zeit mit eigenem Häkchen bekommen das Thema.
+  for (const ev of d.events) if (ev.is_birthday) ev.topic_id = topic.id;
+  return d;
+}
+
 export function load(customStorage) {
   if (customStorage) storage = customStorage;
   let raw = null;
   try {
     raw = storage?.getItem(STORAGE_KEY);
-    data = raw ? migrate(JSON.parse(raw)) : EMPTY();
+    data = withBirthdayTopic(raw ? migrate(JSON.parse(raw)) : EMPTY());
   } catch {
-    data = EMPTY();
+    data = withBirthdayTopic(EMPTY());
   }
   rollExpired();
   return raw !== null;
 }
 
 export function clearAll() {
-  data = EMPTY();
+  data = withBirthdayTopic(EMPTY());
   save();
 }
 
@@ -74,7 +87,7 @@ export function importJson(text) {
   if (!parsed || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.topics) || !Array.isArray(parsed.events)) {
     throw new ValidationError('Das ist keine gültige Sicherung');
   }
-  data = migrate(parsed);
+  data = withBirthdayTopic(migrate(parsed));
   save();
   rollExpired();
 }
@@ -84,6 +97,7 @@ export function importJson(text) {
 export const topics = () => [...data.topics].sort((a, b) => a.name.localeCompare(b.name, 'de'));
 export const topicById = (id) => data.topics.find((t) => t.id === Number(id)) || null;
 export const topicColor = (id) => topicById(id)?.color || '#94a3b8';
+export const birthdayTopic = () => data.topics.find((t) => t.birthday) || null;
 
 // Aufgaben mit berechnetem Status (status, closes_at).
 export function tasks(now = new Date()) {
@@ -325,6 +339,7 @@ export function updateTopic(id, input) {
 }
 
 export function deleteTopic(id) {
+  if (topicById(id)?.birthday) throw new ValidationError('Das Thema „Geburtstag“ wird für Geburtstage gebraucht');
   data.topics = data.topics.filter((t) => t.id !== id);
   for (const item of [...data.tasks, ...data.events, ...data.wishes]) {
     if (item.topic_id === id) item.topic_id = null;
@@ -630,14 +645,17 @@ function eventInput(input) {
     notes: text(input, 'notes', 5000),
     topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
     is_event: Boolean(input.is_event),
-    is_birthday: Boolean(input.is_birthday) && !routine,
+    is_birthday: false,
     all_day: Boolean(input.all_day) && !routine,
     start_at: dateTime('start_at'),
     end_at: dateTime('end_at'),
   };
-  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder; das Geburtsjahr (optional) ergibt das Alter.
+  // Geburtstag = Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung;
+  // das Geburtsjahr (optional) ergibt das Alter.
+  event.is_birthday = !routine && event.topic_id !== null && event.topic_id === birthdayTopic()?.id;
   event.birth_year = null;
   if (event.is_birthday) {
+    event.is_event = false;
     event.all_day = true;
     event.end_at = event.start_at;
     event.birth_year = int(input, 'birth_year', 1900, Number(event.start_at.slice(0, 4)));

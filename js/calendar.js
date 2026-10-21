@@ -517,22 +517,29 @@ export function openEventEditor(event, refresh) {
     titleInput.required = !isRoutine;
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
-    allDayLabel.hidden = isRoutine || birthdayInput.checked; // eine Routine braucht eine Uhrzeit
-    birthdayLabel.hidden = isRoutine;
-    if (isRoutine && birthdayInput.checked) { birthdayInput.checked = false; showBirthday(); }
-    if (isRoutine && allDayInput.checked) { allDayInput.checked = false; showAllDay(); }
+    if (isRoutine && allDayInput.checked) allDayInput.checked = false; // eine Routine braucht eine Uhrzeit
+    showBirthday();
   }
 
-  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder – Ende und Wiederholen braucht es dann nicht.
-  const birthdayInput = el('input', { type: 'checkbox', name: 'is_birthday', checked: Boolean(ev.is_birthday), onchange: () => showBirthday() });
-  const birthdayLabel = el('label.check', {}, birthdayInput, 'Geburtstag (jedes Jahr an diesem Tag)');
+  // Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung –
+  // Ende, Wiederholen und „Veranstaltung“ braucht es dann nicht.
+  const topicSelect = topics.querySelector('select[name="topic_id"]');
+  topicSelect.addEventListener('change', () => showBirthday());
+  const isBirthday = () => typeSwitch.querySelector('input:checked').value !== 'routine'
+    && topicSelect.value !== '' && topicSelect.value === String(store.birthdayTopic()?.id);
+  const eventInput = el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) });
+  const eventLabel = el('label.check', {}, eventInput, 'Veranstaltung (lässt sich im Kalender ausblenden)');
   const birthYearField = field('Geburtsjahr (optional, für das Alter)',
     el('input', { type: 'number', name: 'birth_year', min: 1900, max: new Date().getFullYear(), inputmode: 'numeric', value: ev.birth_year || '' }));
   const endBox = el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element);
   const startLabel = el('span.field-label', {}, 'Beginn');
   function showBirthday() {
-    const on = birthdayInput.checked;
-    if (on) allDayInput.checked = true;
+    const on = isBirthday();
+    if (on) {
+      allDayInput.checked = true;
+      eventInput.checked = false;
+    }
+    eventLabel.hidden = on;
     allDayLabel.hidden = on || typeSwitch.querySelector('input:checked').value === 'routine';
     endBox.hidden = on;
     repeat.element.hidden = on;
@@ -559,7 +566,6 @@ export function openEventEditor(event, refresh) {
   routineSelect.addEventListener('change', () => {
     const r = store.taskById(routineSelect.value);
     if (!r) return;
-    const topicSelect = topics.querySelector('select[name="topic_id"]');
     if (r.topic_id) topicSelect.value = String(r.topic_id);
     // Standardstartzeit der Routine am gewählten Tag übernehmen, Ende aus ihrer Dauer.
     if (r.default_time) startField.set(routineStart(r, parseDate(startInput.value)), false);
@@ -572,9 +578,7 @@ export function openEventEditor(event, refresh) {
     titleField,
     routineField,
     topics,
-    el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
-      'Veranstaltung (lässt sich im Kalender ausblenden)'),
-    birthdayLabel,
+    eventLabel,
     allDayLabel,
     el('div.field', {}, startLabel, startField.element),
     endBox,
@@ -587,7 +591,6 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   showType();
-  showBirthday();
 
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
@@ -603,7 +606,7 @@ export function openEventEditor(event, refresh) {
       refresh();
     };
     // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll (Geburtstage gelten immer für alle Jahre).
-    if (ev.series && !(ev.is_birthday && payload.is_birthday)) askScope('Wiederkehrenden Termin speichern', run);
+    if (ev.series && !(ev.is_birthday && isBirthday())) askScope('Wiederkehrenden Termin speichern', run);
     else run('all');
   }
 
