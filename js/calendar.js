@@ -10,6 +10,7 @@ import * as store from './store.js';
 import { openTaskEditor, routineStart, runRoutine } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
+import { normalize, presetKey } from './repeat.js';
 import { dateTimeField } from './datetime-picker.js';
 import { enableEventDrag, justDragged } from './event-drag.js';
 
@@ -588,7 +589,14 @@ export function openEventEditor(event, refresh) {
       refresh();
     };
     // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll (Geburtstage gelten immer für alle Jahre).
-    if (ev.series && !(ev.is_birthday && isBirthday())) askScope('Wiederkehrenden Termin speichern', run);
+    // Wiederholung geändert (z. B. „endet am …“ → „endet nie“): gilt für die Serie, nicht nur für diesen Termin.
+    // Verschiebt man nur das Datum, passen sich Vorschläge wie „Wöchentlich am Montag“ von selbst an – das zählt nicht.
+    const before = store.seriesRepeat(ev);
+    const keyBefore = presetKey(before, ev.start_at);
+    const keyAfter = presetKey(payload.repeat, payload.start_at);
+    const repeatChanged = keyBefore !== keyAfter
+      || (keyAfter === 'custom' && JSON.stringify(normalize(payload.repeat)) !== JSON.stringify(normalize(before)));
+    if (ev.series && !(ev.is_birthday && isBirthday())) askScope('Wiederkehrenden Termin speichern', run, { withoutThis: repeatChanged });
     else run('all');
   }
 

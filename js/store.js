@@ -447,6 +447,8 @@ function isDescendantOrSelf(candidate, id) {
 // Fälligkeitsfenster aus den Eingaben bestimmen. Ein Fenster, das beim Speichern schon vorbei ist
 // (z. B. Müll bis 6:00, angelegt um 9:00), rückt bei "verfällt" gleich weiter – ohne als verpasst zu zählen.
 function windowFor(task, input, old) {
+  // Routinen und ihre Schritte haben keine Fälligkeit (auch wenn ein Datum mitgeschickt wird).
+  if (isInRoutine(task)) return [null, null];
   const window = rawWindowFor(task, input, old);
   const candidate = { ...task, window_start: window[0], window_end: window[1] };
   if (task.recurrence !== 'once' && schedule.status(candidate) === 'expired') {
@@ -591,12 +593,16 @@ export function rollExpired(now = new Date()) {
   let changed = false;
   for (const task of data.tasks) {
     if (task.on_missed !== 'expire' || task.recurrence === 'once' || !task.window_end) continue;
-    if (schedule.status(task, now) !== 'expired') continue;
-    [task.window_start, task.window_end] = schedule.windowAfterMissed(task, now);
-    task.missed_count = (task.missed_count || 0) + 1;
-    data.log.push({ task_id: task.id, action: 'missed', at: stamp(now) });
-    resetChildren(task.id);
-    changed = true;
+    // Jeden verpassten Durchgang einzeln zählen (z. B. drei Wochen nicht in die App geschaut = 3 verpasst).
+    let guard = 0;
+    while (schedule.status(task, now) === 'expired' && guard++ < 5000) {
+      const closed = schedule.closesAt(task);
+      [task.window_start, task.window_end] = schedule.windowAfterMissed(task, closed);
+      task.missed_count = (task.missed_count || 0) + 1;
+      data.log.push({ task_id: task.id, action: 'missed', at: stamp(closed) });
+      resetChildren(task.id);
+      changed = true;
+    }
   }
   if (resetRoutinesForNewDay(now)) changed = true;
   if (changed) save();

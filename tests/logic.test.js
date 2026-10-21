@@ -162,7 +162,8 @@ test('Wiederholung: wöchentlich an mehreren Tagen, alle 2 Wochen, Ende nach Anz
   assert.deepEqual(days({ freq: 'weekly', interval: 2, until: '2026-11-17' }), ['2026-10-20', '2026-11-03', '2026-11-17']);
   assert.deepEqual(days({ freq: 'daily', interval: 3, count: 3 }), ['2026-10-20', '2026-10-23', '2026-10-26']);
   assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: 3, count: 3 }), ['2026-10-20', '2026-11-17', '2026-12-15']);
-  assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: -1, count: 2 }, new Date(2027, 1, 1)), ['2026-10-27', '2026-11-24']);
+  // Der Starttag (20.10., kein letzter Dienstag) ist immer der erste Termin, danach gilt die Regel.
+  assert.deepEqual(days({ freq: 'monthly', monthly: 'weekday', nth: -1, count: 3 }, new Date(2027, 1, 1)), ['2026-10-20', '2026-10-27', '2026-11-24']);
   assert.equal(repeating.repeatText({ freq: 'weekly', interval: 1, weekdays: [1, 2, 3, 4, 5] }, ev.start_at), 'Wöchentlich am Mo–Fr');
   const keys = repeating.presets(ev.start_at).map((p) => p.label);
   assert.ok(keys.includes('Wöchentlich am Dienstag') && keys.includes('Monatlich am dritten Dienstag'));

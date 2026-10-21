@@ -45,7 +45,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
   Wochentage wählbar, endet nie / am Datum / nach n Terminen). Wiederkehrende Termine sind mit ↻ markiert.
-  Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine* –
+  Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine*
+  (ändert man die Wiederholung selbst, z. B. „endet am …“, nur die beiden letzten) –
   auch bei einem Termin, der schon einmal einzeln geändert wurde (er gehört weiter zu seiner Serie).
 - **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit) –
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
@@ -137,8 +138,13 @@ nächsten Start. Wenn Dateien hinzukommen oder wegfallen, in `sw.js` die Liste `
 
 ```bash
 python3 -m http.server 8000   # dann http://localhost:8000 öffnen
-npm test                      # Tests für Fälligkeitslogik und Datenhaltung (Node 18+)
+npm test                      # Tests (Node 18+): Fälligkeitslogik, Datenhaltung und Szenarien
 ```
+
+`tests/logic.test.js` prüft einzelne Regeln, `tests/scenarios.test.js` ganze Abläufe wie auf dem Handy – z. B. eine
+Serie auf „endet am …“ und wieder zurück auf „endet nie“ stellen, Einzeltermine verschieben und danach „dieser und
+alle folgenden“ ändern, Aufgaben von einmalig auf regelmäßig umstellen, verpasste Durchgänge, Sicherung einlesen.
+Gefundene Fehler bekommen hier einen eigenen Test, damit sie nicht wiederkommen.
 
 ## Aufbau
 
@@ -166,5 +172,5 @@ js/
   reorder.js           Umsortieren per langem Drücken
   samples.js           Beispieldaten
 icons/                 App-Icons
-tests/                 node:test-Tests
+tests/                 node:test-Tests (logic = Regeln, scenarios = Abläufe)
 ```

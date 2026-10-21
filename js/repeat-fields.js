@@ -146,9 +146,12 @@ export function repeatFields(initial, startInput, { required = false, noEnd = fa
 }
 
 // Fragt bei wiederkehrenden Terminen nach dem Umfang. Ruft onChoose('this' | 'following' | 'all') auf.
-export function askScope(title, onChoose) {
-  let choice = 'this';
-  const options = [['this', 'Dieser Termin'], ['following', 'Dieser und alle folgenden Termine'], ['all', 'Alle Termine']];
+// Mit withoutThis (die Wiederholung selbst wurde geändert) gibt es – wie bei Google Kalender – kein „Dieser Termin“:
+// Eine geänderte Wiederholung betrifft immer die Serie.
+export function askScope(title, onChoose, { withoutThis = false } = {}) {
+  let choice = withoutThis ? 'following' : 'this';
+  const options = [['this', 'Dieser Termin'], ['following', 'Dieser und alle folgenden Termine'], ['all', 'Alle Termine']]
+    .filter(([value]) => !(withoutThis && value === 'this'));
   const close = openDialog(title,
     el('div.form-grid', {},
       el('div.scope-options', {}, options.map(([value, label]) => el('label.check', {},
