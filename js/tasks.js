@@ -57,7 +57,8 @@ export function windowText(task) {
       const days = Math.max(0, daysBetween(parseDate(task.closes_at), now));
       return days === 0 ? 'überfällig (heute)' : `überfällig seit ${days} ${days === 1 ? 'Tag' : 'Tagen'}`;
     }
-    case 'expired': return 'verfallen';
+    // Einmalige Aufgaben verschwinden nicht – sie gelten als überfällig.
+    case 'expired': return task.recurrence === 'once' ? windowText({ ...task, status: 'overdue' }) : 'verfallen';
     case 'done': return `erledigt ${formatDate(task.done_at)}`;
     default: return task.window_end ? `bis ${formatDate(task.window_end)}${time}` : '';
   }

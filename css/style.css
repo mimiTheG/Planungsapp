@@ -228,7 +228,7 @@ body.has-player { --player-h: 3.6rem; }
 }
 .badge.kind { background: var(--accent-soft); color: var(--accent); }
 .badge.kind.project { background: var(--pink-soft); color: var(--pink); border: 1px solid var(--p1); }
-.badge.status-overdue { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.badge.status-overdue, .badge.status-expired { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .badge.status-due { color: var(--ok); }
 
 /* Aufgabenbaum */
