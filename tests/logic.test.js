@@ -432,3 +432,16 @@ test('Store: regelmäßige Aufgabe mit Wiederholung anlegen (ohne Ende)', () => 
   assert.equal(t.window_start, '2099-01-05');
   assert.equal(t.rhythm_days, null);
 });
+
+test('Store: regelmäßige Aufgabe mit Häkchen „Deadline“ erscheint im Kalender (Ende des Durchgangs)', () => {
+  store.load(memory());
+  const mit = store.createTask({
+    title: 'Müll', recurrence: 'rhythm', window_start: '2099-01-05', buffer_days: 3, has_deadline: true,
+    repeat: { freq: 'weekly', interval: 1 },
+  });
+  store.createTask({ title: 'Ohne', recurrence: 'rhythm', window_start: '2099-01-05', buffer_days: 3, repeat: { freq: 'weekly', interval: 1 } });
+  const list = store.deadlinesBetween(new Date(2099, 0, 1), new Date(2099, 0, 31));
+  assert.deepEqual(list.map((t) => `${t.title} ${t.window_end}`), ['Müll 2099-01-07']);
+  assert.equal(store.createTask({ title: 'Einmal', has_deadline: true }).has_deadline, false);
+  assert.equal(mit.has_deadline, true);
+});

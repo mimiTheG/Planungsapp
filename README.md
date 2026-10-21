@@ -45,7 +45,8 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   Wochentage wählbar, endet nie / am Datum / nach n Terminen). Wiederkehrende Termine sind mit ↻ markiert.
   Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine* –
   auch bei einem Termin, der schon einmal einzeln geändert wurde (er gehört weiter zu seiner Serie).
-- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit).
+- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit) –
+  bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag des aktuellen Durchgangs.
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
@@ -74,7 +75,8 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
 - **Regelmäßig** funktioniert wie ein wiederkehrender Termin: „Erstes Mal am“ plus Täglich, Wöchentlich am …,
   Monatlich am 14. bzw. am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/
-  Monate/Jahre, Wochentage wählbar). Der **Puffer** sagt, wie viele Tage man ab dem Termintag Zeit hat.
+  Monate/Jahre, Wochentage wählbar). Der **Puffer** sagt, wie viele Tage man ab dem Termintag Zeit hat
+  (1 = nur an diesem Tag, 3 = am Termintag und an den 2 Tagen danach; früher geht nicht).
   Die Tage stehen fest (Müll alle 2 Wochen am Freitag) – oder man zählt **ab dem Erledigen neu**
   (Friseur 6 Wochen nach dem letzten Mal: erledigt am Do., 5.11. → wieder fällig ab Do., 17.12.).
 - Wenn nicht rechtzeitig erledigt: **verfällt** (der nächste Durchgang beginnt, wird als verpasst gezählt) oder

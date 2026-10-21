@@ -231,12 +231,14 @@ export function eventsBetween(from, to) {
     .sort((a, b) => a.start_at.localeCompare(b.start_at));
 }
 
-// Offene einmalige Aufgaben mit Deadline (Datum "bis") zwischen from und to – für den Kalender.
+// Deadlines zwischen from und to – für den Kalender: offene einmalige Aufgaben mit Datum „bis“ und
+// regelmäßige Aufgaben mit Häkchen „Deadline“ (das Ende des aktuellen Durchgangs).
 export function deadlinesBetween(from, to) {
   const first = isoDate(from);
   const last = isoDate(to);
+  const hasDeadline = (t) => (t.recurrence === 'once' ? !t.done_at : t.has_deadline);
   return tasks()
-    .filter((t) => t.recurrence === 'once' && t.window_end && !t.done_at && !isInRoutine(t))
+    .filter((t) => t.window_end && hasDeadline(t) && !isInRoutine(t))
     .filter((t) => t.window_end >= first && t.window_end <= last)
     .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
 }
@@ -368,6 +370,7 @@ function taskInput(input, id) {
     repeat: null,
     repeat_start: null,
     repeat_from_done: false,
+    has_deadline: recurrence !== 'once' && Boolean(input.has_deadline),
     buffer_days: null,
     period_start: null,
     period_end: null,
@@ -403,7 +406,7 @@ function taskInput(input, id) {
   // Routinen und ihre Schritte trägt man selbst in den Kalender ein: keine Fälligkeit.
   if (isInRoutine(task)) {
     Object.assign(task, {
-      recurrence: 'once', rhythm_days: null, repeat: null, repeat_start: null, repeat_from_done: false,
+      recurrence: 'once', rhythm_days: null, repeat: null, repeat_start: null, repeat_from_done: false, has_deadline: false,
       buffer_days: null, period_start: null, period_end: null,
       deadline_time: null, on_missed: 'remind',
     });
