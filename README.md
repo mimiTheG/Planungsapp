@@ -149,6 +149,10 @@ Serie auf „endet am …“ und wieder zurück auf „endet nie“ stellen, Ein
 alle folgenden“ ändern, Aufgaben von einmalig auf regelmäßig umstellen, verpasste Durchgänge, Sicherung einlesen.
 Gefundene Fehler bekommen hier einen eigenen Test, damit sie nicht wiederkommen.
 
+Auf GitHub laufen die Tests automatisch bei jedem Pull Request und bei jedem Push auf `main`
+(`.github/workflows/tests.yml`). Im Pull Request steht dann unten bei den Checks ein grüner Haken oder ein rotes
+Kreuz; ein Klick auf „Details“ zeigt, welcher Test fehlschlägt.
+
 ## Aufbau
 
 ```
