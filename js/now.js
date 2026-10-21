@@ -17,16 +17,19 @@ const ACTIVE = ['open', 'due', 'overdue'];
 // Gewicht für die Zufallsauswahl: Priorität (1–25), Überfälliges zählt doppelt. Wünsche haben keine Priorität.
 function weight(item) {
   if (item.isWish) return 1;
-  return priority(item) * (item.status === 'overdue' ? 2 : 1);
+  return priority(item) * (isOverdue(item) ? 2 : 1);
 }
 
-function sortByPriority(a, b) {
-  const overdue = Number(b.status === 'overdue') - Number(a.status === 'overdue');
-  if (overdue) return overdue;
-  const prio = priority(b) - priority(a);
-  if (prio) return prio;
-  return String(a.closes_at || '9999').localeCompare(String(b.closes_at || '9999'));
+// Überfällig: Zeit abgelaufen – bei „täglich erinnern“ (overdue) und bei einmaligen Aufgaben auch mit „verfällt“
+// (die verschwinden sonst einfach).
+const isOverdue = (t) => t.status === 'overdue' || (t.recurrence === 'once' && t.status === 'expired');
+
+// Ganze Tage bis zum Ende des Zeitraums (0 = heute ist der letzte Tag).
+function daysLeft(task) {
+  return Math.max(0, daysBetween(new Date(), parseDate(task.window_end)));
 }
+
+const byPriority = (a, b) => priority(b) - priority(a);
 
 function pickRandom(items) {
   const total = items.reduce((sum, t) => sum + weight(t), 0);
@@ -57,8 +60,10 @@ function subtaskList(task, refresh) {
     subtaskList(child, refresh))));
 }
 
-function nowItem(task, refresh) {
+function nowItem(task, refresh, { left = false } = {}) {
   const openSubtasks = store.childrenOf(task.id).filter((c) => c.status !== 'done').length;
+  const parent = task.parent_id ? store.taskById(task.parent_id) : null;
+  const days = left ? daysLeft(task) : null;
   return el(`li.now-item.status-${task.status}`, {},
     el('div.now-text', {},
       el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) }, topicDot(task), task.title),
@@ -67,6 +72,8 @@ function nowItem(task, refresh) {
         el('span.badge', { title: 'Wichtigkeit / Dringlichkeit' }, `W${task.importance} · D${task.urgency}`),
         task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
         windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
+        left ? el('span.badge.days-left', {}, days === 0 ? 'letzter Tag' : `noch ${days} ${days === 1 ? 'Tag' : 'Tage'}`) : null,
+        parent ? el('span.badge', {}, `in: ${parent.title}`) : null,
         openSubtasks ? el('span.badge', {}, `${openSubtasks} offen`) : null),
       progressBar(task),
       subtaskList(task, refresh)),
@@ -189,10 +196,22 @@ export function renderNowView(root) {
     refresh();
   }, 60000);
   const running = runningNow();
-  const all = store.tasks().filter((t) => t.parent_id === null);
-  const items = all.filter((t) => ACTIVE.includes(t.status)).sort(sortByPriority);
-  const overdue = items.filter((t) => t.status === 'overdue');
-  const rest = items.filter((t) => t.status !== 'overdue');
+  const everything = store.tasks().filter((t) => t.kind !== 'routine' && !store.isInRoutine(t));
+  const all = everything.filter((t) => t.parent_id === null);
+  const items = all.filter((t) => ACTIVE.includes(t.status) || isOverdue(t));
+  // 1. Überfällig – auch Unteraufgaben (außer ihre Oberaufgabe steht schon hier). Am längsten überfällig zuerst.
+  const overdueIds = new Set(everything.filter(isOverdue).map((t) => t.id));
+  const hasOverdueAncestor = (t) => {
+    for (let p = t.parent_id; p !== null; p = store.taskById(p)?.parent_id ?? null) if (overdueIds.has(p)) return true;
+    return false;
+  };
+  const overdue = everything.filter((t) => overdueIds.has(t.id) && !hasOverdueAncestor(t))
+    .sort((a, b) => String(a.closes_at).localeCompare(String(b.closes_at)) || byPriority(a, b));
+  // 2. Heute fällig (Zeitraum läuft) – nach verbleibenden Tagen, bei Gleichstand nach W×D.
+  const today = items.filter((t) => t.status === 'due' && t.window_end)
+    .sort((a, b) => daysLeft(a) - daysLeft(b) || byPriority(a, b));
+  // 3. Alles andere Offene – nach W×D absteigend.
+  const rest = items.filter((t) => !isOverdue(t) && !(t.status === 'due' && t.window_end)).sort(byPriority);
   const wishes = store.wishes();
   const upcoming = all
     .filter((t) => t.status === 'upcoming')
@@ -234,11 +253,15 @@ export function renderNowView(root) {
       el('h3', {}, '⚠ Überfällig'),
       el('ul.now-list', {}, overdue.map((t) => nowItem(t, refresh)))) : null,
 
+    today.length ? el('section.card.today', {},
+      el('h3', {}, '📅 Heute fällig'),
+      el('ul.now-list', {}, today.map((t) => nowItem(t, refresh, { left: true })))) : null,
+
     el('section.card', {},
-      el('h3', {}, 'Steht gerade an'),
+      el('h3', {}, 'Weitere Aufgaben'),
       rest.length
         ? el('ul.now-list', {}, rest.map((t) => nowItem(t, refresh)))
-        : el('p.empty', {}, overdue.length ? 'Sonst ist nichts offen.' : 'Alles erledigt 🎉')),
+        : el('p.empty', {}, overdue.length || today.length ? 'Sonst ist nichts offen.' : 'Alles erledigt 🎉')),
 
     el('section.card.wishes', {},
       el('h3', {}, 'Wollte ich schon länger mal wieder machen'),
