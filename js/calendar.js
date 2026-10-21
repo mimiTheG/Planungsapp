@@ -327,7 +327,7 @@ function dayGrid(from, count, allEvents, deadlines, refresh) {
   const allDay = days.map((day) => {
     const key = isoDate(day);
     return [
-      ...deadlines.filter((t) => t.window_end === key).map((task) => ({ task })),
+      ...deadlines.filter((t) => t.deadline_date === key).map((task) => ({ task })),
       ...allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key),
     ];
   });
@@ -451,7 +451,7 @@ function monthGrid(from, to, events, deadlines, refresh) {
       onclick: () => openDay(day, refresh),
     },
     el('span.month-day', {}, String(day.getDate())),
-    deadlines.filter((t) => t.window_end === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${t.title}` }, deadlineText(t, false))),
+    deadlines.filter((t) => t.deadline_date === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${t.title}` }, deadlineText(t, false))),
     dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,

@@ -141,6 +141,23 @@ export function windowAfterDone(task, doneAt) {
   return [null, null];
 }
 
+// Letzte Tage (Deadlines) des aktuellen und der folgenden Durchgänge bis einschließlich lastDay (JJJJ-MM-TT) –
+// für den Kalender. Künftige Durchgänge werden so angenommen, als würde man jeweils am Termintag erledigen.
+export function upcomingDeadlines(task, lastDay) {
+  if (!task.window_end) return [];
+  const result = [task.window_end];
+  if (task.recurrence === 'once') return result;
+  let current = { ...task };
+  for (let i = 0; i < 1000; i++) {
+    const day = task.recurrence === 'rhythm' ? currentDay(current) : parseDate(current.window_end);
+    const [start, end] = windowAfterDone(current, day);
+    if (!end || end <= current.window_end || end > lastDay) break;
+    result.push(end);
+    current = { ...current, window_start: start, window_end: end };
+  }
+  return result;
+}
+
 // Fenster nach einem verpassten (verfallenen) Durchgang: so weit schieben, bis es wieder offen ist.
 export function windowAfterMissed(task, now = new Date()) {
   if (task.recurrence === 'rhythm' && usesRepeat(task)) {

@@ -240,14 +240,16 @@ export function eventsBetween(from, to) {
 }
 
 // Deadlines zwischen from und to – für den Kalender: offene einmalige Aufgaben mit Datum „bis“ und
-// regelmäßige Aufgaben mit Häkchen „Deadline“ (das Ende des aktuellen Durchgangs).
+// regelmäßige Aufgaben mit Häkchen „Deadline“ (das Ende jedes Durchgangs).
 export function deadlinesBetween(from, to) {
   const first = isoDate(from);
   const last = isoDate(to);
   const hasDeadline = (t) => (t.recurrence === 'once' ? !t.done_at : t.has_deadline);
+  // Jede Deadline als eigener Eintrag (deadline_date) – regelmäßige Aufgaben auch mit künftigen Durchgängen.
   return tasks()
     .filter((t) => t.window_end && hasDeadline(t) && !isInRoutine(t))
-    .filter((t) => t.window_end >= first && t.window_end <= last)
+    .flatMap((t) => schedule.upcomingDeadlines(t, last).map((date) => ({ ...t, deadline_date: date })))
+    .filter((t) => t.deadline_date >= first && t.deadline_date <= last)
     .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
 }
 

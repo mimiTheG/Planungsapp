@@ -446,7 +446,9 @@ test('Store: regelmäßige Aufgabe mit Häkchen „Deadline“ erscheint im Kale
   });
   store.createTask({ title: 'Ohne', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
   const list = store.deadlinesBetween(new Date(2099, 0, 1), new Date(2099, 0, 31));
-  assert.deepEqual(list.map((t) => `${t.title} ${t.window_end}`), ['Müll 2099-01-06']); // Termintag 5.1. ± 1
+  // Termintage montags (5.1., 12.1. …) ± 1 Tag → Deadline jeweils dienstags, alle im Kalender.
+  assert.deepEqual(list.map((t) => `${t.title} ${t.deadline_date}`),
+    ['Müll 2099-01-06', 'Müll 2099-01-13', 'Müll 2099-01-20', 'Müll 2099-01-27']);
   assert.equal(store.createTask({ title: 'Einmal', has_deadline: true }).has_deadline, false);
   assert.equal(mit.has_deadline, true);
 });
@@ -458,4 +460,17 @@ test('Store: alter Puffer (Tage ab dem Termintag) wird beim Laden in ± Tage umg
   store.load(old);
   assert.deepEqual([1, 2, 3, 4].map((id) => store.taskById(id).buffer), [0, 1, 1, 3]);
   assert.equal('buffer_days' in store.taskById(1), false);
+});
+
+test('Deadlines künftiger Durchgänge: fest, ab dem Erledigen, alte Form, Zeitraum', async () => {
+  const schedule = await import('../js/schedule.js');
+  const monthly = { recurrence: 'rhythm', repeat: { freq: 'monthly', interval: 1, monthly: 'day' }, repeat_start: '2026-11-14', buffer: 0, window_start: '2026-11-14', window_end: '2026-11-14' };
+  assert.deepEqual(schedule.upcomingDeadlines(monthly, '2027-02-28'), ['2026-11-14', '2026-12-14', '2027-01-14', '2027-02-14']);
+  const fromDone = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 2 }, repeat_from_done: true, buffer: 1, window_start: '2026-11-01', window_end: '2026-11-03' };
+  assert.deepEqual(schedule.upcomingDeadlines(fromDone, '2026-11-30'), ['2026-11-03', '2026-11-17', '2026-12-01'].filter((d) => d <= '2026-11-30'));
+  const legacy = { recurrence: 'rhythm', rhythm_days: 10, buffer: 0, window_start: '2026-11-01', window_end: '2026-11-01' };
+  assert.deepEqual(schedule.upcomingDeadlines(legacy, '2026-11-25'), ['2026-11-01', '2026-11-11', '2026-11-21']);
+  const period = { recurrence: 'period', period_start: '03-01', period_end: '05-31', window_start: '2027-03-01', window_end: '2027-05-31' };
+  assert.deepEqual(schedule.upcomingDeadlines(period, '2028-12-31'), ['2027-05-31', '2028-05-31']);
+  assert.deepEqual(schedule.upcomingDeadlines({ recurrence: 'once', window_end: '2026-11-01' }, '2030-01-01'), ['2026-11-01']);
 });
