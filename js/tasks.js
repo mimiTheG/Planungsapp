@@ -313,9 +313,11 @@ export function openTaskEditor(task, refresh) {
   const excluded = new Set(isNew ? [] : [t.id, ...store.descendantsOf(t.id).map((d) => d.id)]);
 
   const recurrenceBoxes = {
-    once: el('div.row', {},
-      field('Ab (optional)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
-      field('Bis / Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
+    once: el('div.form-grid', {},
+      el('div.row', {},
+        field('Ab (optional)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
+        field('Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
+      el('small.muted', {}, 'Die Deadline erscheint im Kalender in Rot.')),
     rhythm: el('div.form-grid', {},
       el('div.row', {},
         field('Alle … Tage', el('input', { type: 'number', name: 'rhythm_days', min: 1, inputmode: 'numeric', value: t.rhythm_days })),

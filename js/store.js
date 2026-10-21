@@ -212,9 +212,29 @@ export function eventsBetween(from, to) {
       start_at: stamp(o.start),
       end_at: stamp(o.end),
       occurrence: o.occurrence,
-      series: Boolean(event.repeat),
+      series: Boolean(event.repeat) || Boolean(seriesOf(event)),
     })))
     .sort((a, b) => a.start_at.localeCompare(b.start_at));
+}
+
+// Offene einmalige Aufgaben mit Deadline (Datum "bis") zwischen from und to – für den Kalender.
+export function deadlinesBetween(from, to) {
+  const first = isoDate(from);
+  const last = isoDate(to);
+  return tasks()
+    .filter((t) => t.recurrence === 'once' && t.window_end && !t.done_at && !isInRoutine(t))
+    .filter((t) => t.window_end >= first && t.window_end <= last)
+    .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
+}
+
+// Einzeln geänderter Termin einer Serie → die Serie (sonst null).
+function seriesOf(event) {
+  return event.series_id ? data.events.find((e) => e.id === event.series_id && e.repeat) || null : null;
+}
+
+// Für den Editor: die Wiederholung der Serie, zu der ein Termin gehört.
+export function seriesRepeat(event) {
+  return event.repeat || seriesOf(event)?.repeat || null;
 }
 
 export function eventById(id) {
@@ -672,16 +692,27 @@ export function createEvent(input) {
 //   'this'      – nur der Termin am Tag occurrence (wird aus der Serie herausgelöst)
 //   'following' – dieser und alle folgenden (Serie wird geteilt)
 //   'all'       – alle Termine der Serie
+//   Einzeln geänderte Termine (series_id) gehören weiter zu ihrer Serie: Mit 'following'/'all' gilt die
+//   Änderung ab ihrem ursprünglichen Tag (series_date) für die Serie, die Einzeländerung geht darin auf.
 export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}) {
   const event = eventById(id);
   if (!event) throw new ValidationError('Termin nicht gefunden');
+  const parent = seriesOf(event);
+  if (parent && scope !== 'this') {
+    const merged = { ...input, repeat: input.repeat || parent.repeat };
+    eventInput(merged); // erst prüfen, dann umbauen
+    data.events = data.events.filter((e) => e.id !== event.id);
+    parent.exdates = (parent.exdates || []).filter((d) => d !== event.series_date);
+    return updateEvent(parent.id, merged, { scope, occurrence: event.series_date });
+  }
   const next = eventInput(input);
+  if (parent) next.repeat = null; // 'this': bleibt ein einzelner Termin der Serie
 
   if (!event.repeat || !occurrence) {
     Object.assign(event, next, { exdates: next.repeat ? event.exdates || [] : [] });
   } else if (scope === 'this') {
     event.exdates = [...(event.exdates || []), occurrence];
-    const single = { id: nextId(), ...next, repeat: null };
+    const single = { id: nextId(), ...next, repeat: null, series_id: event.id, series_date: occurrence };
     data.events.push(single);
     save();
     return single;
@@ -693,6 +724,8 @@ export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}
     event.repeat = { ...event.repeat, until: isoDate(addDays(parseDate(occurrence), -1)), count: null };
     event.exdates = (event.exdates || []).filter((d) => d < occurrence);
     data.events.push(follow);
+    // Einzeländerungen ab hier gehören jetzt zur neuen Serie.
+    for (const e of exceptionsOf(event.id)) if (e.series_date >= occurrence) e.series_id = follow.id;
     save();
     return follow;
   } else if (!next.repeat) {
@@ -709,6 +742,7 @@ export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}
       end_at: stamp(new Date(+start + duration)),
       exdates: (event.exdates || []).map((d) => isoDate(addDays(parseDate(d), dayShift))),
     });
+    for (const e of exceptionsOf(event.id)) e.series_date = isoDate(addDays(parseDate(e.series_date), dayShift));
     event.repeat = repeatInput(event.repeat, event.start_at);
   }
   save();
@@ -717,13 +751,25 @@ export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}
 
 export function deleteEvent(id, { scope = 'all', occurrence = null } = {}) {
   const event = eventById(id);
+  const parent = event && seriesOf(event);
+  if (parent && scope !== 'this') {
+    data.events = data.events.filter((e) => e.id !== id);
+    return deleteEvent(parent.id, { scope, occurrence: event.series_date });
+  }
   if (event?.repeat && occurrence && scope === 'this') {
     event.exdates = [...(event.exdates || []), occurrence];
   } else if (event?.repeat && occurrence && scope === 'following' && occurrence > event.start_at.slice(0, 10)) {
     event.repeat = { ...event.repeat, until: isoDate(addDays(parseDate(occurrence), -1)), count: null };
     event.exdates = (event.exdates || []).filter((d) => d < occurrence);
+    const gone = new Set(exceptionsOf(id).filter((e) => e.series_date >= occurrence).map((e) => e.id));
+    data.events = data.events.filter((e) => !gone.has(e.id));
   } else {
-    data.events = data.events.filter((e) => e.id !== id);
+    // Ganze Serie löschen – samt ihrer einzeln geänderten Termine.
+    data.events = data.events.filter((e) => e.id !== id && e.series_id !== id);
   }
   save();
+}
+
+function exceptionsOf(seriesId) {
+  return data.events.filter((e) => e.series_id === seriesId);
 }

@@ -427,14 +427,8 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .dt-day.selected .dt-busy { background: var(--on-accent); }
 .dt-foot { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .dt-time-label { display: flex; align-items: center; gap: 0.5rem; flex: 1; color: var(--muted); }
-/* Uhrzeitfeld im App-Design (rosa). Die Uhr zum Auswählen bleibt die normale Android-Uhr:
-   keine accent-color, sonst färbt Chrome sie mit ein. */
-.dt-time-label input {
-  width: auto; flex: 1; min-height: 2.6rem;
-  background: var(--accent-soft); border: 1.5px solid var(--accent); border-radius: 999px;
-  color: var(--accent); font-weight: 700; font-size: 1.15rem; text-align: center;
-  accent-color: auto;
-}
+/* Uhrzeit: genau wie in der ersten Version – normales Feld, Auswahl mit der Android-Uhr. */
+.dt-time-label input { width: auto; flex: 1; }
 
 /* Monat/Jahr wählen (Kalendertitel antippen) */
 /* Feste Breite, damit die Pfeile nicht springen („Mai 2026“ so breit wie „September 2026“). */
@@ -579,6 +573,8 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
   font-family: "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", system-ui, sans-serif;
   white-space: nowrap; overflow: hidden; text-overflow: clip;
 }
+/* Deadline einer Aufgabe: knallrot, in hellem und dunklem Design gleich. */
+.chip.deadline { background: #ff1a1a; color: #fff; font-weight: 700; }
 
 /* Hinweis unten */
 
