@@ -3,7 +3,9 @@
 import {
   el, mount, field, select, formData, openDialog, toast, attempt,
 } from './ui.js';
-import { daysBetween, formatDate, formatDuration, isoDate, isoDateTime, parseDate } from './dates.js';
+import {
+  addDays, daysBetween, formatDate, formatDuration, isoDate, isoDateTime, parseDate,
+} from './dates.js';
 import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
@@ -25,7 +27,8 @@ const UNIT_MANY = { daily: 'Tage', weekly: 'Wochen', monthly: 'Monate', yearly: 
 
 export function recurrenceText(task) {
   if (task.recurrence === 'rhythm') {
-    const buffer = `Puffer ${task.buffer_days} ${task.buffer_days === 1 ? 'Tag' : 'Tage'}`;
+    const b = task.buffer || 0;
+    const buffer = b ? `± ${b} ${b === 1 ? 'Tag' : 'Tage'}` : 'nur am Tag selbst';
     if (!task.repeat) return `alle ${task.rhythm_days} Tage, ${buffer}`;
     if (task.repeat_from_done) {
       const n = Math.max(1, task.repeat.interval || 1);
@@ -301,7 +304,7 @@ export function openTaskEditor(task, refresh) {
   const isNew = !task.id;
   const t = {
     kind: 'todo', importance: 3, urgency: 3, importance_emo: 3, urgency_emo: 3,
-    recurrence: 'once', on_missed: 'remind', rhythm_days: 7, buffer_days: 1,
+    recurrence: 'once', on_missed: 'remind', rhythm_days: 7, buffer: 0,
     period_start: '03-01', period_end: '09-30', ...task,
   };
   const parent = t.parent_id ? store.taskById(t.parent_id) : null;
@@ -325,8 +328,13 @@ export function openTaskEditor(task, refresh) {
 
   // Regelmäßig: wie ein wiederkehrender Termin (Täglich, Wöchentlich am …, Monatlich am 14., Benutzerdefiniert …).
   // Ältere Aufgaben „alle n Tage ab dem Erledigen“ erscheinen als „Alle n Tage“ mit Häkchen „ab dem Erledigen“.
+  // Termintag des aktuellen Durchgangs = Mitte des Zeitraums (Beginn + Puffer).
   const rhythmStartInput = el('input', {
-    type: 'date', name: 'rhythm_start', value: t.recurrence === 'rhythm' && t.window_start ? t.window_start : isoDate(new Date()),
+    type: 'date',
+    name: 'rhythm_start',
+    value: t.recurrence === 'rhythm' && t.window_start
+      ? isoDate(addDays(parseDate(t.window_start), t.buffer || 0))
+      : isoDate(new Date()),
   });
   const rhythmStart = field('Erstes Mal am', rhythmStartInput);
   if (t.recurrence === 'rhythm' && !t.repeat && t.rhythm_days) {
@@ -342,8 +350,12 @@ export function openTaskEditor(task, refresh) {
         field('Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
       el('small.muted', {}, 'Die Deadline erscheint im Kalender in Rot.')),
     rhythm: el('div.form-grid', {}, rhythmStart, rhythmRepeat.element,
-      field('Puffer (Tage)', el('input', { type: 'number', name: 'buffer_days', min: 1, inputmode: 'numeric', value: t.buffer_days })),
-      el('small.muted', {}, 'Puffer = so viele Tage hat man ab dem Termintag Zeit, die Aufgabe zu erledigen.'),
+      field('Puffer (± Tage)', el('input', { type: 'number', name: 'buffer', min: 0, max: 365, inputmode: 'numeric', value: t.buffer ?? 0 })),
+      el('small.muted', {}, '0 = nur am Termintag. 1 = einen Tag vorher bis einen Tag nachher (3 Tage Zeit), '
+        + '2 = zwei Tage vorher bis zwei Tage nachher.'),
+      el('label.check', {},
+        el('input', { type: 'checkbox', name: 'has_deadline', checked: Boolean(t.has_deadline) }),
+        'Deadline – der letzte Tag erscheint im Kalender in Rot'),
       el('label.check', {},
         el('input', { type: 'checkbox', name: 'repeat_from_done', checked: Boolean(t.repeat_from_done) }),
         'Ab dem Erledigen neu zählen (z. B. 6 Wochen nach dem letzten Mal)'),
@@ -438,7 +450,8 @@ export function openTaskEditor(task, refresh) {
       recurrence: d.recurrence,
       repeat: d.recurrence === 'rhythm' ? rhythmRepeat.value() : null,
       repeat_from_done: d.repeat_from_done,
-      buffer_days: d.buffer_days,
+      has_deadline: d.has_deadline,
+      buffer: d.buffer,
       period_start: md('period_start'),
       period_end: md('period_end'),
       window_start: d.recurrence === 'rhythm' ? d.rhythm_start : d.window_start,

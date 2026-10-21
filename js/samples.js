@@ -34,16 +34,16 @@ export function loadSamples(today = new Date()) {
   // Wiederkehrende Aufgaben
   task({
     // Alle 2 Wochen am selben Wochentag (fest), spätestens 6 Uhr.
-    title: 'Müll rausstellen', topic_id: haushalt, recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 2 }, buffer_days: 1,
+    title: 'Müll rausstellen', topic_id: haushalt, recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 2 }, buffer: 0,
     window_start: day(2), deadline_time: '06:00', on_missed: 'expire', importance: 3, urgency: 5, importance_emo: 2, urgency_emo: 4,
   });
   task({
     // Eine Woche nach dem letzten Mal.
-    title: 'Bett frisch beziehen', topic_id: haushalt, recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 1 }, repeat_from_done: true, buffer_days: 3,
+    title: 'Bett frisch beziehen', topic_id: haushalt, recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 1 }, repeat_from_done: true, buffer: 1,
     window_start: day(-1), on_missed: 'remind', importance: 3, urgency: 3, importance_emo: 3, urgency_emo: 2,
   });
   task({
-    title: 'Pflanzen gießen', topic_id: haushalt, recurrence: 'rhythm', repeat: { freq: 'daily', interval: 4 }, repeat_from_done: true, buffer_days: 2,
+    title: 'Pflanzen gießen', topic_id: haushalt, recurrence: 'rhythm', repeat: { freq: 'daily', interval: 4 }, repeat_from_done: true, buffer: 1,
     window_start: day(-4), on_missed: 'remind', importance: 3, urgency: 4, importance_emo: 4, urgency_emo: 4,
   });
   task({

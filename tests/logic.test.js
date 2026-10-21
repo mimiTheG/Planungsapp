@@ -14,15 +14,16 @@ const memory = () => {
 };
 const d = (s) => new Date(`${s}T12:00:00`);
 
-test('Rhythmus 7, Puffer 3: Tag 1 erledigt → Tag 7–9, Tag 3 erledigt → Tag 9–11', () => {
-  const task = { recurrence: 'rhythm', rhythm_days: 7, buffer_days: 3 };
-  // Tag 1 = 01.10.
+test('Puffer ± Tage: alle 7 Tage, Puffer 1 – erledigt am 1. → fällig 7.–9., am 3. → 9.–11.', () => {
+  const task = { recurrence: 'rhythm', rhythm_days: 7, buffer: 1 };
   assert.deepEqual(schedule.windowAfterDone(task, d('2026-10-01')), ['2026-10-07', '2026-10-09']);
   assert.deepEqual(schedule.windowAfterDone(task, d('2026-10-03')), ['2026-10-09', '2026-10-11']);
+  assert.deepEqual(schedule.rhythmWindow(d('2026-10-08'), 0).map((x) => x.getDate()), [8, 8], 'Puffer 0 = nur der Tag');
+  assert.deepEqual(schedule.rhythmWindow(d('2026-10-08'), 2).map((x) => x.getDate()), [6, 10]);
 });
 
 test('Täglicher Rhythmus springt auf den nächsten Tag', () => {
-  const task = { recurrence: 'rhythm', rhythm_days: 1, buffer_days: 1 };
+  const task = { recurrence: 'rhythm', rhythm_days: 1, buffer: 0 };
   assert.deepEqual(schedule.windowAfterDone(task, d('2026-10-01')), ['2026-10-02', '2026-10-02']);
 });
 
@@ -44,7 +45,7 @@ test('Status mit Deadline-Uhrzeit', () => {
 });
 
 test('Verfallene Aufgabe rückt ins nächste offene Fenster', () => {
-  const task = { recurrence: 'rhythm', rhythm_days: 14, buffer_days: 1, window_start: '2026-10-01', window_end: '2026-10-01' };
+  const task = { recurrence: 'rhythm', rhythm_days: 14, buffer: 0, window_start: '2026-10-01', window_end: '2026-10-01' };
   assert.deepEqual(schedule.windowAfterMissed(task, d('2026-10-20')), ['2026-10-29', '2026-10-29']);
 });
 
@@ -82,7 +83,7 @@ test('Store: Sicherung exportieren und wieder einlesen', () => {
 test('Store: Rhythmus-Fenster, das beim Anlegen schon vorbei ist, rückt ohne Verpasst-Zählung weiter', () => {
   store.load(memory());
   const task = store.createTask({
-    title: 'Müll', recurrence: 'rhythm', rhythm_days: 14, buffer_days: 1,
+    title: 'Müll', recurrence: 'rhythm', rhythm_days: 14, buffer: 0,
     window_start: '2020-01-01', deadline_time: '06:00', on_missed: 'expire',
   });
   assert.equal(task.missed_count, 0);
@@ -402,28 +403,32 @@ test('Store: alte Geburtstage (Häkchen) bekommen beim Laden das Thema „Geburt
 test('Regelmäßig wie ein wiederkehrender Termin: feste Tage, Puffer, ab dem Erledigen', async () => {
   const schedule = await import('../js/schedule.js');
   // Jeden Montag und Donnerstag, Puffer 2 Tage, ab Mo 2.11.2026.
-  const task = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 1, weekdays: [1, 4] }, repeat_start: '2026-11-02', buffer_days: 2, on_missed: 'remind' };
-  assert.deepEqual(schedule.initialWindow(task, '2026-11-02'), ['2026-11-02', '2026-11-03']);
+  const task = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 1, weekdays: [1, 4] }, repeat_start: '2026-11-02', buffer: 0, on_missed: 'remind' };
+  assert.deepEqual(schedule.initialWindow(task, '2026-11-02'), ['2026-11-02', '2026-11-02']);
   // Erst am Mittwoch erledigt → nächster fester Tag ist Donnerstag.
-  const w = { ...task, window_start: '2026-11-02', window_end: '2026-11-03' };
-  assert.deepEqual(schedule.windowAfterDone(w, new Date(2026, 10, 4)), ['2026-11-05', '2026-11-06']);
+  const w = { ...task, window_start: '2026-11-02', window_end: '2026-11-02' };
+  assert.deepEqual(schedule.windowAfterDone(w, new Date(2026, 10, 4)), ['2026-11-05', '2026-11-05']);
+  // Puffer 1: Donnerstag 5.11. → Mi 4.–Fr 6.11.; schon am Mittwoch erledigt → nächster Termintag ist Mo 9.11.
+  const w1 = { ...task, buffer: 1, window_start: '2026-11-04', window_end: '2026-11-06' };
+  assert.deepEqual(schedule.windowAfterDone(w1, new Date(2026, 10, 4)), ['2026-11-08', '2026-11-10']);
   // Monatlich am 14.: früh erledigt → trotzdem erst nächsten Monat.
-  const monthly = { recurrence: 'rhythm', repeat: { freq: 'monthly', interval: 1, monthly: 'day' }, repeat_start: '2026-11-14', buffer_days: 3, window_start: '2026-11-14', window_end: '2026-11-16' };
-  assert.deepEqual(schedule.windowAfterDone(monthly, new Date(2026, 10, 14)), ['2026-12-14', '2026-12-16']);
+  const monthly = { recurrence: 'rhythm', repeat: { freq: 'monthly', interval: 1, monthly: 'day' }, repeat_start: '2026-11-14', buffer: 2, window_start: '2026-11-12', window_end: '2026-11-16' };
+  assert.deepEqual(schedule.windowAfterDone(monthly, new Date(2026, 10, 12)), ['2026-12-12', '2026-12-16']);
   // Ab dem Erledigen: alle 6 Wochen nach dem letzten Mal.
-  const hair = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 6 }, repeat_from_done: true, buffer_days: 7, window_start: '2026-11-02', window_end: '2026-11-08' };
-  assert.deepEqual(schedule.windowAfterDone(hair, new Date(2026, 10, 5)), ['2026-12-17', '2026-12-23']);
+  const hair = { recurrence: 'rhythm', repeat: { freq: 'weekly', interval: 6 }, repeat_from_done: true, buffer: 3, window_start: '2026-11-02', window_end: '2026-11-08' };
+  assert.deepEqual(schedule.windowAfterDone(hair, new Date(2026, 10, 5)), ['2026-12-14', '2026-12-20']);
   // Verfällt: rückt auf den nächsten Termintag, der noch nicht vorbei ist.
   const missed = { ...w, on_missed: 'expire' };
-  // Di 10.11. mittags: Do 5.11. ist vorbei, Mo 9.–Di 10.11. läuft noch.
-  assert.deepEqual(schedule.windowAfterMissed(missed, new Date(2026, 10, 10, 12)), ['2026-11-09', '2026-11-10']);
-  assert.deepEqual(schedule.windowAfterMissed(missed, new Date(2026, 10, 11, 12)), ['2026-11-12', '2026-11-13']);
+  // Puffer 0, Di 10.11. mittags: Do 5.11. und Mo 9.11. sind vorbei → Do 12.11.
+  assert.deepEqual(schedule.windowAfterMissed(missed, new Date(2026, 10, 10, 12)), ['2026-11-12', '2026-11-12']);
+  // Puffer 1: Mo 9.11. hat Zeit bis Di 10.11. – läuft am Dienstag noch.
+  assert.deepEqual(schedule.windowAfterMissed({ ...missed, buffer: 1, window_start: '2026-11-01', window_end: '2026-11-03' }, new Date(2026, 10, 10, 12)), ['2026-11-08', '2026-11-10']);
 });
 
 test('Store: regelmäßige Aufgabe mit Wiederholung anlegen (ohne Ende)', () => {
   store.load(memory());
   const t = store.createTask({
-    title: 'Müll', recurrence: 'rhythm', window_start: '2099-01-05', buffer_days: 1,
+    title: 'Müll', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0,
     repeat: { freq: 'weekly', interval: 2, weekdays: [1], count: 5 },
   });
   assert.equal(t.repeat.freq, 'weekly');
@@ -431,4 +436,26 @@ test('Store: regelmäßige Aufgabe mit Wiederholung anlegen (ohne Ende)', () => 
   assert.equal(t.repeat_start, '2099-01-05');
   assert.equal(t.window_start, '2099-01-05');
   assert.equal(t.rhythm_days, null);
+});
+
+test('Store: regelmäßige Aufgabe mit Häkchen „Deadline“ erscheint im Kalender (Ende des Durchgangs)', () => {
+  store.load(memory());
+  const mit = store.createTask({
+    title: 'Müll', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, has_deadline: true,
+    repeat: { freq: 'weekly', interval: 1 },
+  });
+  store.createTask({ title: 'Ohne', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
+  const list = store.deadlinesBetween(new Date(2099, 0, 1), new Date(2099, 0, 31));
+  assert.deepEqual(list.map((t) => `${t.title} ${t.window_end}`), ['Müll 2099-01-06']); // Termintag 5.1. ± 1
+  assert.equal(store.createTask({ title: 'Einmal', has_deadline: true }).has_deadline, false);
+  assert.equal(mit.has_deadline, true);
+});
+
+test('Store: alter Puffer (Tage ab dem Termintag) wird beim Laden in ± Tage umgerechnet', () => {
+  const old = memory();
+  const t = (id, b) => ({ id, title: `T${id}`, kind: 'todo', parent_id: null, recurrence: 'rhythm', rhythm_days: 7, buffer_days: b, importance: 3, urgency: 3, importance_emo: 3, urgency_emo: 3, on_missed: 'remind', window_start: '2099-01-01', window_end: '2099-01-01' });
+  old.setItem('planungsapp.v1', JSON.stringify({ scale: 'high5', nextId: 5, topics: [], events: [], wishes: [], log: [], tasks: [t(1, 1), t(2, 2), t(3, 3), t(4, 7)] }));
+  store.load(old);
+  assert.deepEqual([1, 2, 3, 4].map((id) => store.taskById(id).buffer), [0, 1, 1, 3]);
+  assert.equal('buffer_days' in store.taskById(1), false);
 });
