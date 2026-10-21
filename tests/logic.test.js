@@ -62,13 +62,9 @@ test('Store: Unteraufgaben, Routine abschließen setzt Schritte zurück, Lösche
 
   assert.throws(() => store.updateTask(routine.id, { title: 'x', parent_id: sub.id }), /unter sich selbst/);
 
-  const event = store.createEvent({
-    title: 'Arbeit', start_at: '2026-10-21T09:00', end_at: '2026-10-21T17:00',
-    before_type: 'routine', before_routine_id: routine.id, before_minutes: 20,
-  });
+  const event = store.createEvent({ title: 'Arbeit', start_at: '2026-10-21T09:00', end_at: '2026-10-21T17:00' });
   store.deleteTask(routine.id);
   assert.equal(store.tasks().length, 0);
-  assert.equal(store.eventsBetween(new Date(2026, 9, 21), new Date(2026, 9, 21))[0].before_type, 'none');
   assert.equal(event.start_at, '2026-10-21 09:00');
 });
 
@@ -316,16 +312,12 @@ test('Store: Ebene ändern – einrücken unter den Vorgänger, ausrücken hinte
   assert.throws(() => store.outdentTask(step.id), /Routine/);
 });
 
-test('Store: ganztägige Termine – nur Datum, ohne Bereiche davor/danach', () => {
+test('Store: ganztägige Termine – nur Datum', () => {
   store.load(memory());
-  const ev = store.createEvent({
-    title: 'Urlaub', all_day: true, start_at: '2026-10-22T09:00', end_at: '2026-10-24T10:00',
-    before_type: 'free', before_minutes: 30,
-  });
+  const ev = store.createEvent({ title: 'Urlaub', all_day: true, start_at: '2026-10-22T09:00', end_at: '2026-10-24T10:00' });
   assert.equal(ev.all_day, true);
   assert.equal(ev.start_at, '2026-10-22 00:00');
   assert.equal(ev.end_at, '2026-10-24 23:59');
-  assert.equal(ev.before_type, 'none');
   const timed = store.createEvent({ title: 'Arzt', start_at: '2026-10-22T09:00', end_at: '2026-10-22T10:00' });
   assert.equal(timed.all_day, false);
 });
@@ -344,4 +336,16 @@ test('Store: Geburtstage – ganztägig, jedes Jahr, optional mit Geburtsjahr', 
   const next = store.eventsBetween(new Date(2028, 2, 1), new Date(2028, 2, 31)).filter((e) => e.title === 'Anna');
   assert.deepEqual(next.map((e) => e.start_at), ['2028-03-05 00:00']);
   assert.throws(() => store.createEvent({ title: 'X', is_birthday: true, start_at: '2026-03-05T00:00', end_at: '2026-03-05T00:00', birth_year: '2030' }), /Geburtsjahr/);
+});
+
+test('Store: alte Angaben zu Bereichen davor/danach werden beim Laden entfernt', () => {
+  const old = memory();
+  old.setItem('planungsapp.v1', JSON.stringify({
+    scale: 'high5', nextId: 2, topics: [], tasks: [], wishes: [], log: [],
+    events: [{ id: 1, title: 'Büro', start_at: '2026-10-22 09:00', end_at: '2026-10-22 16:00', before_type: 'free', before_minutes: 30, before_label: 'Anfahrt', after_type: 'none' }],
+  }));
+  store.load(old);
+  const ev = store.eventById(1);
+  assert.equal(ev.title, 'Büro');
+  assert.equal('before_type' in ev || 'before_minutes' in ev || 'after_type' in ev, false);
 });

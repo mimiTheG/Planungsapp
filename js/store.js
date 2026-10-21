@@ -10,8 +10,12 @@ const EMPTY = () => ({ version: 1, scale: 'high5', nextId: 1, topics: [], tasks:
 
 // Gespeicherte Daten auf den aktuellen Stand bringen. Eine Zwischenversion der App hatte die Skala
 // umgedreht (1 = sehr wichtig); deren Daten erkennt man an der Wunschliste ohne scale-Angabe.
+const SIDE_KEYS = ['type', 'minutes', 'label', 'routine_id'].flatMap((k) => [`before_${k}`, `after_${k}`]);
+
 function migrate(parsed) {
   const result = { ...EMPTY(), ...parsed };
+  // Bereiche davor/danach gibt es nicht mehr – alte Angaben an Terminen entfernen.
+  for (const ev of result.events) for (const key of SIDE_KEYS) delete ev[key];
   if (!parsed.scale) {
     if (Array.isArray(parsed.wishes)) {
       for (const t of result.tasks) {
@@ -197,7 +201,7 @@ export function history() {
   return entries.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-// Termine, die den Zeitraum [from, to] (Tage, inklusive) berühren – mit einem Tag Rand für Bereiche davor/danach.
+// Termine, die den Zeitraum [from, to] (Tage, inklusive) berühren – mit Rand für Termine über Mitternacht.
 // Wiederkehrende Termine werden in einzelne Termine aufgelöst (occurrence = Tag des Termins, series = true).
 export function eventsBetween(from, to) {
   const start = addDays(new Date(from), -1);
@@ -272,7 +276,7 @@ const LABELS = {
   birth_year: 'Geburtsjahr',
   name: 'Name', title: 'Titel', notes: 'Notizen', rhythm_days: 'Rhythmus', buffer_days: 'Puffer',
   period_start: 'Beginn des Zeitraums', period_end: 'Ende des Zeitraums', duration_min: 'Dauer',
-  start_at: 'Beginn', end_at: 'Ende', before_minutes: 'Minuten davor', after_minutes: 'Minuten danach',
+  start_at: 'Beginn', end_at: 'Ende',
   window_start: 'Beginn', window_end: 'Ende', deadline_time: 'Uhrzeit', default_time: 'Standardstartzeit',
 };
 
@@ -434,12 +438,6 @@ export function deleteTask(id) {
   data.log = data.log.filter((l) => !ids.has(l.task_id));
   for (const e of data.events) {
     if (ids.has(e.routine_id)) e.routine_id = null;
-    for (const side of ['before', 'after']) {
-      if (ids.has(e[`${side}_routine_id`])) {
-        e[`${side}_type`] = 'none';
-        e[`${side}_routine_id`] = null;
-      }
-    }
   }
   save();
 }
@@ -624,24 +622,13 @@ function eventInput(input) {
     event.end_at = event.start_at;
     event.birth_year = int(input, 'birth_year', 1900, Number(event.start_at.slice(0, 4)));
   }
-  // Ganztägig: vom ersten Tag 0:00 bis zum letzten Tag 23:59, ohne Bereiche davor/danach.
+  // Ganztägig: vom ersten Tag 0:00 bis zum letzten Tag 23:59.
   if (event.all_day) {
     event.start_at = `${event.start_at.slice(0, 10)} 00:00`;
     event.end_at = `${event.end_at.slice(0, 10)} 23:59`;
   }
   if (event.end_at < event.start_at) throw new ValidationError('Das Ende liegt vor dem Beginn');
 
-  // Bereich davor/danach: frei (z. B. Anfahrt) oder eine Routine.
-  for (const side of ['before', 'after']) {
-    const type = event.all_day ? 'none' : oneOf(input, `${side}_type`, ['none', 'free', 'routine']);
-    event[`${side}_type`] = type;
-    event[`${side}_minutes`] = type === 'none' ? null : int(input, `${side}_minutes`, 1, 1440, 15);
-    event[`${side}_label`] = type === 'free' ? text(input, `${side}_label`, 100) : null;
-    event[`${side}_routine_id`] = type === 'routine' ? ref(input, `${side}_routine_id`) : null;
-    if (type === 'routine' && event[`${side}_routine_id`] === null) {
-      throw new ValidationError('Bitte eine Routine auswählen');
-    }
-  }
   event.repeat = repeatInput(event.is_birthday ? { freq: 'yearly', interval: 1 } : input.repeat, event.start_at);
   return event;
 }

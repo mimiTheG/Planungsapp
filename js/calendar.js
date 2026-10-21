@@ -1,4 +1,4 @@
-// Kalender: Tages-, 3-Tages-, Wochen- und Monatsansicht; Termine mit Bereichen davor/danach.
+// Kalender: Tages-, 3-Tages-, Wochen- und Monatsansicht; Termin-Editor.
 
 import {
   el, mount, field, select, formData, openDialog, toast, attempt,
@@ -38,19 +38,9 @@ function writeSetting(key, value) {
   try { localStorage.setItem(`planungsapp.setting.${key}`, JSON.stringify(value)); } catch { /* egal */ }
 }
 
-// Termin in Blöcke zerlegen: davor, Termin, danach.
-function segments(event) {
-  const start = parseDate(event.start_at);
-  const end = parseDate(event.end_at);
-  const list = [];
-  if (event.before_type !== 'none' && event.before_minutes) {
-    list.push({ part: 'before', start: new Date(start - event.before_minutes * 60000), end: start, label: sideLabel(event, 'before') });
-  }
-  list.push({ part: 'main', start, end, label: eventTitle(event) });
-  if (event.after_type !== 'none' && event.after_minutes) {
-    list.push({ part: 'after', start: end, end: new Date(+end + event.after_minutes * 60000), label: sideLabel(event, 'after') });
-  }
-  return list;
+// Zeitraum eines Termins als Block im Kalender.
+function segment(event) {
+  return { start: parseDate(event.start_at), end: parseDate(event.end_at), label: eventTitle(event) };
 }
 
 // Eingeplante Routinen heißen im Kalender immer wie die Routine (auch nach Umbenennen).
@@ -63,13 +53,6 @@ function eventTitle(event) {
 export function birthdayAge(event) {
   const age = event.birth_year ? Number(event.start_at.slice(0, 4)) - event.birth_year : 0;
   return age > 0 ? ` (${age})` : '';
-}
-
-function sideLabel(event, side) {
-  if (event[`${side}_type`] === 'routine') {
-    return store.taskById(event[`${side}_routine_id`])?.title || 'Routine';
-  }
-  return event[`${side}_label`] || (side === 'before' ? 'Vorlauf' : 'Nachlauf');
 }
 
 function range() {
@@ -188,7 +171,7 @@ export function renderCalendarView(root) {
   }
 }
 
-// Termin um delta Millisekunden verschieben (Bereiche davor/danach wandern mit).
+// Termin um delta Millisekunden verschieben.
 function moveEvent(ev, delta, refresh) {
   if (!delta) return;
   const start = new Date(+parseDate(ev.start_at) + delta);
@@ -356,7 +339,7 @@ function dayGrid(from, count, allEvents, refresh) {
       },
     });
 
-    const blocks = events.flatMap((ev) => segments(ev).map((seg) => ({ ev, seg })))
+    const blocks = events.map((ev) => ({ ev, seg: segment(ev) }))
       .filter(({ seg }) => seg.end > dayStart && seg.start < dayEnd)
       .filter(({ ev, seg }) => isoDate(day) <= lastDay(parseDate(ev.start_at), seg.end));
     layoutLanes(blocks);
@@ -366,7 +349,7 @@ function dayGrid(from, count, allEvents, refresh) {
       const e = Math.min(seg.end, dayEnd);
       const top = ((s - dayStart) / 3600000) * HOUR_PX;
       const height = Math.max(16, ((e - s) / 3600000) * HOUR_PX - 2);
-      const block = el(`button.block.${seg.part}${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
+      const block = el(`button.block${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
         type: 'button',
         style: {
           top: `${top}px`,
@@ -460,35 +443,6 @@ function monthGrid(from, to, events, refresh) {
 
 // --- Termin-Editor -----------------------------------------------------------
 
-function sideFields(side, ev) {
-  const type = ev[`${side}_type`] || 'none';
-  const routineList = store.routines();
-  const minutes = el('input', { type: 'number', name: `${side}_minutes`, min: 1, inputmode: 'numeric', value: ev[`${side}_minutes`] || 30 });
-  const routineSelect = select(`${side}_routine_id`, [['', '— Routine wählen —'], ...routineList.map((r) => [r.id, r.title])], ev[`${side}_routine_id`]);
-  routineSelect.addEventListener('change', () => {
-    const r = store.taskById(routineSelect.value);
-    if (r && store.routineMinutes(r)) minutes.value = store.routineMinutes(r);
-  });
-  const label = el('input', { name: `${side}_label`, maxlength: 100, value: ev[`${side}_label`] || '', placeholder: side === 'before' ? 'z. B. Anfahrt' : 'z. B. Heimweg' });
-
-  const details = el('div.row');
-  const radios = el('div.segmented.radio', {}, [['none', 'Nichts'], ['free', 'Frei'], ['routine', 'Routine']].map(([v, text]) =>
-    el('label', {}, el('input', { type: 'radio', name: `${side}_type`, value: v, checked: type === v, onchange: show }), text)));
-
-  function show() {
-    const current = radios.querySelector('input:checked').value;
-    mount(details, current === 'none' ? null : [
-      current === 'free'
-        ? field('Bezeichnung', label)
-        : field('Routine', routineSelect, routineList.length ? null : 'Lege zuerst unter „Routinen“ eine an.'),
-      field('Minuten', minutes),
-    ]);
-  }
-  show();
-
-  return el('fieldset', {}, el('legend', {}, side === 'before' ? 'Davor (z. B. Anfahrt)' : 'Danach'), radios, details);
-}
-
 export function openEventEditor(event, refresh) {
   const isNew = !event.id;
   const next = new Date();
@@ -514,13 +468,11 @@ export function openEventEditor(event, refresh) {
 
   const repeat = repeatFields(ev.repeat || null, startInput);
 
-  const routineButtons = ['main', 'before', 'after']
-    .map((side) => (side === 'main' ? ev.routine_id : ev[`${side}_type`] === 'routine' && ev[`${side}_routine_id`]))
-    .filter((id) => id && store.taskById(id))
-    .map((id) => {
-      const r = store.taskById(id);
-      return el('button', { type: 'button', onclick: () => runRoutine(r, () => {}) }, `▶ ${r.title}`);
-    });
+  // Eingeplante Routine direkt aus dem Termin starten.
+  const plannedRoutine = ev.routine_id && store.taskById(ev.routine_id);
+  const routineButtons = plannedRoutine
+    ? el('button', { type: 'button', onclick: () => runRoutine(plannedRoutine, () => {}) }, `▶ ${plannedRoutine.title}`)
+    : null;
 
   // Termin oder Routine einplanen. Bei einer Routine kommen Titel, Thema und Dauer von der Routine.
   const routineList = store.routines();
@@ -563,15 +515,13 @@ export function openEventEditor(event, refresh) {
     showAllDay();
   }
 
-  // Ganztägig: nur Datum (ohne Uhrzeit), keine Bereiche davor/danach.
+  // Ganztägig: nur Datum (ohne Uhrzeit).
   const allDayInput = el('input', { type: 'checkbox', name: 'all_day', checked: Boolean(ev.all_day), onchange: () => showAllDay(true) });
   const allDayLabel = el('label.check', {}, allDayInput, 'Ganztägig');
-  const sides = [sideFields('before', ev), sideFields('after', ev)];
   function showAllDay(changed = false) {
     const on = allDayInput.checked;
     startField.setDateOnly(on);
     endField.setDateOnly(on);
-    for (const side of sides) side.hidden = on;
     // Von ganztägig zurück auf eine Uhrzeit: 9–10 Uhr am ersten Tag vorschlagen.
     const start = parseDate(startInput.value);
     if (changed && !on && start.getHours() === 0 && start.getMinutes() === 0) {
@@ -604,7 +554,6 @@ export function openEventEditor(event, refresh) {
     endBox,
     birthYearField,
     repeat.element,
-    sides,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, ev.notes || '')),
     el('div.buttons.sticky', {},
       el('button.primary', { type: 'submit' }, isNew ? 'Anlegen' : 'Speichern'),

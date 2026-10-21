@@ -641,7 +641,7 @@ export function renderRoutinesView(root) {
       }, '+ Routine')),
     list.length ? null : el('p.muted', {},
       'Z. B. „Morgenroutine kurz“, „Abendroutine lang“, „Arbeit jeden Morgen“. ',
-      'Routinen lassen sich im Kalender vor oder nach einen Termin legen.'),
+      'Routinen lassen sich mit „📅 Einplanen“ in den Kalender eintragen.'),
     list.map((routine) => routineCard(routine, refresh)));
 }
 
