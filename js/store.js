@@ -144,6 +144,12 @@ export function outdentTask(id) {
   return taskById(id);
 }
 
+// Nachkommen als gespeicherte Objekte – ohne tasks(), das nebenbei Fälligkeiten mit der echten Uhrzeit
+// weiterschiebt (beim Abhaken mit vorgegebener Zeit soll nichts anderes passieren).
+function rawDescendants(id) {
+  return data.tasks.filter((t) => t.parent_id === id).flatMap((child) => [child, ...rawDescendants(child.id)]);
+}
+
 // Alle Nachkommen einer Aufgabe (beliebig tief).
 export function descendantsOf(id) {
   return childrenOf(id).flatMap((child) => [child, ...descendantsOf(child.id)]);
@@ -454,8 +460,7 @@ export function completeTask(id, now = new Date()) {
   } else {
     task.done_at = when;
     // Oberaufgabe abgehakt → alle noch offenen Unteraufgaben sind damit auch erledigt.
-    for (const sub of descendantsOf(id)) {
-      const raw = data.tasks.find((t) => t.id === sub.id);
+    for (const raw of rawDescendants(id)) {
       if (raw.recurrence !== 'once' || raw.done_at) continue;
       raw.done_at = when;
       raw.last_done_at = when;
@@ -471,8 +476,8 @@ export function reopenTask(id) {
   const task = data.tasks.find((t) => t.id === id);
   if (task?.done_at) {
     // Unteraufgaben, die nur durch das Abhaken der Oberaufgabe erledigt wurden, wieder öffnen.
-    const cascaded = descendantsOf(id).filter((sub) => sub.done_at === task.done_at);
-    for (const t of [task, ...cascaded.map((sub) => data.tasks.find((r) => r.id === sub.id))]) {
+    const cascaded = rawDescendants(id).filter((sub) => sub.done_at === task.done_at);
+    for (const t of [task, ...cascaded]) {
       // Den Verlaufseintrag des Abhakens wieder entfernen.
       const index = data.log.findLastIndex((l) => l.task_id === t.id && l.action === 'done');
       if (index >= 0) data.log.splice(index, 1);
