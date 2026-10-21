@@ -34,6 +34,10 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Termine über Mitternacht erscheinen am Folgetag nur, wenn sie nach **4:30** enden (vorher zählt die Nacht
   noch zum Vortag, z. B. Party 22–2 Uhr).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
+- **Aufgaben einplanen:** In der Aufgabenliste auf 📅 tippen (oder im Aufgaben-Editor „📅 Einplanen“) – das legt einen
+  Termin an, um die Aufgabe zu erledigen (Titel und Thema von der Aufgabe, Dauer aus ihrer Dauer, sonst 1 Stunde).
+  Im Termin lässt sie sich direkt abhaken („✓ Erledigt“) oder öffnen; erledigt steht im Kalender „✓“ davor.
+  Läuft die eingeplante Zeit gerade, kann man sie unter „Jetzt“ abhaken.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
 - **Veranstaltungen:** Thema **„Veranstaltung“** wählen – solche Termine lassen sich im Kalender per Haken

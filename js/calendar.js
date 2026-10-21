@@ -7,7 +7,9 @@ import {
   addDays, formatDate, formatTime, isoDate, isoDateTime, parseDate, startOfDay, startOfWeek,
 } from './dates.js';
 import * as store from './store.js';
-import { openTaskEditor, routineStart, runRoutine } from './tasks.js';
+import {
+  completeTask, openTaskEditor, routineStart, runRoutine, topicDot,
+} from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
 import { normalize, presetKey } from './repeat.js';
@@ -43,9 +45,12 @@ function segment(event) {
   return { start: parseDate(event.start_at), end: parseDate(event.end_at), label: eventTitle(event) };
 }
 
-// Eingeplante Routinen heißen im Kalender immer wie die Routine (auch nach Umbenennen).
+// Eingeplante Routinen und Aufgaben heißen im Kalender immer wie die Routine/Aufgabe (auch nach Umbenennen);
+// eine erledigte eingeplante Aufgabe bekommt ein ✓.
 function eventTitle(event) {
   if (event.is_birthday) return `🎂 ${event.title}${birthdayAge(event)}`;
+  const task = event.task_id && store.taskById(event.task_id);
+  if (task) return `${task.status === 'done' ? '✓ ' : ''}${task.title}`;
   return (event.routine_id && store.taskById(event.routine_id)?.title) || event.title;
 }
 
@@ -486,7 +491,22 @@ export function openEventEditor(event, refresh) {
 
   // Termin oder Routine einplanen. Bei einer Routine kommen Titel, Thema und Dauer von der Routine.
   const routineList = store.routines();
-  const titleInput = el('input', { name: 'title', maxlength: 200, value: ev.routine_id ? '' : ev.title || '' });
+  const titleInput = el('input', { name: 'title', maxlength: 200, value: ev.routine_id || ev.task_id ? '' : ev.title || '' });
+
+  // Eingeplante Aufgabe: Titel und Thema kommen von der Aufgabe; hier lässt sie sich direkt abhaken oder öffnen.
+  const plannedTask = ev.task_id ? store.taskById(ev.task_id) : null;
+  const taskBox = plannedTask ? el('div.planned-task', {},
+    el('input', { type: 'hidden', name: 'task_id', value: plannedTask.id }),
+    el('span.field-label', {}, 'Eingeplante Aufgabe'),
+    el('div.planned-task-row', {},
+      topicDot(plannedTask),
+      el('strong', {}, plannedTask.title),
+      plannedTask.status === 'done' ? el('span.badge', {}, '✓ erledigt') : null),
+    el('div.buttons', {},
+      plannedTask.status === 'done'
+        ? el('button', { type: 'button', onclick: () => { attempt(() => store.reopenTask(plannedTask.id)); close(); refresh(); } }, '↺ Wieder öffnen')
+        : el('button.primary', { type: 'button', onclick: () => { close(); completeTask(plannedTask, refresh); } }, '✓ Erledigt'),
+      el('button', { type: 'button', onclick: () => { close(); openTaskEditor(plannedTask, refresh); } }, 'Aufgabe öffnen'))) : null;
   const titleField = field('Titel', titleInput);
   const routineSelect = select('routine_id', [['', '— Routine wählen —'], ...routineList.map((r) => [r.id, r.title])], ev.routine_id);
   const routineField = field('Routine', routineSelect, routineList.length ? null : 'Lege zuerst unter „Routinen“ eine an.');
@@ -494,7 +514,7 @@ export function openEventEditor(event, refresh) {
   const typeSwitch = el('div.segmented.radio', { role: 'group', 'aria-label': 'Art' },
     // „Aufgabe“: neu anlegen bzw. einen bestehenden Termin nachträglich zur Aufgabe machen
     // (nicht bei Geburtstagen und eingeplanten Routinen).
-    [['event', 'Termin'], ['routine', 'Routine'], ...(isNew || !(ev.is_birthday || ev.routine_id) ? [['task', 'Aufgabe']] : [])]
+    [['event', 'Termin'], ['routine', 'Routine'], ...(!ev.task_id && (isNew || !(ev.is_birthday || ev.routine_id)) ? [['task', 'Aufgabe']] : [])]
       .map(([v, label]) => el('label', {},
       el('input', { type: 'radio', name: 'entry_type', value: v, checked: (v === 'routine') === Boolean(ev.routine_id) && v !== 'task', onchange: showType }),
       label)));
@@ -510,8 +530,12 @@ export function openEventEditor(event, refresh) {
       return;
     }
     const isRoutine = typeSwitch.querySelector('input:checked').value === 'routine';
-    titleField.hidden = isRoutine;
-    titleInput.required = !isRoutine;
+    titleField.hidden = isRoutine || Boolean(plannedTask);
+    titleInput.required = !isRoutine && !plannedTask;
+    if (taskBox) {
+      taskBox.hidden = isRoutine;
+      taskBox.querySelector('input[name="task_id"]').disabled = isRoutine; // Routine statt Aufgabe einplanen
+    }
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
     if (isRoutine && allDayInput.checked) allDayInput.checked = false; // eine Routine braucht eine Uhrzeit
@@ -567,6 +591,7 @@ export function openEventEditor(event, refresh) {
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
     typeSwitch,
     titleField,
+    taskBox,
     routineField,
     topics,
     allDayLabel,
@@ -592,7 +617,7 @@ export function openEventEditor(event, refresh) {
         : store.updateEvent(ev.id, payload, { scope, occurrence: ev.occurrence })));
       if (!ok) return;
       close();
-      toast(isNew ? 'Termin angelegt' : 'Termin gespeichert');
+      toast(isNew ? (plannedTask ? 'Eingeplant' : 'Termin angelegt') : 'Termin gespeichert');
       refresh();
     };
     // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll (Geburtstage gelten immer für alle Jahre).
@@ -632,6 +657,6 @@ export function openEventEditor(event, refresh) {
   }
 
   const topic = store.topicById(ev.topic_id);
-  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : 'Neuer Termin')
-    : `${ev.is_birthday ? 'Geburtstag' : 'Termin'}${topic ? ` · ${topic.name}` : ''}`, form);
+  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : plannedTask ? 'Aufgabe einplanen' : 'Neuer Termin')
+    : `${ev.is_birthday ? 'Geburtstag' : plannedTask ? 'Eingeplante Aufgabe' : 'Termin'}${topic ? ` · ${topic.name}` : ''}`, form);
 }

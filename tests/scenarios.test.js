@@ -247,6 +247,42 @@ describe('Termin nachträglich zur Aufgabe machen', () => {
   });
 });
 
+describe('Aufgaben im Kalender einplanen', () => {
+  test('Titel und Thema kommen von der Aufgabe, Termin verweist auf sie', () => {
+    fresh();
+    const topic = store.createTopic({ name: 'Arbeit', color: '#9b2948' });
+    const task = store.createTask({ title: 'Präsentation', topic_id: topic.id, duration_min: 90 });
+    const ev = store.createEvent({ task_id: task.id, start_at: '2099-01-05T09:00', end_at: '2099-01-05T10:30' });
+    assert.deepEqual([ev.title, ev.topic_id, ev.task_id, ev.routine_id], ['Präsentation', topic.id, task.id, null]);
+  });
+
+  test('Aufgabe löschen: eingeplante Zeit bleibt als normaler Termin', () => {
+    fresh();
+    const task = store.createTask({ title: 'Steuer' });
+    const ev = store.createEvent({ task_id: task.id, start_at: '2099-01-05T09:00', end_at: '2099-01-05T10:00' });
+    store.deleteTask(task.id);
+    assert.equal(store.eventById(ev.id).task_id, null);
+    assert.equal(store.eventById(ev.id).title, 'Steuer');
+  });
+
+  test('Routinen und Routine-Schritte lassen sich nicht als Aufgabe einplanen; Routine hat Vorrang', () => {
+    fresh();
+    const r = store.createTask({ title: 'Morgen', kind: 'routine' });
+    const step = store.createTask({ title: 'Zähne', parent_id: r.id });
+    assert.throws(() => store.createEvent({ task_id: step.id, start_at: '2099-01-05T07:00', end_at: '2099-01-05T07:10' }), /Aufgabe nicht gefunden/);
+    const t = store.createTask({ title: 'Brief' });
+    const ev = store.createEvent({ routine_id: r.id, task_id: t.id, start_at: '2099-01-05T07:00', end_at: '2099-01-05T07:30' });
+    assert.deepEqual([ev.routine_id, ev.task_id], [r.id, null]);
+  });
+
+  test('eingeplante Aufgabe ist schon eine Aufgabe – nicht nochmal umwandeln', () => {
+    fresh();
+    const t = store.createTask({ title: 'Brief' });
+    const ev = store.createEvent({ task_id: t.id, start_at: '2099-01-05T09:00', end_at: '2099-01-05T10:00' });
+    assert.throws(() => store.eventToTask(ev.id), /schon eine eingeplante Aufgabe/);
+  });
+});
+
 describe('Aufgaben: einmalig, Unteraufgaben, Erledigen', () => {
   test('Oberaufgabe abhaken, wieder öffnen, Unteraufgabe einzeln wieder öffnen', () => {
     fresh();

@@ -152,8 +152,9 @@ function runningNow(now = new Date()) {
   for (const ev of store.eventsBetween(dayStart, now)) {
     const start = parseDate(ev.start_at);
     const end = parseDate(ev.end_at);
-    const title = ev.is_birthday ? `🎂 ${ev.title}${birthdayAge(ev)}` : ev.title;
-    const parts = [{ from: start, to: end, routineId: ev.routine_id, title, allDay: ev.all_day }];
+    const task = ev.task_id ? store.taskById(ev.task_id) : null; // eingeplante Aufgabe
+    const title = ev.is_birthday ? `🎂 ${ev.title}${birthdayAge(ev)}` : task ? task.title : ev.title;
+    const parts = [{ from: start, to: end, routineId: ev.routine_id, title, allDay: ev.all_day, task }];
     for (const part of parts) {
       if (part.from > now) continue;
       const routine = part.routineId ? store.taskById(part.routineId) : null;
@@ -176,6 +177,13 @@ function runningItem(item, refresh) {
     el('strong', {}, item.title),
     el('span.badge', {}, item.routine ? `Routine · ${time}` : time),
     item.expired ? el('span.badge.expired-badge', {}, 'abgelaufen') : null);
+  // Eingeplante Aufgabe: direkt hier abhaken.
+  if (item.task) {
+    const done = item.task.status === 'done';
+    return el('li.running', {}, head,
+      done ? el('span.badge', {}, '✓ erledigt')
+        : el('button.primary', { type: 'button', onclick: () => completeTask(item.task, refresh) }, '✓ Aufgabe erledigt'));
+  }
   if (!item.routine) return el('li.running', {}, head);
 
   // Routine: Schritte (mit Unterschritten) direkt hier abhaken.

@@ -511,6 +511,7 @@ export function deleteTask(id) {
   data.log = data.log.filter((l) => !ids.has(l.task_id));
   for (const e of data.events) {
     if (ids.has(e.routine_id)) e.routine_id = null;
+    if (ids.has(e.task_id)) e.task_id = null; // eingeplante Zeit bleibt als normaler Termin stehen
   }
   save();
 }
@@ -681,11 +682,17 @@ function eventInput(input) {
   const routineId = ref(input, 'routine_id');
   const routine = routineId ? data.tasks.find((t) => t.id === routineId && t.kind === 'routine') : null;
   if (routineId && !routine) throw new ValidationError('Routine nicht gefunden');
+  // Eingeplante Aufgabe (Zeit, um sie zu erledigen): Titel und Thema kommen von der Aufgabe.
+  const taskId = routine ? null : ref(input, 'task_id');
+  const task = taskId ? data.tasks.find((t) => t.id === taskId && t.kind !== 'routine' && !isInRoutine(t)) : null;
+  if (taskId && !task) throw new ValidationError('Aufgabe nicht gefunden');
+  const source = routine || task;
   const event = {
-    title: routine ? text(input, 'title', 200) || routine.title : text(input, 'title', 200, true),
+    title: source ? text(input, 'title', 200) || source.title : text(input, 'title', 200, true),
     routine_id: routine ? routine.id : null,
+    task_id: task ? task.id : null,
     notes: text(input, 'notes', 5000),
-    topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
+    topic_id: ref(input, 'topic_id') ?? (source ? source.topic_id : null),
     is_event: false,
     is_birthday: false,
     all_day: Boolean(input.all_day) && !routine,
@@ -694,7 +701,7 @@ function eventInput(input) {
   };
   // Geburtstag = Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung;
   // das Geburtsjahr (optional) ergibt das Alter.
-  event.is_birthday = !routine && event.topic_id !== null && event.topic_id === birthdayTopic()?.id;
+  event.is_birthday = !source && event.topic_id !== null && event.topic_id === birthdayTopic()?.id;
   // Veranstaltung = Thema „Veranstaltung“ (lässt sich im Kalender ausblenden).
   event.is_event = event.topic_id !== null && event.topic_id === eventTopic()?.id;
   event.birth_year = null;
@@ -841,6 +848,7 @@ export function eventToTask(id, { scope = 'all', occurrence = null } = {}) {
   if (!event) throw new ValidationError('Termin nicht gefunden');
   if (event.is_birthday) throw new ValidationError('Geburtstage bleiben Termine');
   if (event.routine_id) throw new ValidationError('Eingeplante Routinen bleiben Termine');
+  if (event.task_id) throw new ValidationError('Das ist schon eine eingeplante Aufgabe');
   const repeat = seriesRepeat(event);
   const day = occurrence || event.start_at.slice(0, 10);
   const time = event.all_day ? null : repeating.onDay(event.start_at, day).slice(11, 16);

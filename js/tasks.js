@@ -223,6 +223,9 @@ function taskNode(task, refresh, options) {
           'aria-label': inRoutine ? 'Schritt hinzufügen' : 'Unteraufgabe hinzufügen',
           onclick: () => openTaskEditor({ parent_id: task.id, topic_id: task.topic_id }, refresh),
         }, '+'),
+        canPlan(task) ? el('button.icon', {
+          type: 'button', 'aria-label': 'Im Kalender einplanen', title: 'Im Kalender einplanen', onclick: () => planTask(task, refresh),
+        }, '📅') : null,
         el('button.icon', { type: 'button', 'aria-label': 'Löschen', onclick: () => deleteTask(task, refresh) }, '🗑'))),
     children.length && !isCollapsed ? taskTree(children, refresh, { ...options, parentId: task.id }) : null);
 }
@@ -417,6 +420,7 @@ export function openTaskEditor(task, refresh) {
       t.missed_count ? `, ${t.missed_count}× verpasst` : '') : null,
     el('div.buttons.sticky', {},
       el('button.primary', { type: 'submit' }, isNew ? 'Anlegen' : 'Speichern'),
+      isNew || !canPlan(t) ? null : el('button', { type: 'button', onclick: () => { close(); planTask(t, refresh); } }, '📅 Einplanen'),
       isNew ? null : el('button.danger', { type: 'button', onclick: () => { close(); deleteTask(t, refresh); } }, 'Löschen')));
 
   function showRecurrence() {
@@ -651,6 +655,23 @@ export function routineStart(routine, day = null) {
 }
 
 // Routine als Termin in den Kalender legen (Standardstartzeit, Dauer aus den Schritten).
+// Aufgabe im Kalender einplanen (Zeit, um sie zu erledigen) – wie bei Routinen. Dauer aus der Aufgabe, sonst 1 Stunde;
+// Beginn zur nächsten vollen Stunde.
+const canPlan = (task) => task.kind !== 'routine' && !store.isInRoutine(task) && task.status !== 'done';
+
+export function planTask(task, refresh) {
+  const start = new Date();
+  start.setHours(start.getHours() + 1, 0, 0, 0);
+  const minutes = task.duration_min || 60;
+  openEventEditor({
+    task_id: task.id,
+    title: task.title,
+    topic_id: task.topic_id,
+    start_at: isoDateTime(start),
+    end_at: isoDateTime(new Date(+start + minutes * 60000)),
+  }, refresh);
+}
+
 function planRoutine(routine, refresh) {
   const start = routineStart(routine);
   const minutes = store.routineMinutes(routine) || 30;
