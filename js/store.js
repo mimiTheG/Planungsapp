@@ -497,9 +497,9 @@ export function updateTask(id, input) {
   }
   const topicChanged = next.topic_id !== task.topic_id;
   Object.assign(task, next);
-  // Thema einer Routine geändert → alle Schritte (beliebig tief) bekommen das neue Thema.
-  if (topicChanged && task.kind === 'routine') {
-    for (const step of descendantsOf(id)) data.tasks.find((t) => t.id === step.id).topic_id = task.topic_id;
+  // Thema geändert → alle Unteraufgaben bzw. Schritte (beliebig tief) bekommen das neue Thema.
+  if (topicChanged) {
+    for (const sub of rawDescendants(id)) sub.topic_id = task.topic_id;
   }
   save();
   return taskById(id);

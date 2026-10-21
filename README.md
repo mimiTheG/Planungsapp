@@ -94,7 +94,8 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Dauern lassen sich in Stunden und Minuten angeben (Anzeige z. B. „1 h 30 min“). In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
   **▶ Start**, geändert nur nach Tippen auf **✎ Bearbeiten** (Schritte hinzufügen, löschen, umsortieren; ⚙ für Name,
   Thema und Löschen der Routine).
-  Ändert man das Thema einer Routine, übernehmen alle ihre Schritte das neue Thema.
+  Ändert man das Thema einer Aufgabe, eines Projekts oder einer Routine, übernehmen alle Unteraufgaben bzw. Schritte
+  (beliebig tief) das neue Thema.
   Lange Routinen (ab 5 Schritten, Unterschritte zählen mit) zeigen zunächst nur die ersten 3 Einträge – egal ob Schritt
   oder Unterschritt – und lassen
   sich ausklappen.

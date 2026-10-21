@@ -279,6 +279,21 @@ describe('Aufgaben: einmalig, Unteraufgaben, Erledigen', () => {
     assert.equal(store.taskById(t.id).window_start, '2099-01-11');
   });
 
+  test('Thema ändern: alle Unteraufgaben (beliebig tief) bekommen das neue Thema', () => {
+    fresh();
+    const arbeit = store.createTopic({ name: 'Arbeit', color: '#9b2948' });
+    const privat = store.createTopic({ name: 'Privat', color: '#7fa58a' });
+    const p = store.createTask({ title: 'Umzug', kind: 'project', topic_id: arbeit.id });
+    const a = store.createTask({ title: 'Kisten', parent_id: p.id, topic_id: arbeit.id });
+    const b = store.createTask({ title: 'Kisten kaufen', parent_id: a.id, topic_id: '' });
+    const other = store.createTask({ title: 'Anderes', topic_id: arbeit.id });
+    store.updateTask(p.id, { ...p, topic_id: privat.id });
+    assert.deepEqual([a, b].map((t) => store.taskById(t.id).topic_id), [privat.id, privat.id]);
+    assert.equal(store.taskById(other.id).topic_id, arbeit.id, 'andere Aufgaben bleiben');
+    store.updateTask(p.id, { ...store.taskById(p.id), title: 'Umzug 2026' });
+    assert.equal(store.taskById(b.id).topic_id, privat.id, 'nur Titel geändert: Themen bleiben');
+  });
+
   test('von einmalig auf regelmäßig und zurück', () => {
     fresh();
     const t = store.createTask({ title: 'Gießen', window_end: '2099-01-10' });
