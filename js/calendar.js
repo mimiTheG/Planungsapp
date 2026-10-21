@@ -7,7 +7,7 @@ import {
   addDays, formatDate, formatTime, isoDate, isoDateTime, parseDate, startOfDay, startOfWeek,
 } from './dates.js';
 import * as store from './store.js';
-import { routineStart, runRoutine } from './tasks.js';
+import { openTaskEditor, routineStart, runRoutine } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
 import { dateTimeField } from './datetime-picker.js';
@@ -86,6 +86,7 @@ export function renderCalendarView(root) {
   const birthdayCount = events.filter((e) => e.is_birthday).length;
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
   if (!view.showBirthdays) events = events.filter((e) => !e.is_birthday);
+  const deadlines = store.deadlinesBetween(from, to);
 
   const step = (dir) => {
     view.anchor = view.mode === 'month'
@@ -138,7 +139,9 @@ export function renderCalendarView(root) {
         }),
         `Geburtstage${!view.showBirthdays && birthdayCount ? ` (${birthdayCount} aus)` : ''}`)),
       legend()),
-    view.mode === 'month' ? monthGrid(from, to, events, refresh) : dayGrid(from, Number(view.mode), events, refresh));
+    view.mode === 'month'
+      ? monthGrid(from, to, events, deadlines, refresh)
+      : dayGrid(from, Number(view.mode), events, deadlines, refresh));
 
   const scroller = root.querySelector('.week-scroll');
   // Ist heute zu sehen, zur aktuellen Uhrzeit scrollen (etwas Vorlauf), sonst zum Morgen.
@@ -311,13 +314,22 @@ function legend() {
   return store.topics().map((t) => el('span', {}, el('span.dot', { style: { background: t.color } }), t.name));
 }
 
-function dayGrid(from, count, allEvents, refresh) {
+// Aufgabe mit Deadline: knallrot im Kalender – in Tag/Woche mit Uhrzeit, falls „spätestens um“ gesetzt ist
+// (im Monat ist dafür kein Platz).
+function deadlineText(task, withTime = true) {
+  return `⏰ ${withTime && task.deadline_time ? `${task.deadline_time} ` : ''}${task.title}`;
+}
+
+function dayGrid(from, count, allEvents, deadlines, refresh) {
   const days = [...Array(count)].map((_, i) => addDays(from, i));
   // Ganztägige Termine stehen in einer eigenen Zeile über den Stunden.
   const events = allEvents.filter((ev) => !ev.all_day);
   const allDay = days.map((day) => {
     const key = isoDate(day);
-    return allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key);
+    return [
+      ...deadlines.filter((t) => t.window_end === key).map((task) => ({ task })),
+      ...allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key),
+    ];
   });
   const today = isoDate(new Date());
   const columns = `2.6rem repeat(${count}, minmax(0, 1fr))`;
@@ -380,12 +392,18 @@ function dayGrid(from, count, allEvents, refresh) {
         el('strong', {}, formatDate(d, count === 7 ? { day: 'numeric' } : { day: '2-digit', month: '2-digit' }))))),
     allDay.some((list) => list.length) ? el('div.allday-row', { style: { gridTemplateColumns: columns } },
       el('span.allday-label', {}, 'ganzt.'),
-      allDay.map((list) => el('div.allday-cell', {}, list.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
-        type: 'button',
-        style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
-        title: `ganztägig: ${ev.title}`,
-        onclick: () => openEventEditor(ev, refresh),
-      }, eventTitle(ev)))))) : null,
+      allDay.map((list) => el('div.allday-cell', {}, list.map((ev) => (ev.task
+        ? el('button.chip.deadline', {
+          type: 'button',
+          title: `Deadline: ${ev.task.title}`,
+          onclick: () => openTaskEditor(ev.task, refresh),
+        }, deadlineText(ev.task))
+        : el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
+          type: 'button',
+          style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
+          title: `ganztägig: ${ev.title}`,
+          onclick: () => openEventEditor(ev, refresh),
+        }, eventTitle(ev))))))) : null,
     el('div.week-scroll', {}, el('div.week-body', { style: { gridTemplateColumns: columns } }, hours, cols)));
 }
 
@@ -419,7 +437,7 @@ function layoutLanes(blocks) {
   if (group.length) flush();
 }
 
-function monthGrid(from, to, events, refresh) {
+function monthGrid(from, to, events, deadlines, refresh) {
   const month = view.anchor.getMonth();
   const today = isoDate(new Date());
   const cells = [];
@@ -433,6 +451,7 @@ function monthGrid(from, to, events, refresh) {
       onclick: () => openDay(day, refresh),
     },
     el('span.month-day', {}, String(day.getDate())),
+    deadlines.filter((t) => t.window_end === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${t.title}` }, deadlineText(t, false))),
     dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,
@@ -466,7 +485,8 @@ export function openEventEditor(event, refresh) {
   });
   endInput.addEventListener('change', () => { duration = parseDate(endInput.value) - parseDate(startInput.value); });
 
-  const repeat = repeatFields(ev.repeat || null, startInput);
+  // Einzeln geänderter Termin einer Serie: die Wiederholung der Serie zeigen (gilt bei „folgende/alle“).
+  const repeat = repeatFields(store.seriesRepeat(ev), startInput);
 
   // Eingeplante Routine direkt aus dem Termin starten.
   const plannedRoutine = ev.routine_id && store.taskById(ev.routine_id);
@@ -482,31 +502,44 @@ export function openEventEditor(event, refresh) {
   const routineField = field('Routine', routineSelect, routineList.length ? null : 'Lege zuerst unter „Routinen“ eine an.');
   const topics = topicPicker(ev.topic_id);
   const typeSwitch = el('div.segmented.radio', { role: 'group', 'aria-label': 'Art' },
-    [['event', 'Termin'], ['routine', 'Routine']].map(([v, label]) => el('label', {},
-      el('input', { type: 'radio', name: 'entry_type', value: v, checked: (v === 'routine') === Boolean(ev.routine_id), onchange: showType }),
+    [['event', 'Termin'], ['routine', 'Routine'], ...(isNew ? [['task', 'Aufgabe']] : [])].map(([v, label]) => el('label', {},
+      el('input', { type: 'radio', name: 'entry_type', value: v, checked: (v === 'routine') === Boolean(ev.routine_id) && v !== 'task', onchange: showType }),
       label)));
   function showType() {
+    // „Aufgabe“: Aufgabe mit Deadline am gewählten Tag anlegen (erscheint knallrot im Kalender).
+    if (typeSwitch.querySelector('input:checked').value === 'task') {
+      close();
+      openTaskEditor({ title: titleInput.value.trim() || undefined, recurrence: 'once', window_end: startInput.value.slice(0, 10) }, refresh);
+      return;
+    }
     const isRoutine = typeSwitch.querySelector('input:checked').value === 'routine';
     titleField.hidden = isRoutine;
     titleInput.required = !isRoutine;
     routineField.hidden = !isRoutine;
     routineSelect.required = isRoutine;
-    allDayLabel.hidden = isRoutine || birthdayInput.checked; // eine Routine braucht eine Uhrzeit
-    birthdayLabel.hidden = isRoutine;
-    if (isRoutine && birthdayInput.checked) { birthdayInput.checked = false; showBirthday(); }
-    if (isRoutine && allDayInput.checked) { allDayInput.checked = false; showAllDay(); }
+    if (isRoutine && allDayInput.checked) allDayInput.checked = false; // eine Routine braucht eine Uhrzeit
+    showBirthday();
   }
 
-  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder – Ende und Wiederholen braucht es dann nicht.
-  const birthdayInput = el('input', { type: 'checkbox', name: 'is_birthday', checked: Boolean(ev.is_birthday), onchange: () => showBirthday() });
-  const birthdayLabel = el('label.check', {}, birthdayInput, 'Geburtstag (jedes Jahr an diesem Tag)');
+  // Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung –
+  // Ende, Wiederholen und „Veranstaltung“ braucht es dann nicht.
+  const topicSelect = topics.querySelector('select[name="topic_id"]');
+  topicSelect.addEventListener('change', () => showBirthday());
+  const isBirthday = () => typeSwitch.querySelector('input:checked').value !== 'routine'
+    && topicSelect.value !== '' && topicSelect.value === String(store.birthdayTopic()?.id);
+  const eventInput = el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) });
+  const eventLabel = el('label.check', {}, eventInput, 'Veranstaltung (lässt sich im Kalender ausblenden)');
   const birthYearField = field('Geburtsjahr (optional, für das Alter)',
     el('input', { type: 'number', name: 'birth_year', min: 1900, max: new Date().getFullYear(), inputmode: 'numeric', value: ev.birth_year || '' }));
   const endBox = el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element);
   const startLabel = el('span.field-label', {}, 'Beginn');
   function showBirthday() {
-    const on = birthdayInput.checked;
-    if (on) allDayInput.checked = true;
+    const on = isBirthday();
+    if (on) {
+      allDayInput.checked = true;
+      eventInput.checked = false;
+    }
+    eventLabel.hidden = on;
     allDayLabel.hidden = on || typeSwitch.querySelector('input:checked').value === 'routine';
     endBox.hidden = on;
     repeat.element.hidden = on;
@@ -533,7 +566,6 @@ export function openEventEditor(event, refresh) {
   routineSelect.addEventListener('change', () => {
     const r = store.taskById(routineSelect.value);
     if (!r) return;
-    const topicSelect = topics.querySelector('select[name="topic_id"]');
     if (r.topic_id) topicSelect.value = String(r.topic_id);
     // Standardstartzeit der Routine am gewählten Tag übernehmen, Ende aus ihrer Dauer.
     if (r.default_time) startField.set(routineStart(r, parseDate(startInput.value)), false);
@@ -546,9 +578,7 @@ export function openEventEditor(event, refresh) {
     titleField,
     routineField,
     topics,
-    el('label.check', {}, el('input', { type: 'checkbox', name: 'is_event', checked: Boolean(ev.is_event) }),
-      'Veranstaltung (lässt sich im Kalender ausblenden)'),
-    birthdayLabel,
+    eventLabel,
     allDayLabel,
     el('div.field', {}, startLabel, startField.element),
     endBox,
@@ -561,7 +591,6 @@ export function openEventEditor(event, refresh) {
       isNew ? null : el('button.danger', { type: 'button', onclick: remove }, 'Löschen')));
 
   showType();
-  showBirthday();
 
   function save() {
     const payload = { ...formData(form), repeat: repeat.value() };
@@ -577,7 +606,7 @@ export function openEventEditor(event, refresh) {
       refresh();
     };
     // Bei Serien wie in Google Kalender nachfragen, was geändert werden soll (Geburtstage gelten immer für alle Jahre).
-    if (ev.series && !(ev.is_birthday && payload.is_birthday)) askScope('Wiederkehrenden Termin speichern', run);
+    if (ev.series && !(ev.is_birthday && isBirthday())) askScope('Wiederkehrenden Termin speichern', run);
     else run('all');
   }
 

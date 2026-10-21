@@ -35,21 +35,34 @@ export class ValidationError extends Error {}
 // --- Laden & Speichern -------------------------------------------------------
 
 // Lädt die gespeicherten Daten. Gibt false zurück, wenn noch nie etwas gespeichert wurde (erster Start).
+// Das Thema „Geburtstag“ gibt es immer: Termine mit diesem Thema sind Geburtstage (jährlich, ganztägig).
+function withBirthdayTopic(d) {
+  let topic = d.topics.find((t) => t.birthday);
+  if (!topic) {
+    topic = { id: d.nextId, name: 'Geburtstag', color: '#e9a66b', birthday: true };
+    d.nextId += 1;
+    d.topics.push(topic);
+  }
+  // Geburtstage aus der Zeit mit eigenem Häkchen bekommen das Thema.
+  for (const ev of d.events) if (ev.is_birthday) ev.topic_id = topic.id;
+  return d;
+}
+
 export function load(customStorage) {
   if (customStorage) storage = customStorage;
   let raw = null;
   try {
     raw = storage?.getItem(STORAGE_KEY);
-    data = raw ? migrate(JSON.parse(raw)) : EMPTY();
+    data = withBirthdayTopic(raw ? migrate(JSON.parse(raw)) : EMPTY());
   } catch {
-    data = EMPTY();
+    data = withBirthdayTopic(EMPTY());
   }
   rollExpired();
   return raw !== null;
 }
 
 export function clearAll() {
-  data = EMPTY();
+  data = withBirthdayTopic(EMPTY());
   save();
 }
 
@@ -74,7 +87,7 @@ export function importJson(text) {
   if (!parsed || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.topics) || !Array.isArray(parsed.events)) {
     throw new ValidationError('Das ist keine gültige Sicherung');
   }
-  data = migrate(parsed);
+  data = withBirthdayTopic(migrate(parsed));
   save();
   rollExpired();
 }
@@ -84,6 +97,7 @@ export function importJson(text) {
 export const topics = () => [...data.topics].sort((a, b) => a.name.localeCompare(b.name, 'de'));
 export const topicById = (id) => data.topics.find((t) => t.id === Number(id)) || null;
 export const topicColor = (id) => topicById(id)?.color || '#94a3b8';
+export const birthdayTopic = () => data.topics.find((t) => t.birthday) || null;
 
 // Aufgaben mit berechnetem Status (status, closes_at).
 export function tasks(now = new Date()) {
@@ -212,9 +226,29 @@ export function eventsBetween(from, to) {
       start_at: stamp(o.start),
       end_at: stamp(o.end),
       occurrence: o.occurrence,
-      series: Boolean(event.repeat),
+      series: Boolean(event.repeat) || Boolean(seriesOf(event)),
     })))
     .sort((a, b) => a.start_at.localeCompare(b.start_at));
+}
+
+// Offene einmalige Aufgaben mit Deadline (Datum "bis") zwischen from und to – für den Kalender.
+export function deadlinesBetween(from, to) {
+  const first = isoDate(from);
+  const last = isoDate(to);
+  return tasks()
+    .filter((t) => t.recurrence === 'once' && t.window_end && !t.done_at && !isInRoutine(t))
+    .filter((t) => t.window_end >= first && t.window_end <= last)
+    .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
+}
+
+// Einzeln geänderter Termin einer Serie → die Serie (sonst null).
+function seriesOf(event) {
+  return event.series_id ? data.events.find((e) => e.id === event.series_id && e.repeat) || null : null;
+}
+
+// Für den Editor: die Wiederholung der Serie, zu der ein Termin gehört.
+export function seriesRepeat(event) {
+  return event.repeat || seriesOf(event)?.repeat || null;
 }
 
 export function eventById(id) {
@@ -305,6 +339,7 @@ export function updateTopic(id, input) {
 }
 
 export function deleteTopic(id) {
+  if (topicById(id)?.birthday) throw new ValidationError('Das Thema „Geburtstag“ wird für Geburtstage gebraucht');
   data.topics = data.topics.filter((t) => t.id !== id);
   for (const item of [...data.tasks, ...data.events, ...data.wishes]) {
     if (item.topic_id === id) item.topic_id = null;
@@ -610,14 +645,17 @@ function eventInput(input) {
     notes: text(input, 'notes', 5000),
     topic_id: ref(input, 'topic_id') ?? (routine ? routine.topic_id : null),
     is_event: Boolean(input.is_event),
-    is_birthday: Boolean(input.is_birthday) && !routine,
+    is_birthday: false,
     all_day: Boolean(input.all_day) && !routine,
     start_at: dateTime('start_at'),
     end_at: dateTime('end_at'),
   };
-  // Geburtstag: ganztägig an einem Tag, jedes Jahr wieder; das Geburtsjahr (optional) ergibt das Alter.
+  // Geburtstag = Thema „Geburtstag“: ganztägig an einem Tag, jedes Jahr wieder, keine Veranstaltung;
+  // das Geburtsjahr (optional) ergibt das Alter.
+  event.is_birthday = !routine && event.topic_id !== null && event.topic_id === birthdayTopic()?.id;
   event.birth_year = null;
   if (event.is_birthday) {
+    event.is_event = false;
     event.all_day = true;
     event.end_at = event.start_at;
     event.birth_year = int(input, 'birth_year', 1900, Number(event.start_at.slice(0, 4)));
@@ -672,16 +710,27 @@ export function createEvent(input) {
 //   'this'      – nur der Termin am Tag occurrence (wird aus der Serie herausgelöst)
 //   'following' – dieser und alle folgenden (Serie wird geteilt)
 //   'all'       – alle Termine der Serie
+//   Einzeln geänderte Termine (series_id) gehören weiter zu ihrer Serie: Mit 'following'/'all' gilt die
+//   Änderung ab ihrem ursprünglichen Tag (series_date) für die Serie, die Einzeländerung geht darin auf.
 export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}) {
   const event = eventById(id);
   if (!event) throw new ValidationError('Termin nicht gefunden');
+  const parent = seriesOf(event);
+  if (parent && scope !== 'this') {
+    const merged = { ...input, repeat: input.repeat || parent.repeat };
+    eventInput(merged); // erst prüfen, dann umbauen
+    data.events = data.events.filter((e) => e.id !== event.id);
+    parent.exdates = (parent.exdates || []).filter((d) => d !== event.series_date);
+    return updateEvent(parent.id, merged, { scope, occurrence: event.series_date });
+  }
   const next = eventInput(input);
+  if (parent) next.repeat = null; // 'this': bleibt ein einzelner Termin der Serie
 
   if (!event.repeat || !occurrence) {
     Object.assign(event, next, { exdates: next.repeat ? event.exdates || [] : [] });
   } else if (scope === 'this') {
     event.exdates = [...(event.exdates || []), occurrence];
-    const single = { id: nextId(), ...next, repeat: null };
+    const single = { id: nextId(), ...next, repeat: null, series_id: event.id, series_date: occurrence };
     data.events.push(single);
     save();
     return single;
@@ -693,6 +742,8 @@ export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}
     event.repeat = { ...event.repeat, until: isoDate(addDays(parseDate(occurrence), -1)), count: null };
     event.exdates = (event.exdates || []).filter((d) => d < occurrence);
     data.events.push(follow);
+    // Einzeländerungen ab hier gehören jetzt zur neuen Serie.
+    for (const e of exceptionsOf(event.id)) if (e.series_date >= occurrence) e.series_id = follow.id;
     save();
     return follow;
   } else if (!next.repeat) {
@@ -709,6 +760,7 @@ export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}
       end_at: stamp(new Date(+start + duration)),
       exdates: (event.exdates || []).map((d) => isoDate(addDays(parseDate(d), dayShift))),
     });
+    for (const e of exceptionsOf(event.id)) e.series_date = isoDate(addDays(parseDate(e.series_date), dayShift));
     event.repeat = repeatInput(event.repeat, event.start_at);
   }
   save();
@@ -717,13 +769,25 @@ export function updateEvent(id, input, { scope = 'all', occurrence = null } = {}
 
 export function deleteEvent(id, { scope = 'all', occurrence = null } = {}) {
   const event = eventById(id);
+  const parent = event && seriesOf(event);
+  if (parent && scope !== 'this') {
+    data.events = data.events.filter((e) => e.id !== id);
+    return deleteEvent(parent.id, { scope, occurrence: event.series_date });
+  }
   if (event?.repeat && occurrence && scope === 'this') {
     event.exdates = [...(event.exdates || []), occurrence];
   } else if (event?.repeat && occurrence && scope === 'following' && occurrence > event.start_at.slice(0, 10)) {
     event.repeat = { ...event.repeat, until: isoDate(addDays(parseDate(occurrence), -1)), count: null };
     event.exdates = (event.exdates || []).filter((d) => d < occurrence);
+    const gone = new Set(exceptionsOf(id).filter((e) => e.series_date >= occurrence).map((e) => e.id));
+    data.events = data.events.filter((e) => !gone.has(e.id));
   } else {
-    data.events = data.events.filter((e) => e.id !== id);
+    // Ganze Serie löschen – samt ihrer einzeln geänderten Termine.
+    data.events = data.events.filter((e) => e.id !== id && e.series_id !== id);
   }
   save();
+}
+
+function exceptionsOf(seriesId) {
+  return data.events.filter((e) => e.series_id === seriesId);
 }

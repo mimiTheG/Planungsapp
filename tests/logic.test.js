@@ -73,9 +73,9 @@ test('Store: Sicherung exportieren und wieder einlesen', () => {
   store.createTopic({ name: 'Sport', color: '#16a34a' });
   const backup = store.exportJson();
   store.load(memory());
-  assert.equal(store.topics().length, 0);
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag']); // gibt es immer
   store.importJson(backup);
-  assert.equal(store.topics()[0].name, 'Sport');
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport']);
   assert.throws(() => store.importJson('{"foo":1}'), /keine gültige Sicherung/);
 });
 
@@ -322,12 +322,15 @@ test('Store: ganztägige Termine – nur Datum', () => {
   assert.equal(timed.all_day, false);
 });
 
-test('Store: Geburtstage – ganztägig, jedes Jahr, optional mit Geburtsjahr', () => {
+test('Store: Geburtstage (Thema „Geburtstag“) – ganztägig, jedes Jahr, keine Veranstaltung, optional mit Geburtsjahr', () => {
   store.load(memory());
   const ev = store.createEvent({
-    title: 'Anna', is_birthday: true, start_at: '2026-03-05T14:00', end_at: '2026-03-07T10:00', birth_year: '1990',
+    title: 'Anna', topic_id: store.birthdayTopic().id, is_event: true,
+    start_at: '2026-03-05T14:00', end_at: '2026-03-07T10:00', birth_year: '1990',
     repeat: { freq: 'weekly', interval: 2 },
   });
+  assert.equal(ev.is_birthday, true);
+  assert.equal(ev.is_event, false, 'ein Geburtstag ist keine Veranstaltung');
   assert.equal(ev.all_day, true);
   assert.equal(ev.start_at, '2026-03-05 00:00');
   assert.equal(ev.end_at, '2026-03-05 23:59');
@@ -335,7 +338,9 @@ test('Store: Geburtstage – ganztägig, jedes Jahr, optional mit Geburtsjahr', 
   assert.equal(ev.birth_year, 1990);
   const next = store.eventsBetween(new Date(2028, 2, 1), new Date(2028, 2, 31)).filter((e) => e.title === 'Anna');
   assert.deepEqual(next.map((e) => e.start_at), ['2028-03-05 00:00']);
-  assert.throws(() => store.createEvent({ title: 'X', is_birthday: true, start_at: '2026-03-05T00:00', end_at: '2026-03-05T00:00', birth_year: '2030' }), /Geburtsjahr/);
+  assert.throws(() => store.deleteTopic(store.birthdayTopic().id), /Geburtstag/);
+  assert.equal(store.createEvent({ title: 'Y', is_birthday: true, start_at: '2026-03-05T10:00', end_at: '2026-03-05T11:00' }).is_birthday, false);
+  assert.throws(() => store.createEvent({ title: 'X', topic_id: store.birthdayTopic().id, start_at: '2026-03-05T00:00', end_at: '2026-03-05T00:00', birth_year: '2030' }), /Geburtsjahr/);
 });
 
 test('Store: alte Angaben zu Bereichen davor/danach werden beim Laden entfernt', () => {
@@ -348,4 +353,48 @@ test('Store: alte Angaben zu Bereichen davor/danach werden beim Laden entfernt',
   const ev = store.eventById(1);
   assert.equal(ev.title, 'Büro');
   assert.equal('before_type' in ev || 'before_minutes' in ev || 'after_type' in ev, false);
+});
+
+test('Store: einzeln geänderter Serientermin bleibt Teil der Serie (dieser / folgende / alle)', () => {
+  store.load(memory());
+  const series = store.createEvent({ title: 'Yoga', start_at: '2026-11-02T18:00', end_at: '2026-11-02T19:00', repeat: { freq: 'weekly', interval: 1 } });
+  const titles = () => store.eventsBetween(new Date(2026, 10, 2), new Date(2026, 10, 30))
+    .filter((e) => e.start_at >= '2026-11-02').map((e) => `${e.start_at.slice(5)} ${e.title}`);
+  // 9.11. einzeln auf 19 Uhr
+  const single = store.updateEvent(series.id, { ...series, start_at: '2026-11-09T19:00', end_at: '2026-11-09T20:00' }, { scope: 'this', occurrence: '2026-11-09' });
+  const occ = store.eventsBetween(new Date(2026, 10, 9), new Date(2026, 10, 9)).find((e) => e.id === single.id);
+  assert.equal(occ.series, true, 'fragt beim nächsten Ändern wieder nach');
+  // nochmal nur diesen: bleibt einzeln, Serie unverändert
+  store.updateEvent(single.id, { ...occ, title: 'Yoga (Halle 2)' }, { scope: 'this', occurrence: occ.occurrence });
+  assert.deepEqual(titles(), ['11-02 18:00 Yoga', '11-09 19:00 Yoga (Halle 2)', '11-16 18:00 Yoga', '11-23 18:00 Yoga', '11-30 18:00 Yoga']);
+  // jetzt diesen und folgende: ab 9.11. alle um 19:30
+  const occ2 = store.eventsBetween(new Date(2026, 10, 9), new Date(2026, 10, 9)).find((e) => e.id === single.id);
+  store.updateEvent(single.id, { ...occ2, title: 'Yoga', start_at: '2026-11-09T19:30', end_at: '2026-11-09T20:30', repeat: null }, { scope: 'following', occurrence: occ2.occurrence });
+  assert.deepEqual(titles(), ['11-02 18:00 Yoga', '11-09 19:30 Yoga', '11-16 19:30 Yoga', '11-23 19:30 Yoga', '11-30 19:30 Yoga']);
+  // Einzeländerung löschen mit "alle": ganze (neue) Serie weg, die alte bis 2.11. bleibt
+  const late = store.eventsBetween(new Date(2026, 10, 16), new Date(2026, 10, 16)).find((e) => e.start_at.startsWith('2026-11-16'));
+  const one = store.updateEvent(late.id, { ...late, start_at: '2026-11-16T07:00', end_at: '2026-11-16T08:00' }, { scope: 'this', occurrence: late.occurrence });
+  store.deleteEvent(one.id, { scope: 'all' });
+  assert.deepEqual(titles(), ['11-02 18:00 Yoga']);
+});
+
+test('Store: Deadlines für den Kalender – nur offene einmalige Aufgaben mit Datum', () => {
+  store.load(memory());
+  const steuer = store.createTask({ title: 'Steuererklärung', recurrence: 'once', window_end: '2026-11-10', deadline_time: '12:00' });
+  store.createTask({ title: 'Ohne Datum', recurrence: 'once' });
+  const done = store.createTask({ title: 'Erledigt', recurrence: 'once', window_end: '2026-11-12' });
+  store.completeTask(done.id);
+  const list = store.deadlinesBetween(new Date(2026, 10, 1), new Date(2026, 10, 30));
+  assert.deepEqual(list.map((t) => t.id), [steuer.id]);
+  assert.equal(store.deadlinesBetween(new Date(2026, 10, 11), new Date(2026, 10, 30)).length, 0);
+});
+
+test('Store: alte Geburtstage (Häkchen) bekommen beim Laden das Thema „Geburtstag“', () => {
+  const old = memory();
+  old.setItem('planungsapp.v1', JSON.stringify({
+    scale: 'high5', nextId: 3, topics: [{ id: 1, name: 'Familie', color: '#9b2948' }], tasks: [], wishes: [], log: [],
+    events: [{ id: 2, title: 'Anna', topic_id: 1, is_birthday: true, all_day: true, start_at: '2026-03-05 00:00', end_at: '2026-03-05 23:59', repeat: { freq: 'yearly', interval: 1 } }],
+  }));
+  store.load(old);
+  assert.equal(store.eventById(2).topic_id, store.birthdayTopic().id);
 });

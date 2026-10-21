@@ -66,15 +66,18 @@ export function renderMoreView(root) {
               attempt(() => store.updateTopic(topic.id, { name: e.target.value, color: store.topicById(topic.id).color }));
             },
           }),
-          el('button.icon', {
-            type: 'button',
-            'aria-label': 'Löschen',
-            onclick: () => {
-              if (!window.confirm(`Thema „${topic.name}“ löschen? Aufgaben und Termine bleiben erhalten.`)) return;
-              store.deleteTopic(topic.id);
-              refresh();
-            },
-          }, '🗑'))))
+          // „Geburtstag“ gibt es immer (Termine mit diesem Thema sind Geburtstage) – umbenennen ja, löschen nein.
+          topic.birthday
+            ? el('span.icon-placeholder', { title: 'Für Geburtstage – lässt sich nicht löschen' }, '🎂')
+            : el('button.icon', {
+              type: 'button',
+              'aria-label': 'Löschen',
+              onclick: () => {
+                if (!window.confirm(`Thema „${topic.name}“ löschen? Aufgaben und Termine bleiben erhalten.`)) return;
+                store.deleteTopic(topic.id);
+                refresh();
+              },
+            }, '🗑'))))
         : el('p.empty', {}, 'Noch keine Themen.')),
 
     el('div.toolbar', {}, el('h2', {}, 'Datensicherung')),

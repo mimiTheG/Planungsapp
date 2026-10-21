@@ -37,12 +37,16 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
 - Termine können als **Veranstaltung** markiert und per Haken ein- und ausgeblendet werden.
-- **Geburtstage:** Häkchen „Geburtstag“ im Termin – ganztägig, wiederholt sich jedes Jahr an diesem Tag, im Kalender
+- **Geburtstage:** Thema **„Geburtstag“** wählen (gibt es immer, lässt sich umbenennen, aber nicht löschen) – dann ist
+  der Termin ganztägig, wiederholt sich jedes Jahr an diesem Tag und ist keine Veranstaltung; im Kalender
   mit 🎂. Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“). Lassen sich wie Veranstaltungen per Haken ausblenden.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
   Wochentage wählbar, endet nie / am Datum / nach n Terminen). Wiederkehrende Termine sind mit ↻ markiert.
-  Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine*.
+  Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine* –
+  auch bei einem Termin, der schon einmal einzeln geändert wurde (er gehört weiter zu seiner Serie).
+- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit).
+  Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
 
 **Themen** – z. B. „Sport“, „Arbeit“, jeweils mit eigener Farbe; gelten für Aufgaben und Termine.
 Überall, wo man ein Thema auswählt, lässt sich mit „+ Neues Thema anlegen“ direkt ein neues erstellen.
