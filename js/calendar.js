@@ -429,17 +429,13 @@ function monthGrid(from, to, events, refresh) {
     const dayEvents = events.filter((ev) => ev.start_at.slice(0, 10) <= key
       && lastDay(parseDate(ev.start_at), parseDate(ev.end_at)) >= key);
     cells.push(el(`div.month-cell${day.getMonth() !== month ? '.other' : ''}${key === today ? '.today' : ''}`, {
-      onclick: (e) => {
-        if (e.target.closest('.chip')) return;
-        openDay(day, refresh);
-      },
+      // Antippen öffnet immer den Tag – auch auf einem Termin (die sind zum gezielten Antippen zu klein).
+      onclick: () => openDay(day, refresh),
     },
     el('span.month-day', {}, String(day.getDate())),
-    dayEvents.map((ev) => el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
-      type: 'button',
+    dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,
-      onclick: () => openEventEditor(ev, refresh),
     }, eventTitle(ev)))));
   }
   return el('div.month', {}, ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div.month-head', {}, d)), cells);

@@ -22,6 +22,7 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
 - Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
   statt der Drehräder des Handys.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
+- In der Monatsansicht öffnet Antippen immer den Tag – auch auf einem Termin; von dort öffnet man den Termin.
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
 - In Tag-/Wochenansicht zeigt ein Strich die aktuelle Uhrzeit.
 - In Tag, 3 Tage und Woche **wischt** man nach links zum nächsten und nach rechts zum vorigen Tag bzw. Zeitraum;
