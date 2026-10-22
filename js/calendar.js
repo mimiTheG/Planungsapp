@@ -323,7 +323,8 @@ function dayGrid(from, count, allEvents, deadlines, refresh) {
   const allDay = days.map((day) => {
     const key = isoDate(day);
     return [
-      ...deadlines.filter((t) => t.deadline_date === key).map((task) => ({ task })),
+      // Deadlines ohne Uhrzeit gelten für den ganzen Tag; mit Uhrzeit stehen sie als Zeitpunkt in der Spalte.
+      ...deadlines.filter((t) => t.deadline_date === key && !t.deadline_time).map((task) => ({ task })),
       ...allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key),
     ];
   });
@@ -375,6 +376,16 @@ function dayGrid(from, count, allEvents, deadlines, refresh) {
       el('span.block-title', {}, seg.label));
       block._drag = { ev, seg };
       col.append(block);
+    }
+    // Deadlines mit Uhrzeit: rote Linie genau zur Uhrzeit, mit Fähnchen.
+    for (const task of deadlines.filter((t) => t.deadline_date === isoDate(day) && t.deadline_time)) {
+      const [h, m] = task.deadline_time.split(':').map(Number);
+      col.append(el('button.deadline-mark', {
+        type: 'button',
+        style: { top: `${((h * 60 + m) / 60) * HOUR_PX}px` },
+        title: `Deadline ${task.deadline_time}: ${task.title}`,
+        onclick: () => openTaskEditor(task, refresh),
+      }, el('span.deadline-flag', {}, count < 7 ? deadlineText(task) : task.title))); // Woche: schmal, nur der Titel
     }
     if (isoDate(day) === today) col.append(nowLine());
     return col;

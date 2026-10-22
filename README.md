@@ -52,7 +52,9 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   Beim Ändern oder Löschen fragt die App: *Dieser Termin*, *Dieser und alle folgenden Termine* oder *Alle Termine*
   (ändert man die Wiederholung selbst, z. B. „endet am …“, nur die beiden letzten) –
   auch bei einem Termin, der schon einmal einzeln geändert wurde (er gehört weiter zu seiner Serie).
-- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰, in Tag/Woche mit Uhrzeit) –
+- **Deadlines:** Offene Aufgaben mit Deadline stehen **knallrot** im Kalender (⏰). Mit Uhrzeit („spätestens um“)
+  erscheinen sie in Tag/3 Tage/Woche als **Zeitpunkt** (rote Linie mit Fähnchen genau zur Uhrzeit), ohne Uhrzeit oben
+  in der Ganztägig-Zeile –
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
   man erledigt jeweils pünktlich).
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
@@ -75,13 +77,14 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 - Unter *Aufgaben → Erledigt* steht alles Erledigte nach Tagen sortiert (auch wiederkehrende Aufgaben, abgeschlossene
   Routinen und die Wunschliste); einmalige Aufgaben lassen sich dort mit ↺ wieder öffnen.
 - Beliebig tief verschachtelte Unteraufgaben. Bei „Gehört zu“ sieht man zuerst nur die oberste Ebene und klappt bei
-  Bedarf auf. Neue Unteraufgaben übernehmen Wichtigkeit und Dringlichkeit der übergeordneten Aufgabe. Die **Reihenfolge** von Unteraufgaben und Routine-Schritten ändert man
-  durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder unten. Zieht man nach **rechts**, wird der
+  Bedarf auf. Neue Unteraufgaben übernehmen Wichtigkeit und Dringlichkeit der übergeordneten Aufgabe. Die **Reihenfolge** von Aufgaben (auch auf der obersten Ebene der Aufgabenliste),
+  Unteraufgaben und Routine-Schritten ändert man durch **langes Drücken** auf einen Eintrag und Ziehen nach oben oder
+  unten. Zieht man nach **rechts**, wird der
   Eintrag zur Unteraufgabe des Eintrags darüber; nach **links** rückt er eine Ebene höher (Routine-Schritte bleiben
   dabei in ihrer Routine).
   Kommt man beim Ziehen an den oberen oder unteren Rand, scrollt die Liste mit.
   Der Fortschritt wird farbig angezeigt: von zartem Rosa (wenig erledigt)
-  bis Dunkelrot (fertig).
+  bis Dunkelrot (fertig). In der Aufgabenliste steht keine Wichtigkeit/Dringlichkeit (die sieht man im Editor).
 - **Einmalig** (optional mit Zeitraum/Deadline), **regelmäßig** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
 - **Regelmäßig** funktioniert wie ein wiederkehrender Termin: „Erstes Mal am“ plus Täglich, Wöchentlich am …,

@@ -330,6 +330,18 @@ describe('Aufgaben: einmalig, Unteraufgaben, Erledigen', () => {
     assert.equal(store.taskById(b.id).topic_id, privat.id, 'nur Titel geändert: Themen bleiben');
   });
 
+  test('oberste Ebene: Reihenfolge ändern, einrücken und wieder ausrücken', () => {
+    fresh();
+    const [a, b, c] = ['A', 'B', 'C'].map((t) => store.createTask({ title: t }));
+    store.reorderChildren(null, [c.id, a.id, b.id]);
+    assert.deepEqual(store.childrenOf(null).map((t) => t.title), ['C', 'A', 'B']);
+    store.indentTask(b.id);
+    assert.equal(store.taskById(b.id).parent_id, a.id);
+    store.outdentTask(b.id);
+    assert.deepEqual(store.childrenOf(null).map((t) => t.title), ['C', 'A', 'B']);
+    assert.throws(() => store.outdentTask(c.id), /obersten Ebene/);
+  });
+
   test('von einmalig auf regelmäßig und zurück', () => {
     fresh();
     const t = store.createTask({ title: 'Gießen', window_end: '2099-01-10' });

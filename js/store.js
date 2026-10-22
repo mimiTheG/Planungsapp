@@ -171,6 +171,7 @@ export function canOutdent(task) {
 export function outdentTask(id) {
   const task = data.tasks.find((t) => t.id === id);
   if (!task) throw new ValidationError('Aufgabe nicht gefunden');
+  if (task.parent_id === null) throw new ValidationError('Steht schon auf der obersten Ebene');
   if (!canOutdent(task)) throw new ValidationError('Schritte bleiben in ihrer Routine');
   const parent = data.tasks.find((t) => t.id === task.parent_id);
   const order = childrenOf(parent.parent_id).filter((t) => t.id !== id).map((t) => t.id);
