@@ -347,7 +347,7 @@ export function openTaskEditor(task, refresh) {
   const recurrenceBoxes = {
     once: el('div.form-grid', {},
       el('div.row', {},
-        field('Ab (optional)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
+        field('Ab (leer = ab sofort)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
         field('Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
       el('small.muted', {}, 'Die Deadline erscheint im Kalender in Rot.')),
     rhythm: el('div.form-grid', {}, rhythmStart, rhythmRepeat.element,
