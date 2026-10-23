@@ -232,8 +232,9 @@ export function renderNowView(root) {
   // 3. Alles andere Offene – nach W×D absteigend.
   const rest = items.filter((t) => !isOverdue(t) && !(t.status === 'due' && t.window_end)).sort(byPriority);
   const wishes = store.wishes();
-  const upcoming = all
-    .filter((t) => t.status === 'upcoming')
+  // Demnächst: oberste Ebene und Aufgaben mehrtägiger Routinen.
+  const upcoming = everything
+    .filter((t) => t.status === 'upcoming' && (t.parent_id === null || store.isMultiRoutine(store.taskById(t.parent_id))))
     .sort((a, b) => a.window_start.localeCompare(b.window_start))
     .slice(0, 8);
   const candidates = [...items, ...wishes.map((w) => ({ ...w, isWish: true }))];

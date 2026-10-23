@@ -316,6 +316,10 @@ export function openTaskEditor(task, refresh) {
       if (task[key] === undefined) t[key] = parent[key];
     }
   }
+  // Neue Aufgabe in einer mehrtägigen Routine: meist etwas Regelmäßiges (Bad wöchentlich, Fenster monatlich …).
+  const inMulti = Boolean(parent) && store.isMultiRoutine(store.routineOf(parent));
+  const isDayStep = Boolean(parent) && store.isInRoutine(parent) && !inMulti;
+  if (isNew && inMulti && task.recurrence === undefined) t.recurrence = 'rhythm';
 
   const values = {
     sachlich: { importance: t.importance, urgency: t.urgency },
@@ -338,7 +342,7 @@ export function openTaskEditor(task, refresh) {
       : isoDate(new Date()),
   });
   const rhythmStart = field('Erstes Mal am', rhythmStartInput);
-  if (t.recurrence === 'rhythm' && !t.repeat && t.rhythm_days) {
+  if (!isNew && t.recurrence === 'rhythm' && !t.repeat && t.rhythm_days) {
     t.repeat = { freq: 'daily', interval: t.rhythm_days };
     t.repeat_from_done = true;
   }
@@ -372,6 +376,14 @@ export function openTaskEditor(task, refresh) {
   const defaultTimeField = field('Standardstartzeit (optional)',
     el('input', { type: 'time', name: 'default_time', value: t.default_time || '' }),
     'Wird beim Einplanen im Kalender vorgeschlagen.');
+  // Art der Routine: eintägig (Checkliste mit Start) oder mehrtägig (regelmäßige Aufgaben mit eigenen Rhythmen).
+  const routineTypeField = el('div.field', {},
+    el('span.field-label', {}, 'Art der Routine'),
+    el('div.segmented.radio', {}, [['day', 'Eintägig'], ['multi', 'Mehrtägig']].map(([v, label]) => el('label', {},
+      el('input', { type: 'radio', name: 'routine_type', value: v, checked: (t.routine_type || 'day') === v, onchange: () => showForKind() }),
+      label))),
+    el('small.muted', {}, 'Eintägig: Schritte am Stück abhaken, z. B. Morgenroutine. Mehrtägig: Aufgaben mit eigenem ',
+      'Rhythmus, z. B. Haushalt (Bad wöchentlich, Fenster monatlich).'));
   const parent_ = parentPicker(t.parent_id, excluded);
   const parentSelect = parent_.input;
 
@@ -404,8 +416,9 @@ export function openTaskEditor(task, refresh) {
           el('span', {}, 'Std'),
           el('input', { type: 'number', name: 'duration_m', min: 0, max: 59, inputmode: 'numeric', value: t.duration_min ? t.duration_min % 60 || '' : '', 'aria-label': 'Minuten', placeholder: '0' }),
           el('span', {}, 'Min')))),
+    routineTypeField,
     defaultTimeField,
-    el('small.muted', {}, 'Projekt = freiwillig, macht Spaß. Routine = wiederverwendbare Abfolge von Schritten.'),
+    el('small.muted', {}, 'Projekt = freiwillig, macht Spaß. Routine = wiederkehrende Abläufe (ein- oder mehrtägig).'),
     topicPicker(t.topic_id),
     el('div.field', {}, el('span.field-label', {}, 'Gehört zu'), parent_.element),
     prioFieldset,
@@ -428,7 +441,10 @@ export function openTaskEditor(task, refresh) {
     const routineLike = store.isInRoutine({ kind: kindSelect.value, parent_id: Number(parentSelect.value) || null });
     prioFieldset.hidden = routineLike;
     whenFieldset.hidden = routineLike;
-    defaultTimeField.hidden = !(kindSelect.value === 'routine' && !parentSelect.value);
+    const topRoutine = kindSelect.value === 'routine' && !parentSelect.value;
+    routineTypeField.hidden = !topRoutine;
+    const multi = form.elements.routine_type?.value === 'multi';
+    defaultTimeField.hidden = !topRoutine || multi;
   }
   kindSelect.addEventListener('change', showForKind);
   parentSelect.addEventListener('change', showForKind);
@@ -461,6 +477,7 @@ export function openTaskEditor(task, refresh) {
       deadline_time: d.deadline_time,
       duration_min: (Number(d.duration_h) || 0) * 60 + (Number(d.duration_m) || 0) || '',
       default_time: d.default_time,
+      routine_type: d.routine_type,
       on_missed: d.on_missed,
     };
     const ok = attempt(() => (isNew ? store.createTask(payload) : store.updateTask(t.id, payload)));
@@ -473,12 +490,12 @@ export function openTaskEditor(task, refresh) {
   let title = 'Bearbeiten';
   if (isNew) {
     if (!parent) title = NEW_TITLES[t.kind];
-    else title = store.isInRoutine(parent) ? 'Neuer Schritt' : 'Neue Unteraufgabe';
+    else title = isDayStep ? 'Neuer Schritt' : inMulti ? 'Neue Aufgabe' : 'Neue Unteraufgabe';
   }
   const close = openDialog(title, form);
 
   // Neuer Schritt einer Routine: Titel gleich anwählen; die Enter-/Pfeiltaste der Tastatur legt ihn an.
-  if (isNew && parent && store.isInRoutine(parent)) {
+  if (isNew && isDayStep) {
     titleInput.enterKeyHint = 'done';
     titleInput.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
@@ -570,7 +587,33 @@ const ROUTINE_COLLAPSE_FROM = 5;
 const expandedRoutines = new Set();
 const editingRoutines = new Set();
 
+// Mehrtägige Routine: ihre Aufgaben mit Rhythmus und Fälligkeit, direkt abhakbar (wie in der Aufgabenliste).
+function multiRoutineCard(routine, refresh) {
+  const tasks = store.childrenOf(routine.id);
+  return el('div.card.routine.multi', {},
+    el('div.routine-head', {},
+      topicDot(routine),
+      el('strong', {}, routine.title),
+      el('span.badge', {}, 'mehrtägig'),
+      el('span.spacer'),
+      el('button.icon.settings', {
+        type: 'button',
+        'aria-label': 'Einstellungen der Routine (Name, Thema, Art, Löschen)',
+        title: 'Name, Thema, Art, Löschen',
+        onclick: () => openTaskEditor(routine, refresh),
+      }, '⚙')),
+    tasks.length
+      ? taskTree(tasks, refresh, { parentId: routine.id })
+      : el('p.empty', {}, 'Noch keine Aufgaben – z. B. „Bad putzen“ wöchentlich, „Fenster putzen“ monatlich.'),
+    el('div.buttons', {},
+      el('button', {
+        type: 'button',
+        onclick: () => openTaskEditor({ parent_id: routine.id, topic_id: routine.topic_id }, refresh),
+      }, '+ Aufgabe')));
+}
+
 function routineCard(routine, refresh) {
+  if (store.isMultiRoutine(routine)) return multiRoutineCard(routine, refresh);
   const steps = store.childrenOf(routine.id);
   const editing = editingRoutines.has(routine.id);
   const minutes = store.routineMinutes(routine);
@@ -691,16 +734,24 @@ export function renderRoutinesView(root) {
       el('button.primary', {
         type: 'button',
         onclick: () => openTaskEditor({ kind: 'routine' }, () => {
-          // Eine neu angelegte Routine gleich im Bearbeiten-Modus öffnen, damit man Schritte hinzufügen kann.
+          // Eine neu angelegte eintägige Routine gleich im Bearbeiten-Modus öffnen, damit man Schritte hinzufügen kann.
           const created = store.routines().find((r) => !list.some((old) => old.id === r.id));
-          if (created) editingRoutines.add(created.id);
+          if (created && !store.isMultiRoutine(created)) editingRoutines.add(created.id);
           refresh();
         }),
       }, '+ Routine')),
     list.length ? null : el('p.muted', {},
-      'Z. B. „Morgenroutine kurz“, „Abendroutine lang“, „Arbeit jeden Morgen“. ',
-      'Routinen lassen sich mit „📅 Einplanen“ in den Kalender eintragen.'),
-    list.map((routine) => routineCard(routine, refresh)));
+      'Eintägig: z. B. „Morgenroutine“, „Abendroutine“ – Schritte am Stück abhaken, mit „📅 Einplanen“ in den Kalender. ',
+      'Mehrtägig: z. B. „Haushalt“ – Aufgaben mit eigenem Rhythmus (Bad wöchentlich, Fenster monatlich).'),
+    section('Eintägig', list.filter((r) => !store.isMultiRoutine(r))),
+    section('Mehrtägig', list.filter((r) => store.isMultiRoutine(r))));
+
+  // Überschriften nur, wenn es beide Arten gibt.
+  function section(label, routinesOfKind) {
+    if (!routinesOfKind.length) return null;
+    const both = list.some((r) => store.isMultiRoutine(r)) && list.some((r) => !store.isMultiRoutine(r));
+    return [both ? el('h3.routine-section', {}, label) : null, routinesOfKind.map((routine) => routineCard(routine, refresh))];
+  }
 }
 
 // Schritte einer Routine als verschachtelte Checkliste. Abhaken eines Schritts hakt seine Unterschritte mit ab;

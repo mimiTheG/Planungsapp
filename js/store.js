@@ -193,8 +193,23 @@ export function descendantsOf(id) {
   return childrenOf(id).flatMap((child) => [child, ...descendantsOf(child.id)]);
 }
 
+// Routinen gibt es in zwei Arten (routine_type):
+//   'day'   – eintägig: Checkliste von Schritten, die man am Stück abarbeitet (z. B. Morgenroutine), mit „Start“.
+//   'multi' – mehrtägig: Sammlung regelmäßiger Aufgaben mit eigenem Rhythmus (z. B. Haushalt: Bad wöchentlich,
+//             Fenster monatlich); die Aufgaben werden einzeln erledigt und erscheinen bei Fälligkeit unter „Jetzt“.
 export function routines() {
   return tasks().filter((t) => t.kind === 'routine' && t.parent_id === null);
+}
+
+export const isMultiRoutine = (task) => task?.kind === 'routine' && task.routine_type === 'multi';
+export const dayRoutines = () => routines().filter((r) => !isMultiRoutine(r));
+
+// Nächste Routine über der Aufgabe (oder die Aufgabe selbst, wenn sie eine Routine ist).
+export function routineOf(task) {
+  for (let current = task; current; current = data.tasks.find((t) => t.id === current.parent_id)) {
+    if (current.kind === 'routine') return current;
+  }
+  return null;
 }
 
 // Dauer einer Routine: eigene Angabe oder Summe der Schritte.
@@ -203,12 +218,11 @@ export function routineMinutes(task) {
   return childrenOf(task.id).reduce((sum, child) => sum + (routineMinutes(child) || 0), 0) || null;
 }
 
-// Liegt die Aufgabe (oder eine übergeordnete) in einer Routine? Dann gibt es keine Priorität und kein "Wann?".
+// Ist die Aufgabe eine Routine oder ein Schritt einer eintägigen Routine? Dann gibt es keine Priorität und kein
+// „Wann?“. Aufgaben einer mehrtägigen Routine sind dagegen ganz normale (regelmäßige) Aufgaben.
 export function isInRoutine(task) {
-  for (let current = task; current; current = data.tasks.find((t) => t.id === current.parent_id)) {
-    if (current.kind === 'routine') return true;
-  }
-  return false;
+  const routine = routineOf(task);
+  return Boolean(routine) && (routine === task || !isMultiRoutine(routine));
 }
 
 // "Wollte ich schon länger mal wieder machen" – ohne Datum und Priorität; am längsten nicht Gemachtes zuerst.
@@ -424,8 +438,10 @@ function taskInput(input, id) {
   if (task.parent_id !== null && id !== null && isDescendantOrSelf(task.parent_id, id)) {
     throw new ValidationError('Eine Aufgabe kann nicht unter sich selbst einsortiert werden');
   }
-  // Standardstartzeit gibt es nur für Routinen selbst (nicht für ihre Schritte).
-  if (task.kind !== 'routine' || task.parent_id !== null) task.default_time = null;
+  // Art der Routine (nur bei Routinen selbst); Standardstartzeit nur bei eintägigen Routinen.
+  task.routine_type = task.kind === 'routine' && task.parent_id === null
+    ? oneOf({ routine_type: input.routine_type || 'day' }, 'routine_type', ['day', 'multi']) : null;
+  if (task.kind !== 'routine' || task.parent_id !== null || task.routine_type === 'multi') task.default_time = null;
   // Routinen und ihre Schritte trägt man selbst in den Kalender ein: keine Fälligkeit.
   if (isInRoutine(task)) {
     Object.assign(task, {
@@ -606,7 +622,6 @@ export function rollExpired(now = new Date()) {
       changed = true;
     }
   }
-  if (resetRoutinesForNewDay(now)) changed = true;
   if (changed) save();
 }
 
@@ -618,17 +633,8 @@ export function dayStart(now = new Date()) {
   return start;
 }
 
-// Um 4:30 werden abgehakte Schritte aller Routinen wieder geöffnet.
-function resetRoutinesForNewDay(now) {
-  const boundary = stamp(dayStart(now));
-  if (data.routineResetAt === boundary) return false;
-  if (data.routineResetAt) {
-    for (const routine of data.tasks.filter((t) => t.kind === 'routine' && t.parent_id === null)) resetChildren(routine.id);
-  }
-  data.routineResetAt = boundary; // beim allerersten Mal nur merken, nichts zurücksetzen
-  data.activeRoutine = null;
-  return true;
-}
+// (Kein automatisches Zurücksetzen der Routinen um 4:30 mehr – Schritte werden beim Abschließen bzw. Abbrechen
+// der Routine zurückgesetzt.)
 
 // --- Wollte ich schon länger mal wieder machen ------------------------------------
 
@@ -681,7 +687,8 @@ function eventInput(input) {
   };
   // Eingeplante Routine: Titel und Thema kommen von der Routine, wenn nichts anderes angegeben ist.
   const routineId = ref(input, 'routine_id');
-  const routine = routineId ? data.tasks.find((t) => t.id === routineId && t.kind === 'routine') : null;
+  // Nur eintägige Routinen werden als Termin eingeplant (mehrtägige bestehen aus einzelnen Aufgaben).
+  const routine = routineId ? data.tasks.find((t) => t.id === routineId && t.kind === 'routine' && !isMultiRoutine(t)) : null;
   if (routineId && !routine) throw new ValidationError('Routine nicht gefunden');
   // Eingeplante Aufgabe (Zeit, um sie zu erledigen): Titel und Thema kommen von der Aufgabe.
   const taskId = routine ? null : ref(input, 'task_id');

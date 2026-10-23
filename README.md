@@ -95,8 +95,14 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   (Friseur 6 Wochen nach dem letzten Mal: erledigt am Do., 5.11. → nächster Termintag Do., 17.12.).
 - Wenn nicht rechtzeitig erledigt: **verfällt** (der nächste Durchgang beginnt, wird als verpasst gezählt) oder
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
-- **Projekt** = freiwillig/kreativ. **Routine** = wiederverwendbare Abfolge von Schritten („Morgenroutine kurz“,
-  „Sportroutine“ …). Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
+- **Projekt** = freiwillig/kreativ. **Routine** gibt es in zwei Arten (beim Anlegen „Art der Routine“ wählen):
+  - **Eintägig** = wiederverwendbare Abfolge von Schritten, die man am Stück abhakt („Morgenroutine kurz“,
+    „Sportroutine“ …) – siehe unten.
+  - **Mehrtägig** = Sammlung regelmäßiger Aufgaben mit jeweils eigenem Rhythmus, z. B. „Haushalt“: Müll alle 2 Wochen,
+    Bad wöchentlich, Fenster monatlich. Die Aufgaben stehen in der Routine mit Rhythmus und Fälligkeit, werden
+    einzeln abgehakt (dann springen sie in den nächsten Durchgang), lassen sich mit 📅 einplanen und erscheinen bei
+    Fälligkeit unter „Jetzt“ (Heute fällig/Überfällig/Demnächst). Neue Aufgaben sind dort gleich „Regelmäßig“.
+- Eintägige Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
   selbst in den Kalender ein. Eine Routine kann eine **Standardstartzeit** haben, die beim Einplanen vorgeschlagen wird.
   Dauern lassen sich in Stunden und Minuten angeben (Anzeige z. B. „1 h 30 min“). In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
   **▶ Start**, geändert nur nach Tippen auf **✎ Bearbeiten** (Schritte hinzufügen, löschen, umsortieren; ⚙ für Name,
@@ -117,8 +123,9 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 **Was mache ich jetzt?**
 - **Läuft gerade:** Termine und Routinen, die jetzt stattfinden, stehen ganz oben; Routinen kann man dort direkt
   Schritt für Schritt abhaken und abschließen.
-  Nicht abgeschlossene Routinen bleiben nach ihrer Zeit stehen und sind als **abgelaufen** markiert. Um **4:30** am
-  Folgetag werden alle Routinen zurückgesetzt (Häkchen weg) und verschwinden aus „Jetzt“.
+  Nicht abgeschlossene Routinen bleiben nach ihrer Zeit stehen und sind als **abgelaufen** markiert; ab 4:30 am
+  Folgetag verschwinden sie aus „Jetzt“. Abgehakte Schritte bleiben abgehakt, bis man die Routine abschließt oder
+  abbricht (kein automatisches Zurücksetzen mehr).
 - Reihenfolge der Aufgaben:
   1. **⚠ Überfällig** – alles, dessen Zeit abgelaufen ist, auch einmalige Aufgaben und Unteraufgaben
      (am längsten überfällig zuerst).

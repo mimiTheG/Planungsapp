@@ -501,7 +501,7 @@ export function openEventEditor(event, refresh) {
     : null;
 
   // Termin oder Routine einplanen. Bei einer Routine kommen Titel, Thema und Dauer von der Routine.
-  const routineList = store.routines();
+  const routineList = store.dayRoutines(); // nur eintägige Routinen lassen sich als Termin einplanen
   const titleInput = el('input', { name: 'title', maxlength: 200, value: ev.routine_id || ev.task_id ? '' : ev.title || '' });
 
   // Eingeplante Aufgabe: Titel und Thema kommen von der Aufgabe; hier lässt sie sich direkt abhaken oder öffnen.
