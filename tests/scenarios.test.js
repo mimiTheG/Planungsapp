@@ -445,6 +445,48 @@ describe('Routinen', () => {
   });
 });
 
+describe('Eintägige und mehrtägige Routinen', () => {
+  test('ohne Angabe ist eine Routine eintägig; Art bleibt beim Bearbeiten erhalten', () => {
+    fresh();
+    const r = store.createTask({ title: 'Morgen', kind: 'routine' });
+    assert.equal(r.routine_type, 'day');
+    const m = store.createTask({ title: 'Haushalt', kind: 'routine', routine_type: 'multi', default_time: '08:00' });
+    assert.equal(m.routine_type, 'multi');
+    assert.equal(m.default_time, null, 'mehrtägig: keine Startzeit');
+    assert.equal(store.updateTask(m.id, { ...m, title: 'Haushalt 2' }).routine_type, 'multi');
+    assert.equal(store.createTask({ title: 'X', routine_type: 'multi' }).routine_type, null, 'nur Routinen haben eine Art');
+  });
+
+  test('Aufgaben einer mehrtägigen Routine sind normale regelmäßige Aufgaben mit eigenem Rhythmus', () => {
+    fresh();
+    const m = store.createTask({ title: 'Haushalt', kind: 'routine', routine_type: 'multi' });
+    const bad = store.createTask({ title: 'Bad putzen', parent_id: m.id, recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
+    const fenster = store.createTask({ title: 'Fenster', parent_id: m.id, recurrence: 'rhythm', window_start: '2099-01-10', buffer: 2, repeat: { freq: 'monthly', interval: 1, monthly: 'day' } });
+    assert.equal(store.isInRoutine(bad), false);
+    assert.deepEqual([bad.recurrence, bad.window_start, bad.window_end], ['rhythm', '2099-01-04', '2099-01-06']);
+    assert.equal(fenster.repeat.freq, 'monthly');
+    store.completeTask(bad.id, new Date(2099, 0, 5, 10));
+    assert.equal(store.taskById(bad.id).window_start, '2099-01-11', 'nächste Woche wieder');
+    assert.equal(store.taskById(fenster.id).window_start, '2099-01-08', 'Fenster unabhängig davon');
+  });
+
+  test('Schritte einer eintägigen Routine haben weiterhin keinen Rhythmus', () => {
+    fresh();
+    const r = store.createTask({ title: 'Morgen', kind: 'routine' });
+    const s1 = store.createTask({ title: 'Zähne', parent_id: r.id, recurrence: 'rhythm', window_start: '2099-01-05', repeat: { freq: 'daily', interval: 1 } });
+    assert.deepEqual([s1.recurrence, s1.window_start], ['once', null]);
+  });
+
+  test('nur eintägige Routinen lassen sich als Termin einplanen; Aufgaben mehrtägiger schon', () => {
+    fresh();
+    const m = store.createTask({ title: 'Haushalt', kind: 'routine', routine_type: 'multi' });
+    assert.throws(() => store.createEvent({ routine_id: m.id, start_at: '2099-01-05T09:00', end_at: '2099-01-05T10:00' }), /Routine nicht gefunden/);
+    const bad = store.createTask({ title: 'Bad putzen', parent_id: m.id });
+    assert.equal(store.createEvent({ task_id: bad.id, start_at: '2099-01-05T09:00', end_at: '2099-01-05T10:00' }).task_id, bad.id);
+    assert.deepEqual(store.dayRoutines().map((r) => r.title), []);
+  });
+});
+
 describe('Themen, Sicherung, Laden', () => {
   test('Thema löschen: Aufgaben, Termine und Wünsche behalten ihre Daten ohne Thema', () => {
     fresh();

@@ -275,6 +275,7 @@ body.has-player { --player-h: 3.6rem; }
 .routine .tree { margin: 0.4rem 0; }
 .routine-actions { margin-top: 0.4rem; }
 .routine-actions button { flex: 1 1 auto; white-space: nowrap; padding-left: 0.6rem; padding-right: 0.6rem; }
+.routine-section { margin: 1rem 0 0.4rem; font-size: 0.95rem; color: var(--muted); font-weight: 600; }
 .routine.editing { border: 2px dashed var(--accent); }
 .edit-hint { margin: 0.3rem 0; font-size: 0.85rem; color: var(--accent); }
 .more-steps { color: var(--accent); font-weight: 600; padding: 0.3rem 0 0.6rem 2rem; display: block; }
