@@ -531,38 +531,41 @@ describe('Wiederkehrende Aufgaben im Kalender', () => {
 });
 
 describe('Steigerungen', () => {
-  const saugen = () => store.createTask({ title: 'kurz saugen', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, repeat: { freq: 'weekly', interval: 1 } });
+  const einkaufen = (extra = {}) => store.createTask({ title: 'einkaufen', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, repeat: { freq: 'weekly', interval: 1 }, ...extra });
   const doneAt = (id) => store.completeTask(id, new Date(`${store.taskById(id).window_start}T12:00`));
-
-  test('jedes 4. Mal steht die Steigerung statt der Aufgabe an', () => {
-    fresh();
-    const t = saugen();
-    store.createUpgrade({ upgrade_of: t.id, title: 'gründlich saugen', upgrade_every: 4 });
+  const run = (id, n) => {
     const shown = [];
-    for (let i = 0; i < 9; i++) { shown.push(store.shownTitle(store.taskById(t.id))); doneAt(t.id); }
-    assert.deepEqual(shown.map((x) => (x === 'gründlich saugen' ? 'G' : 'k')).join(''), 'kkkGkkkGk');
+    for (let i = 0; i < n; i++) { shown.push(store.shownTitle(store.taskById(id))); doneAt(id); }
+    return shown;
+  };
+
+  test('jedes 3. Mal kommt die Steigerung zur Aufgabe dazu', () => {
+    fresh();
+    const t = einkaufen();
+    store.createUpgrade({ upgrade_of: t.id, title: 'Pfand wegbringen', upgrade_every: 3 });
+    assert.deepEqual(run(t.id, 6), ['einkaufen', 'einkaufen', 'einkaufen + Pfand wegbringen', 'einkaufen', 'einkaufen', 'einkaufen + Pfand wegbringen']);
   });
 
-  test('„dran in“ legt fest, wann sie das erste Mal kommt; die seltenere gewinnt', () => {
+  test('mehrere Steigerungen am selben Termin summieren sich', () => {
     fresh();
-    const t = saugen();
-    store.createUpgrade({ upgrade_of: t.id, title: 'gründlich', upgrade_every: 2, upgrade_in: 1 });
-    store.createUpgrade({ upgrade_of: t.id, title: 'Grundreinigung', upgrade_every: 4, upgrade_in: 3 });
-    const shown = [];
-    for (let i = 0; i < 6; i++) { shown.push(store.shownTitle(store.taskById(t.id))); doneAt(t.id); }
-    assert.deepEqual(shown, ['gründlich', 'kurz saugen', 'Grundreinigung', 'kurz saugen', 'gründlich', 'kurz saugen']);
+    const t = einkaufen();
+    store.createUpgrade({ upgrade_of: t.id, title: 'Pfand wegbringen', upgrade_every: 2, upgrade_in: 1 });
+    store.createUpgrade({ upgrade_of: t.id, title: 'Großeinkauf', upgrade_every: 4, upgrade_in: 3 });
+    assert.deepEqual(run(t.id, 6), [
+      'einkaufen + Pfand wegbringen', 'einkaufen', 'einkaufen + Pfand wegbringen + Großeinkauf',
+      'einkaufen', 'einkaufen + Pfand wegbringen', 'einkaufen']);
   });
 
   test('Steigerungen sind keine eigenen Aufgaben; Verlauf, Deadlines, Löschen', () => {
     fresh();
-    const t = store.createTask({ title: 'kurz saugen', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, has_deadline: true, repeat: { freq: 'weekly', interval: 1 } });
-    const u = store.createUpgrade({ upgrade_of: t.id, title: 'gründlich saugen', upgrade_every: 2 });
+    const t = einkaufen({ has_deadline: true });
+    const u = store.createUpgrade({ upgrade_of: t.id, title: 'Pfand wegbringen', upgrade_every: 2 });
     assert.equal(store.tasks().length, 1);
     assert.deepEqual(store.deadlinesBetween(new Date(2099, 0, 1), new Date(2099, 0, 31)).map((d) => `${d.deadline_date.slice(8)} ${store.shownTitle(d)}`),
-      ['05 kurz saugen', '12 gründlich saugen', '19 kurz saugen', '26 gründlich saugen']);
+      ['05 einkaufen', '12 einkaufen + Pfand wegbringen', '19 einkaufen', '26 einkaufen + Pfand wegbringen']);
     doneAt(t.id);
     doneAt(t.id);
-    assert.deepEqual(store.history().map((h) => store.shownTitle(h.task)), ['gründlich saugen', 'kurz saugen']);
+    assert.deepEqual(store.history().map((h) => store.shownTitle(h.task)), ['einkaufen + Pfand wegbringen', 'einkaufen']);
     assert.throws(() => store.createUpgrade({ upgrade_of: store.createTask({ title: 'einmal' }).id, title: 'x', upgrade_every: 2 }), /nur für regelmäßige/);
     store.updateTask(t.id, { ...store.taskById(t.id), topic_id: store.eventTopic().id });
     assert.equal(store.upgradeById(u.id).topic_id, store.eventTopic().id, 'Thema wandert mit');

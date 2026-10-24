@@ -110,7 +110,7 @@ export function completeTask(task, refresh) {
   attempt(() => {
     const updated = store.completeTask(task.id);
     if (updated.recurrence !== 'once') {
-      const next = updated.upgrade ? ` (dann: ${updated.upgrade.title})` : '';
+      const next = updated.upgrades.length ? ` (dann: ${store.shownTitle(updated)})` : '';
       toast(`„${store.shownTitle(task)}“ erledigt – wieder fällig ab ${formatDate(updated.window_start)}${next}`);
     } else if (updated.kind === 'routine') {
       toast(`Routine „${task.title}“ abgeschlossen`);
@@ -200,7 +200,7 @@ function taskNode(task, refresh, options) {
     task.kind !== 'todo' && task.parent_id === null ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
     task.duration_min && inRoutine ? el('span.badge', {}, formatDuration(task.duration_min)) : null,
     task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
-    task.upgrade ? el('span.badge.upgrade', {}, `⬆ diesmal statt „${task.title}“`) : null,
+    task.upgrades?.length ? el('span.badge.upgrade', {}, `⬆ diesmal mit ${task.upgrades.length === 1 ? 'Steigerung' : `${task.upgrades.length} Steigerungen`}`) : null,
     windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
   ];
 
@@ -515,7 +515,8 @@ export function openTaskEditor(task, refresh) {
 }
 
 // --- Steigerungen -----------------------------------------------------------
-// Z. B. „kurz saugen“ mit Steigerung „gründlich saugen“ jedes 4. Mal: Dann steht statt der Aufgabe die Steigerung an.
+// Z. B. „einkaufen“ mit Steigerung „Pfand wegbringen“ jedes 3. Mal: Dann gehört beides zum Durchgang.
+// Mehrere Steigerungen, die gleichzeitig dran sind, summieren sich (einkaufen + Pfand wegbringen + Großeinkauf).
 
 function upgradeText(upgrade) {
   const next = upgrade.upgrade_in <= 1 ? 'diesmal dran' : upgrade.upgrade_in === 2 ? 'nächstes Mal dran' : `in ${upgrade.upgrade_in} Durchgängen dran`;
@@ -525,8 +526,8 @@ function upgradeText(upgrade) {
 function upgradesFieldset(base, refresh) {
   return el('fieldset.upgrades', {},
     el('legend', {}, 'Steigerungen'),
-    el('small.muted', {}, 'Eine gründlichere Variante, die jedes n-te Mal statt dieser Aufgabe drankommt – '
-      + 'z. B. „gründlich saugen“ statt „kurz saugen“ jedes 4. Mal.'),
+    el('small.muted', {}, 'Etwas, das jedes n-te Mal zusätzlich zu dieser Aufgabe dazukommt – z. B. „Pfand wegbringen“ '
+      + 'bei jedem 3. Einkauf. Sind mehrere gleichzeitig dran, gehören alle dazu.'),
     el('ul.plain.upgrade-list', {}, store.upgradesOf(base.id).map((u) => el('li', {},
       el('button.link', { type: 'button', onclick: () => openUpgradeEditor(u, base, refresh) }, `⬆ ${u.title}`),
       el('span.muted', {}, ` – ${upgradeText(u)}`)))),
@@ -539,7 +540,7 @@ export function openUpgradeEditor(upgrade, base, refresh) {
   const back = () => openTaskEditor(store.taskById(base.id), refresh);
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
     el('p.muted', {}, `Steigerung von „${base.title}“`),
-    field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: upgrade.title || '', placeholder: `z. B. ${base.title} gründlich` })),
+    field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: upgrade.title || '', placeholder: 'z. B. Pfand wegbringen' })),
     el('div.row', {},
       field('Jedes … Mal', el('input', { type: 'number', name: 'upgrade_every', min: 2, max: 999, inputmode: 'numeric', value: every })),
       field('Dran in … Durchgängen', el('input', { type: 'number', name: 'upgrade_in', min: 1, max: 999, inputmode: 'numeric', value: upgrade.upgrade_in ?? every }))),
