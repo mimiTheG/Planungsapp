@@ -77,7 +77,7 @@ function nowItem(task, refresh, { left = false } = {}) {
     el('div.now-text', {},
       el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) }, topicDot(task), store.shownTitle(task)),
       el('div.meta', {},
-        task.upgrade ? el('span.badge.upgrade', {}, `⬆ statt „${task.title}“`) : null,
+        task.upgrades?.length ? el('span.badge.upgrade', {}, `⬆ diesmal mit ${task.upgrades.length === 1 ? 'Steigerung' : `${task.upgrades.length} Steigerungen`}`) : null,
         task.kind !== 'todo' ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
         el('span.badge', { title: 'Wichtigkeit / Dringlichkeit' }, `W${task.importance} · D${task.urgency}`),
         task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
@@ -259,7 +259,7 @@ export function renderNowView(root) {
         topicDot(item),
         el('strong', {}, item.isWish ? item.title : store.shownTitle(item)),
         el('p.muted', {}, subtitle),
-        item.upgrade?.notes || item.notes ? el('p', {}, item.upgrade?.notes || item.notes) : null,
+        [item.notes, ...(item.upgrades || []).map((u) => u.notes)].filter(Boolean).map((n) => el('p', {}, n)),
         el('div.buttons', {}, el('button', { type: 'button', onclick: decide }, '🎲 Nochmal'), doneButton)));
   };
 

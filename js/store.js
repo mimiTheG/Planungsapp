@@ -119,7 +119,7 @@ export const eventTopic = () => data.topics.find((t) => t.events) || null;
 export const isFixedTopic = (topic) => Boolean(topic?.birthday || topic?.events);
 
 // Aufgaben mit berechnetem Status (status, closes_at). Steigerungen sind keine eigenen Aufgaben –
-// sie hängen an ihrer regelmäßigen Aufgabe (upgradesOf) und stehen dort als upgrade, wenn sie dran sind.
+// sie hängen an ihrer regelmäßigen Aufgabe (upgradesOf) und stehen dort in upgrades, wenn sie dran sind.
 export function tasks(now = new Date()) {
   rollExpired(now);
   return data.tasks.filter((t) => !t.upgrade_of).map((t) => decorate(t, now));
@@ -128,29 +128,30 @@ export function tasks(now = new Date()) {
 function decorate(task, now) {
   const closes = schedule.closesAt(task);
   return {
-    ...task, status: schedule.status(task, now), closes_at: closes ? stamp(closes) : null, upgrade: activeUpgrade(task),
+    ...task, status: schedule.status(task, now), closes_at: closes ? stamp(closes) : null, upgrades: activeUpgrades(task),
   };
 }
 
 // --- Steigerungen ----------------------------------------------------------------
-// Eine Steigerung (z. B. „gründlich saugen“) gehört zu einer regelmäßigen Aufgabe („kurz saugen“) und kommt
-// jedes n-te Mal (upgrade_every) an ihrer Stelle dran. upgrade_in zählt herunter: 1 = der aktuelle Durchgang.
-// Sind mehrere gleichzeitig dran, gilt die seltenere (größeres n), z. B. Grundreinigung vor gründlich.
+// Eine Steigerung (z. B. „Pfand wegbringen“) gehört zu einer regelmäßigen Aufgabe („einkaufen“) und kommt
+// jedes n-te Mal (upgrade_every) zusätzlich dazu. upgrade_in zählt herunter: 1 = der aktuelle Durchgang.
+// Steigerungen summieren sich: Sind mehrere gleichzeitig dran, gehören alle mit zum Durchgang
+// (einkaufen + Pfand wegbringen + Großeinkauf).
 
 export function upgradesOf(id) {
   return data.tasks.filter((t) => t.upgrade_of === id).sort((a, b) => a.upgrade_every - b.upgrade_every);
 }
 
-// Steigerung im Durchgang ahead (0 = aktueller, 1 = nächster …).
-function activeUpgrade(task, ahead = 0) {
-  if (task.upgrade_of || task.recurrence === 'once') return null;
-  const upgrade = upgradesOf(task.id)
-    .filter((u) => ahead >= u.upgrade_in - 1 && (ahead - u.upgrade_in + 1) % u.upgrade_every === 0).at(-1);
-  return upgrade ? { id: upgrade.id, title: upgrade.title, notes: upgrade.notes, duration_min: upgrade.duration_min } : null;
+// Steigerungen im Durchgang ahead (0 = aktueller, 1 = nächster …).
+function activeUpgrades(task, ahead = 0) {
+  if (task.upgrade_of || task.recurrence === 'once') return [];
+  return upgradesOf(task.id)
+    .filter((u) => ahead >= u.upgrade_in - 1 && (ahead - u.upgrade_in + 1) % u.upgrade_every === 0)
+    .map((u) => ({ id: u.id, title: u.title, notes: u.notes, duration_min: u.duration_min }));
 }
 
-// Angezeigter Titel: die Steigerung, wenn sie diesmal dran ist.
-export const shownTitle = (task) => task.upgrade?.title || task.title;
+// Angezeigter Titel: die Aufgabe plus alle Steigerungen, die diesmal dazukommen („einkaufen + Pfand wegbringen“).
+export const shownTitle = (task) => [task.title, ...(task.upgrades || []).map((u) => u.title)].join(' + ');
 
 // Ein Durchgang der Aufgabe ist erledigt: alle Steigerungen rücken einen weiter, die erledigte beginnt von vorn.
 function advanceUpgrades(id) {
@@ -315,9 +316,10 @@ export function history() {
     }
     const task = taskById(entry.task_id);
     if (!task || (isInRoutine(task) && task.kind !== 'routine')) continue;
-    // Erledigt als Steigerung → im Verlauf mit deren Titel.
-    const upgrade = entry.upgrade_id ? upgradeById(entry.upgrade_id) : null;
-    entries.push({ at: entry.at, task: { ...task, upgrade: upgrade ? { id: upgrade.id, title: upgrade.title } : null } });
+    // Mit Steigerungen erledigt → im Verlauf mit ihnen („einkaufen + Pfand wegbringen“).
+    const upgrades = (entry.upgrade_ids || (entry.upgrade_id ? [entry.upgrade_id] : []))
+      .map(upgradeById).filter(Boolean).map((u) => ({ id: u.id, title: u.title }));
+    entries.push({ at: entry.at, task: { ...task, upgrades } });
   }
   return entries.sort((a, b) => b.at.localeCompare(a.at));
 }
@@ -347,7 +349,7 @@ export function deadlinesBetween(from, to) {
   // Jede Deadline als eigener Eintrag (deadline_date) – regelmäßige Aufgaben auch mit künftigen Durchgängen.
   return tasks()
     .filter((t) => t.window_end && hasDeadline(t) && !isInRoutine(t))
-    .flatMap((t) => schedule.upcomingDeadlines(t, last).map((date, i) => ({ ...t, deadline_date: date, upgrade: activeUpgrade(t, i) })))
+    .flatMap((t) => schedule.upcomingDeadlines(t, last).map((date, i) => ({ ...t, deadline_date: date, upgrades: activeUpgrades(t, i) })))
     .filter((t) => t.deadline_date >= first && t.deadline_date <= last)
     .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
 }
@@ -640,8 +642,8 @@ export function completeTask(id, now = new Date()) {
   const task = data.tasks.find((t) => t.id === id);
   if (!task) throw new ValidationError('Aufgabe nicht gefunden');
   const when = stamp(now);
-  const upgrade = activeUpgrade(task);
-  data.log.push({ task_id: id, action: 'done', at: when, ...(upgrade ? { upgrade_id: upgrade.id } : {}) });
+  const upgrades = activeUpgrades(task);
+  data.log.push({ task_id: id, action: 'done', at: when, ...(upgrades.length ? { upgrade_ids: upgrades.map((u) => u.id) } : {}) });
   task.last_done_at = when;
 
   if (task.recurrence !== 'once') {

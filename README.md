@@ -101,12 +101,12 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   keinen festen Wochentag bzw. kein festes Datum, nur „alle n …“ (Friseur alle 6 Wochen: erledigt am Do., 5.11. →
   nächster Termintag Do., 17.12.; alle 4 Wochen, 4 Wochen und 1 Tag nach dem letzten Mal erledigt → wieder fällig
   4 Wochen danach, ± Puffer).
-- **Steigerungen:** Eine regelmäßige Aufgabe kann gründlichere Varianten haben, die jedes n-te Mal **statt** ihr
-  drankommen – z. B. „kurz saugen“ mit „gründlich saugen“ jedes 4. Mal. Im Editor der Aufgabe unter „Steigerungen“
-  anlegen: Titel, jedes … Mal, dran in … Durchgängen (1 = der aktuelle), optional Dauer und Notizen.
-  Ist sie dran, steht in „Jetzt“, in der Aufgabenliste und im Kalender die Steigerung („⬆ statt „kurz saugen““);
-  Abhaken erledigt den Durchgang, danach geht es wieder mit der normalen Aufgabe weiter. Mehrere Steigerungen
-  gleichzeitig dran → die seltenere gewinnt (Grundreinigung vor gründlich). Der Verlauf zeigt, was gemacht wurde.
+- **Steigerungen:** Zu einer regelmäßigen Aufgabe kann jedes n-te Mal etwas **dazukommen** – z. B. „einkaufen“ mit
+  „Pfand wegbringen“ bei jedem 3. Mal. Im Editor der Aufgabe unter „Steigerungen“ anlegen: Titel, jedes … Mal,
+  dran in … Durchgängen (1 = der aktuelle), optional Dauer und Notizen.
+  Steigerungen **summieren sich**: Fallen mehrere auf denselben Termin (Pfand wegbringen und Großeinkauf), gehört
+  alles dazu. In „Jetzt“, der Aufgabenliste, im Kalender und im Verlauf steht dann „einkaufen + Pfand wegbringen +
+  Großeinkauf“; Abhaken erledigt den ganzen Durchgang, danach geht es wieder mit der normalen Aufgabe weiter.
 - Wenn nicht rechtzeitig erledigt: **verfällt** (der nächste Durchgang beginnt, wird als verpasst gezählt) oder
   **täglich erinnern** (bleibt bei „Was mache ich jetzt?“ ganz oben, bis erledigt).
 - **Projekt** = freiwillig/kreativ. **Routine** gibt es in zwei Arten (beim Anlegen „Art der Routine“ wählen):
