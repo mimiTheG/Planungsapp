@@ -490,32 +490,43 @@ describe('Eintägige und mehrtägige Routinen', () => {
 describe('Wiederkehrende Aufgaben im Kalender', () => {
   const on = (from, to, now) => store.recurringBetween(new Date(from), new Date(to), now).map((t) => `${t.title} ${t.day.slice(5)}`);
 
-  test('der aktuelle Durchgang steht an jedem seiner Tage – auch Aufgaben aus mehrtägigen Routinen', () => {
+  test('der anstehende Durchgang steht einmal am Termintag – auch Aufgaben aus mehrtägigen Routinen', () => {
     fresh();
     const m = store.createTask({ title: 'Haushalt', kind: 'routine', routine_type: 'multi' });
     store.createTask({ title: 'Bad', parent_id: m.id, recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
     store.createTask({ title: 'Einmal', window_end: '2099-01-05' });
     const r = store.createTask({ title: 'Morgen', kind: 'routine' });
     store.createTask({ title: 'Zähne', parent_id: r.id });
-    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), ['Bad 01-04', 'Bad 01-05', 'Bad 01-06']);
+    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), ['Bad 01-05']);
   });
 
-  test('nur ab heute; erledigt → der nächste Durchgang erscheint', () => {
+  test('alle 4 Wochen mit großem Puffer: nur ein Eintrag, nicht jeden Tag', () => {
+    fresh();
+    const t = store.createTask({ title: 'Fenster', recurrence: 'rhythm', window_start: '2099-01-12', buffer: 5, repeat: { freq: 'weekly', interval: 4, weekdays: [1] } });
+    assert.deepEqual(on('2099-01-01T00:00', '2099-02-28T00:00', new Date(2099, 0, 1, 12)), ['Fenster 01-12']);
+    store.completeTask(t.id, new Date(2099, 0, 12, 12));
+    assert.deepEqual(on('2099-01-01T00:00', '2099-02-28T00:00', new Date(2099, 0, 12, 13)), ['Fenster 02-09']);
+  });
+
+  test('Termintag vorbei, Puffer läuft noch → steht heute; erledigt → der nächste Durchgang', () => {
     fresh();
     const t = store.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
-    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 5, 12)), ['Bad 01-05', 'Bad 01-06']);
-    store.completeTask(t.id, new Date(2099, 0, 5, 13));
-    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 5, 14)), ['Bad 01-11', 'Bad 01-12', 'Bad 01-13']);
+    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 6, 12)), ['Bad 01-06']);
+    store.completeTask(t.id, new Date(2099, 0, 6, 13));
+    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 6, 14)), ['Bad 01-12']);
   });
 
-  test('überfällig (erinnern) steht heute; Deadline-Tag und eingeplante Tage nicht doppelt', () => {
+  test('überfällig (erinnern) steht heute; Deadline-Tag und eingeplante Durchgänge nicht doppelt', () => {
     fresh();
     store.createTask({ title: 'Pflanzen', recurrence: 'rhythm', window_start: '2099-01-02', buffer: 0, on_missed: 'remind', repeat: { freq: 'weekly', interval: 1 } });
     assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 6, 12)), ['Pflanzen 01-06']);
     fresh();
-    const d = store.createTask({ title: 'Miete', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, has_deadline: true, repeat: { freq: 'monthly', interval: 1, monthly: 'day' } });
+    store.createTask({ title: 'Miete', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, has_deadline: true, repeat: { freq: 'monthly', interval: 1, monthly: 'day' } });
+    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), [], 'nur die rote Deadline');
+    fresh();
+    const d = store.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
     store.createEvent({ task_id: d.id, start_at: '2099-01-04T09:00', end_at: '2099-01-04T10:00' });
-    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), ['Miete 01-05']);
+    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), [], 'eingeplant');
   });
 });
 

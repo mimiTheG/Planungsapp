@@ -331,7 +331,7 @@ export function openTaskEditor(task, refresh) {
 
   const excluded = new Set(isNew ? [] : [t.id, ...store.descendantsOf(t.id).map((d) => d.id)]);
 
-  // Regelmäßig: wie ein wiederkehrender Termin (Täglich, Wöchentlich am …, Monatlich am 14., Benutzerdefiniert …).
+  // Regelmäßig: direkt „Alle … Tage/Wochen/Monate/Jahre“ (wie Benutzerdefiniert bei Terminen, ohne Vorschlagsliste).
   // Ältere Aufgaben „alle n Tage ab dem Erledigen“ erscheinen als „Alle n Tage“ mit Häkchen „ab dem Erledigen“.
   // Termintag des aktuellen Durchgangs = Mitte des Zeitraums (Beginn + Puffer).
   const rhythmStartInput = el('input', {
@@ -346,7 +346,7 @@ export function openTaskEditor(task, refresh) {
     t.repeat = { freq: 'daily', interval: t.rhythm_days };
     t.repeat_from_done = true;
   }
-  const rhythmRepeat = repeatFields(t.repeat || null, rhythmStartInput, { required: true, noEnd: true });
+  const rhythmRepeat = repeatFields(t.repeat || null, rhythmStartInput, { required: true, noEnd: true, customOnly: true });
 
   const recurrenceBoxes = {
     once: el('div.form-grid', {},

@@ -10,12 +10,17 @@ const UNIT_OPTIONS = [['daily', 'Tag(e)'], ['weekly', 'Woche(n)'], ['monthly', '
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mo … So
 
 // Gibt { element, value() } zurück; value() liefert das repeat-Objekt oder null.
-// options.required: ohne „Wird nicht wiederholt“ (z. B. regelmäßige Aufgaben); options.noEnd: ohne „Endet“.
-export function repeatFields(initial, startInput, { required = false, noEnd = false } = {}) {
+// options.required: ohne „Wird nicht wiederholt“ (z. B. regelmäßige Aufgaben); options.noEnd: ohne „Endet“;
+// options.customOnly: keine Vorschlagsliste, direkt nur „Benutzerdefiniert“ (Alle … Tage/Wochen/Monate/Jahre).
+export function repeatFields(initial, startInput, { required = false, noEnd = false, customOnly = false } = {}) {
   const startAt = () => (startInput.value || isoDate(new Date())).replace('T', ' ');
   let custom = initial ? normalize(initial) : null;
   let selected = presetKey(initial, startAt());
   if (required && selected === 'none') selected = 'weekly';
+  if (customOnly) {
+    custom = custom || normalize({ freq: 'weekly', interval: 1, weekdays: [parseDate(startAt()).getDay()] });
+    selected = 'custom';
+  }
   const offered = () => presets(startAt()).filter((p) => !(required && p.key === 'none'));
 
   const repeatSelect = el('select', { 'aria-label': 'Wiederholen' });
@@ -137,7 +142,9 @@ export function repeatFields(initial, startInput, { required = false, noEnd = fa
   renderCustom();
 
   return {
-    element: el('div.repeat-fields', {}, field('Wiederholen', repeatSelect), customBox),
+    element: customOnly
+      ? el('div.repeat-fields', {}, el('span.field-label', {}, 'Wiederholen'), customBox)
+      : el('div.repeat-fields', {}, field('Wiederholen', repeatSelect), customBox),
     value() {
       if (selected === 'custom') return custom;
       return presets(startAt()).find((p) => p.key === selected)?.repeat || null;

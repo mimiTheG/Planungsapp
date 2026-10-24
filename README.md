@@ -58,9 +58,10 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
   man erledigt jeweils pünktlich).
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
-- **Anstehende wiederkehrende Aufgaben** (auch aus mehrtägigen Routinen) stehen an jedem Tag ihres aktuellen
-  Durchgangs ab heute in der Ganztägig-Zeile bzw. im Monat – hell in der Themenfarbe mit farbigem Rand links.
-  Überfällige stehen heute. Am Deadline-Tag steht nur die rote Deadline, an eingeplanten Tagen nur der Termin.
+- **Anstehende wiederkehrende Aufgaben** (auch aus mehrtägigen Routinen) stehen **einmal** am Termintag ihres
+  nächsten Durchgangs in der Ganztägig-Zeile bzw. im Monat – hell in der Themenfarbe mit farbigem Rand links
+  (der Puffer verteilt sie nicht über mehrere Tage). Ist der Termintag schon vorbei, der Puffer läuft aber noch,
+  oder ist sie überfällig, steht sie heute. Fällt sie auf die rote Deadline oder ist sie eingeplant, steht nur das.
   Antippen öffnet die Aufgabe; nach dem Erledigen erscheint der nächste Durchgang.
 - **Termin nachträglich zur Aufgabe machen:** Termin öffnen und oben „Aufgabe“ wählen. Datum und Uhrzeit werden zur
   Deadline, der Termin verschwindet aus dem Kalender. Bei Serien: *dieser* → einmalige Aufgabe, *dieser und folgende*
@@ -91,9 +92,8 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   bis Dunkelrot (fertig). In der Aufgabenliste steht keine Wichtigkeit/Dringlichkeit (die sieht man im Editor).
 - **Einmalig** (optional mit Zeitraum/Deadline), **regelmäßig** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
-- **Regelmäßig** funktioniert wie ein wiederkehrender Termin: „Erstes Mal am“ plus Täglich, Wöchentlich am …,
-  Monatlich am 14. bzw. am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/
-  Monate/Jahre, Wochentage wählbar). Der **Puffer** gilt in beide Richtungen (± Tage):
+- **Regelmäßig:** „Erstes Mal am“ plus direkt **Alle n Tage/Wochen/Monate/Jahre** (bei Wochen Wochentage wählbar,
+  bei Monaten am 14. bzw. am zweiten Dienstag) – ohne Vorschlagsliste. Der **Puffer** gilt in beide Richtungen (± Tage):
   0 = nur am Termintag, 1 = einen Tag vorher bis einen Tag nachher, 2 = zwei Tage vorher bis zwei Tage nachher.
   Die Tage stehen fest (Müll alle 2 Wochen am Freitag) – oder man zählt **ab dem Erledigen neu**
   (Friseur 6 Wochen nach dem letzten Mal: erledigt am Do., 5.11. → nächster Termintag Do., 17.12.).

@@ -279,24 +279,27 @@ export function deadlinesBetween(from, to) {
     .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
 }
 
-// Wiederkehrende Aufgaben (auch aus mehrtägigen Routinen) an jedem Tag ihres aktuellen Durchgangs –
-// ab heute, Überfälliges heute. Tage mit roter Deadline oder eingeplantem Termin bekommen keinen Extra-Eintrag.
+// Wiederkehrende Aufgaben (auch aus mehrtägigen Routinen): der anstehende Durchgang einmal, am Termintag
+// (bei „Zeitraum“ am ersten Tag). Liegt der schon zurück (Puffer läuft noch, überfällig), steht sie heute.
+// Ist der Tag die rote Deadline oder ist die Aufgabe in diesem Durchgang eingeplant, gibt es keinen Extra-Eintrag.
 export function recurringBetween(from, to, now = new Date()) {
   const first = isoDate(from);
   const last = isoDate(to);
   const today = isoDate(now);
-  const planned = new Set(data.events.filter((e) => e.task_id && e.start_at).map((e) => `${e.task_id}|${e.start_at.slice(0, 10)}`));
+  const planned = data.events.filter((e) => e.task_id && e.start_at);
   const result = [];
   for (const t of tasks(now)) {
     if (t.recurrence === 'once' || isInRoutine(t) || !['due', 'upcoming', 'overdue'].includes(t.status)) continue;
-    const start = t.status === 'overdue' ? today : [t.window_start || today, today].sort().at(-1);
-    let day = [start, first].sort().at(-1);
-    const end = [t.status === 'overdue' ? today : t.window_end || today, last].sort()[0];
-    for (; day <= end; day = isoDate(addDays(parseDate(day), 1))) {
-      if (t.has_deadline && day === t.window_end) continue;
-      if (planned.has(`${t.id}|${day}`)) continue;
-      result.push({ ...t, day });
-    }
+    const target = t.recurrence === 'rhythm' && t.window_start
+      ? isoDate(addDays(parseDate(t.window_start), Math.max(0, Number(t.buffer) || 0)))
+      : t.window_start || today;
+    const day = t.status === 'overdue' || target < today ? today : target;
+    if (day < first || day > last) continue;
+    if (t.has_deadline && day === t.window_end) continue;
+    const from_ = t.window_start || today;
+    const to_ = t.status === 'overdue' ? today : t.window_end || today;
+    if (planned.some((e) => e.task_id === t.id && e.start_at.slice(0, 10) >= from_ && e.start_at.slice(0, 10) <= to_)) continue;
+    result.push({ ...t, day });
   }
   return result.sort((a, b) => a.title.localeCompare(b.title, 'de'));
 }
