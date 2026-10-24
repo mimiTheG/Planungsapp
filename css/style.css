@@ -349,6 +349,10 @@ progress { width: 100%; height: 0.6rem; accent-color: var(--accent); }
 .row[hidden], .field[hidden] { display: none; }
 .duration-field { grid-column: 1 / -1; }
 .duration-input { display: flex; align-items: center; gap: 0.35rem; }
+/* Datum/Uhrzeit mit × zum Leeren */
+.clearable { display: flex; align-items: center; gap: 0.3rem; }
+.clearable > input { flex: 1; min-width: 0; }
+.clearable > .clear-field { flex: none; }
 .duration-input input { width: 3.6rem; flex: none; text-align: center; }
 .duration-input span { color: var(--muted); font-size: 0.9rem; }
 .inline { display: flex; gap: 0.35rem; }

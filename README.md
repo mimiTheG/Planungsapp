@@ -94,6 +94,7 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   bis Dunkelrot (fertig). In der Aufgabenliste steht keine Wichtigkeit/Dringlichkeit (die sieht man im Editor).
 - **Einmalig** (optional mit Zeitraum/Deadline), **regelmäßig** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
+  „Ab“, „Deadline“ und „Spätestens um“ lassen sich mit **×** wieder leeren (kein Datum).
 - **Regelmäßig:** „Erstes Mal am“ plus direkt **Alle n Tage/Wochen/Monate/Jahre** (bei Wochen Wochentage wählbar,
   bei Monaten am 14. bzw. am zweiten Dienstag) – ohne Vorschlagsliste. Der **Puffer** gilt in beide Richtungen (± Tage):
   0 = nur am Termintag, 1 = einen Tag vorher bis einen Tag nachher, 2 = zwei Tage vorher bis zwei Tage nachher.
@@ -116,6 +117,7 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
     Bad wöchentlich, Fenster monatlich. Die Aufgaben stehen in der Routine mit Rhythmus und Fälligkeit, werden
     einzeln abgehakt (dann springen sie in den nächsten Durchgang), lassen sich mit 📅 einplanen und erscheinen bei
     Fälligkeit unter „Jetzt“ (Heute fällig/Überfällig/Demnächst). Neue Aufgaben sind dort gleich „Regelmäßig“.
+    Ab 5 Aufgaben ist die Routine wie eine eintägige eingeklappt (die ersten drei, „▾ … weitere anzeigen“).
 - Eintägige Routinen haben keine Wichtigkeit/Dringlichkeit und kein Fälligkeitsdatum – man trägt sie
   selbst in den Kalender ein. Eine Routine kann eine **Standardstartzeit** haben, die beim Einplanen vorgeschlagen wird.
   Dauern lassen sich in Stunden und Minuten angeben (Anzeige z. B. „1 h 30 min“). In der Übersicht werden Routinen nur angezeigt: abgehakt wird ausschließlich über
