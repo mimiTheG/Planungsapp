@@ -118,19 +118,90 @@ export const birthdayTopic = () => data.topics.find((t) => t.birthday) || null;
 export const eventTopic = () => data.topics.find((t) => t.events) || null;
 export const isFixedTopic = (topic) => Boolean(topic?.birthday || topic?.events);
 
-// Aufgaben mit berechnetem Status (status, closes_at).
+// Aufgaben mit berechnetem Status (status, closes_at). Steigerungen sind keine eigenen Aufgaben –
+// sie hängen an ihrer regelmäßigen Aufgabe (upgradesOf) und stehen dort als upgrade, wenn sie dran sind.
 export function tasks(now = new Date()) {
   rollExpired(now);
-  return data.tasks.map((t) => decorate(t, now));
+  return data.tasks.filter((t) => !t.upgrade_of).map((t) => decorate(t, now));
 }
 
 function decorate(task, now) {
   const closes = schedule.closesAt(task);
-  return { ...task, status: schedule.status(task, now), closes_at: closes ? stamp(closes) : null };
+  return {
+    ...task, status: schedule.status(task, now), closes_at: closes ? stamp(closes) : null, upgrade: activeUpgrade(task),
+  };
+}
+
+// --- Steigerungen ----------------------------------------------------------------
+// Eine Steigerung (z. B. „gründlich saugen“) gehört zu einer regelmäßigen Aufgabe („kurz saugen“) und kommt
+// jedes n-te Mal (upgrade_every) an ihrer Stelle dran. upgrade_in zählt herunter: 1 = der aktuelle Durchgang.
+// Sind mehrere gleichzeitig dran, gilt die seltenere (größeres n), z. B. Grundreinigung vor gründlich.
+
+export function upgradesOf(id) {
+  return data.tasks.filter((t) => t.upgrade_of === id).sort((a, b) => a.upgrade_every - b.upgrade_every);
+}
+
+// Steigerung im Durchgang ahead (0 = aktueller, 1 = nächster …).
+function activeUpgrade(task, ahead = 0) {
+  if (task.upgrade_of || task.recurrence === 'once') return null;
+  const upgrade = upgradesOf(task.id)
+    .filter((u) => ahead >= u.upgrade_in - 1 && (ahead - u.upgrade_in + 1) % u.upgrade_every === 0).at(-1);
+  return upgrade ? { id: upgrade.id, title: upgrade.title, notes: upgrade.notes, duration_min: upgrade.duration_min } : null;
+}
+
+// Angezeigter Titel: die Steigerung, wenn sie diesmal dran ist.
+export const shownTitle = (task) => task.upgrade?.title || task.title;
+
+// Ein Durchgang der Aufgabe ist erledigt: alle Steigerungen rücken einen weiter, die erledigte beginnt von vorn.
+function advanceUpgrades(id) {
+  for (const upgrade of upgradesOf(id)) {
+    upgrade.upgrade_in = upgrade.upgrade_in <= 1 ? upgrade.upgrade_every : upgrade.upgrade_in - 1;
+  }
+}
+
+export function upgradeById(id) {
+  return data.tasks.find((t) => t.id === Number(id) && t.upgrade_of) || null;
+}
+
+function upgradeInput(input) {
+  const base = data.tasks.find((t) => t.id === Number(input.upgrade_of));
+  if (!base || base.upgrade_of) throw new ValidationError('Aufgabe für die Steigerung nicht gefunden');
+  if (base.recurrence === 'once') throw new ValidationError('Steigerungen gibt es nur für regelmäßige Aufgaben');
+  const every = int(input, 'upgrade_every', 2, 999);
+  if (every === null) throw new ValidationError('Bitte angeben, jedes wievielte Mal die Steigerung dran ist');
+  return {
+    upgrade_of: base.id,
+    title: text(input, 'title', 200, true),
+    notes: text(input, 'notes', 5000),
+    duration_min: int(input, 'duration_min', 1, 1440),
+    topic_id: base.topic_id,
+    upgrade_every: every,
+    upgrade_in: Math.min(int(input, 'upgrade_in', 1, 999, every), every),
+  };
+}
+
+export function createUpgrade(input) {
+  const upgrade = { id: nextId(), ...upgradeInput(input), created_at: stamp(new Date()) };
+  data.tasks.push(upgrade);
+  save();
+  return upgrade;
+}
+
+export function updateUpgrade(id, input) {
+  const upgrade = upgradeById(id);
+  if (!upgrade) throw new ValidationError('Steigerung nicht gefunden');
+  Object.assign(upgrade, upgradeInput({ ...input, upgrade_of: upgrade.upgrade_of }));
+  save();
+  return upgrade;
+}
+
+export function deleteUpgrade(id) {
+  data.tasks = data.tasks.filter((t) => t.id !== Number(id) || !t.upgrade_of);
+  save();
 }
 
 export function taskById(id) {
-  const task = data.tasks.find((t) => t.id === Number(id));
+  const task = data.tasks.find((t) => t.id === Number(id) && !t.upgrade_of);
   return task ? decorate(task, new Date()) : null;
 }
 
@@ -185,7 +256,7 @@ export function outdentTask(id) {
 // Nachkommen als gespeicherte Objekte – ohne tasks(), das nebenbei Fälligkeiten mit der echten Uhrzeit
 // weiterschiebt (beim Abhaken mit vorgegebener Zeit soll nichts anderes passieren).
 function rawDescendants(id) {
-  return data.tasks.filter((t) => t.parent_id === id).flatMap((child) => [child, ...rawDescendants(child.id)]);
+  return data.tasks.filter((t) => t.parent_id === id && !t.upgrade_of).flatMap((child) => [child, ...rawDescendants(child.id)]);
 }
 
 // Alle Nachkommen einer Aufgabe (beliebig tief).
@@ -244,7 +315,9 @@ export function history() {
     }
     const task = taskById(entry.task_id);
     if (!task || (isInRoutine(task) && task.kind !== 'routine')) continue;
-    entries.push({ at: entry.at, task });
+    // Erledigt als Steigerung → im Verlauf mit deren Titel.
+    const upgrade = entry.upgrade_id ? upgradeById(entry.upgrade_id) : null;
+    entries.push({ at: entry.at, task: { ...task, upgrade: upgrade ? { id: upgrade.id, title: upgrade.title } : null } });
   }
   return entries.sort((a, b) => b.at.localeCompare(a.at));
 }
@@ -274,7 +347,7 @@ export function deadlinesBetween(from, to) {
   // Jede Deadline als eigener Eintrag (deadline_date) – regelmäßige Aufgaben auch mit künftigen Durchgängen.
   return tasks()
     .filter((t) => t.window_end && hasDeadline(t) && !isInRoutine(t))
-    .flatMap((t) => schedule.upcomingDeadlines(t, last).map((date) => ({ ...t, deadline_date: date })))
+    .flatMap((t) => schedule.upcomingDeadlines(t, last).map((date, i) => ({ ...t, deadline_date: date, upgrade: activeUpgrade(t, i) })))
     .filter((t) => t.deadline_date >= first && t.deadline_date <= last)
     .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
 }
@@ -443,8 +516,10 @@ function taskInput(input, id) {
   if (recurrence === 'rhythm' && input.repeat) {
     // Regelmäßig: Wiederholung wie bei Terminen (ohne Ende), ab dem Tag „Erstes Mal am“.
     task.repeat_start = pattern(input, 'window_start', /^\d{4}-\d{2}-\d{2}$/) || isoDate(new Date());
-    task.repeat = repeatInput({ ...input.repeat, until: null, count: null }, task.repeat_start);
     task.repeat_from_done = Boolean(input.repeat_from_done);
+    // Ab dem Erledigen zählen: nur „alle n …“ – kein fester Wochentag, kein festes Datum.
+    const raw = task.repeat_from_done ? { freq: input.repeat.freq, interval: input.repeat.interval } : input.repeat;
+    task.repeat = repeatInput({ ...raw, until: null, count: null }, task.repeat_start);
     task.buffer = int(input, 'buffer', 0, 365, 0);
   } else if (recurrence === 'rhythm') {
     // Ältere Form: alle n Tage ab dem Erledigen.
@@ -541,6 +616,7 @@ export function updateTask(id, input) {
   Object.assign(task, next);
   // Thema geändert → alle Unteraufgaben bzw. Schritte (beliebig tief) bekommen das neue Thema.
   if (topicChanged) {
+    for (const upgrade of upgradesOf(id)) upgrade.topic_id = task.topic_id;
     for (const sub of rawDescendants(id)) sub.topic_id = task.topic_id;
   }
   save();
@@ -549,7 +625,7 @@ export function updateTask(id, input) {
 
 export function deleteTask(id) {
   const ids = new Set([id, ...descendantsOf(id).map((t) => t.id)]);
-  data.tasks = data.tasks.filter((t) => !ids.has(t.id));
+  data.tasks = data.tasks.filter((t) => !ids.has(t.id) && !ids.has(t.upgrade_of));
   data.log = data.log.filter((l) => !ids.has(l.task_id));
   for (const e of data.events) {
     if (ids.has(e.routine_id)) e.routine_id = null;
@@ -564,11 +640,13 @@ export function completeTask(id, now = new Date()) {
   const task = data.tasks.find((t) => t.id === id);
   if (!task) throw new ValidationError('Aufgabe nicht gefunden');
   const when = stamp(now);
-  data.log.push({ task_id: id, action: 'done', at: when });
+  const upgrade = activeUpgrade(task);
+  data.log.push({ task_id: id, action: 'done', at: when, ...(upgrade ? { upgrade_id: upgrade.id } : {}) });
   task.last_done_at = when;
 
   if (task.recurrence !== 'once') {
     [task.window_start, task.window_end] = schedule.windowAfterDone(task, now);
+    advanceUpgrades(id);
     resetChildren(id);
   } else if (task.kind === 'routine') {
     resetChildren(id);
@@ -717,7 +795,7 @@ function eventInput(input) {
   if (routineId && !routine) throw new ValidationError('Routine nicht gefunden');
   // Eingeplante Aufgabe (Zeit, um sie zu erledigen): Titel und Thema kommen von der Aufgabe.
   const taskId = routine ? null : ref(input, 'task_id');
-  const task = taskId ? data.tasks.find((t) => t.id === taskId && t.kind !== 'routine' && !isInRoutine(t)) : null;
+  const task = taskId ? data.tasks.find((t) => t.id === taskId && t.kind !== 'routine' && !t.upgrade_of && !isInRoutine(t)) : null;
   if (taskId && !task) throw new ValidationError('Aufgabe nicht gefunden');
   const source = routine || task;
   const event = {

@@ -110,7 +110,8 @@ export function completeTask(task, refresh) {
   attempt(() => {
     const updated = store.completeTask(task.id);
     if (updated.recurrence !== 'once') {
-      toast(`„${task.title}“ erledigt – wieder fällig ab ${formatDate(updated.window_start)}`);
+      const next = updated.upgrade ? ` (dann: ${updated.upgrade.title})` : '';
+      toast(`„${store.shownTitle(task)}“ erledigt – wieder fällig ab ${formatDate(updated.window_start)}${next}`);
     } else if (updated.kind === 'routine') {
       toast(`Routine „${task.title}“ abgeschlossen`);
     } else {
@@ -199,6 +200,7 @@ function taskNode(task, refresh, options) {
     task.kind !== 'todo' && task.parent_id === null ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
     task.duration_min && inRoutine ? el('span.badge', {}, formatDuration(task.duration_min)) : null,
     task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
+    task.upgrade ? el('span.badge.upgrade', {}, `⬆ diesmal statt „${task.title}“`) : null,
     windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
   ];
 
@@ -208,9 +210,9 @@ function taskNode(task, refresh, options) {
       check,
       el('div.task-main', {},
         options.mode === 'view'
-          ? el('span.task-title', {}, topicDot(task), task.title)
+          ? el('span.task-title', {}, topicDot(task), store.shownTitle(task))
           : el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) },
-            topicDot(task), task.title),
+            topicDot(task), store.shownTitle(task)),
         el('span.meta', {}, meta),
         progressBar(task)),
       options.mode === 'view' ? null : el('span.actions', {},
@@ -347,6 +349,7 @@ export function openTaskEditor(task, refresh) {
     t.repeat_from_done = true;
   }
   const rhythmRepeat = repeatFields(t.repeat || null, rhythmStartInput, { required: true, noEnd: true, customOnly: true });
+  rhythmRepeat.setSimple(t.repeat_from_done);
 
   const recurrenceBoxes = {
     once: el('div.form-grid', {},
@@ -362,9 +365,13 @@ export function openTaskEditor(task, refresh) {
         el('input', { type: 'checkbox', name: 'has_deadline', checked: Boolean(t.has_deadline) }),
         'Deadline – der letzte Tag erscheint im Kalender in Rot'),
       el('label.check', {},
-        el('input', { type: 'checkbox', name: 'repeat_from_done', checked: Boolean(t.repeat_from_done) }),
+        el('input', {
+          type: 'checkbox', name: 'repeat_from_done', checked: Boolean(t.repeat_from_done),
+          onchange: (e) => rhythmRepeat.setSimple(e.target.checked),
+        }),
         'Ab dem Erledigen neu zählen (z. B. 6 Wochen nach dem letzten Mal)'),
-      el('small.muted', {}, 'Dann zählt nur „alle … Tage/Wochen/Monate“ – Wochentag oder Datum ergeben sich aus dem Tag des Erledigens.')),
+      el('small.muted', {}, 'Dann zählt nur „alle … Tage/Wochen/Monate“ ab dem Tag des Erledigens – ohne festen Wochentag. '
+        + 'Beispiel alle 4 Wochen: 4 Wochen und 1 Tag nach dem letzten Mal erledigt → wieder fällig 4 Wochen danach (± Puffer).')),
     period: el('div.row', {},
       field('Jedes Jahr von', monthDayInputs('period_start', t.period_start)),
       field('bis', monthDayInputs('period_end', t.period_end))),
@@ -423,6 +430,7 @@ export function openTaskEditor(task, refresh) {
     el('div.field', {}, el('span.field-label', {}, 'Gehört zu'), parent_.element),
     prioFieldset,
     whenFieldset,
+    !isNew && t.recurrence !== 'once' && !store.isInRoutine(t) ? upgradesFieldset(t, refresh) : null,
     field('Notizen', el('textarea', { name: 'notes', rows: 3 }, t.notes || '')),
     !isNew && t.recurrence !== 'once' ? el('p.muted', {},
       `Zuletzt erledigt: ${t.last_done_at ? formatDate(t.last_done_at) : 'noch nie'}`,
@@ -506,6 +514,76 @@ export function openTaskEditor(task, refresh) {
   }
 }
 
+// --- Steigerungen -----------------------------------------------------------
+// Z. B. „kurz saugen“ mit Steigerung „gründlich saugen“ jedes 4. Mal: Dann steht statt der Aufgabe die Steigerung an.
+
+function upgradeText(upgrade) {
+  const next = upgrade.upgrade_in <= 1 ? 'diesmal dran' : upgrade.upgrade_in === 2 ? 'nächstes Mal dran' : `in ${upgrade.upgrade_in} Durchgängen dran`;
+  return `jedes ${upgrade.upgrade_every}. Mal · ${next}`;
+}
+
+function upgradesFieldset(base, refresh) {
+  return el('fieldset.upgrades', {},
+    el('legend', {}, 'Steigerungen'),
+    el('small.muted', {}, 'Eine gründlichere Variante, die jedes n-te Mal statt dieser Aufgabe drankommt – '
+      + 'z. B. „gründlich saugen“ statt „kurz saugen“ jedes 4. Mal.'),
+    el('ul.plain.upgrade-list', {}, store.upgradesOf(base.id).map((u) => el('li', {},
+      el('button.link', { type: 'button', onclick: () => openUpgradeEditor(u, base, refresh) }, `⬆ ${u.title}`),
+      el('span.muted', {}, ` – ${upgradeText(u)}`)))),
+    el('button', { type: 'button', onclick: () => openUpgradeEditor({ upgrade_of: base.id }, base, refresh) }, '+ Steigerung'));
+}
+
+export function openUpgradeEditor(upgrade, base, refresh) {
+  const isNew = !upgrade.id;
+  const every = upgrade.upgrade_every ?? 4;
+  const back = () => openTaskEditor(store.taskById(base.id), refresh);
+  const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
+    el('p.muted', {}, `Steigerung von „${base.title}“`),
+    field('Titel', el('input', { name: 'title', required: true, maxlength: 200, value: upgrade.title || '', placeholder: `z. B. ${base.title} gründlich` })),
+    el('div.row', {},
+      field('Jedes … Mal', el('input', { type: 'number', name: 'upgrade_every', min: 2, max: 999, inputmode: 'numeric', value: every })),
+      field('Dran in … Durchgängen', el('input', { type: 'number', name: 'upgrade_in', min: 1, max: 999, inputmode: 'numeric', value: upgrade.upgrade_in ?? every }))),
+    el('small.muted', {}, '1 = der aktuelle Durchgang, 2 = der nächste usw. Danach kommt sie wieder jedes n-te Mal.'),
+    el('div.field.duration-field', {}, el('span.field-label', {}, 'Dauer (optional)'),
+      el('div.duration-input', {},
+        el('input', { type: 'number', name: 'duration_h', min: 0, max: 24, inputmode: 'numeric', value: upgrade.duration_min >= 60 ? Math.floor(upgrade.duration_min / 60) : '', 'aria-label': 'Stunden', placeholder: '0' }),
+        el('span', {}, 'Std'),
+        el('input', { type: 'number', name: 'duration_m', min: 0, max: 59, inputmode: 'numeric', value: upgrade.duration_min ? upgrade.duration_min % 60 || '' : '', 'aria-label': 'Minuten', placeholder: '0' }),
+        el('span', {}, 'Min'))),
+    field('Notizen', el('textarea', { name: 'notes', rows: 3 }, upgrade.notes || '')),
+    el('div.buttons.sticky', {},
+      el('button.primary', { type: 'submit' }, isNew ? 'Anlegen' : 'Speichern'),
+      el('button', { type: 'button', onclick: back }, 'Zurück'),
+      isNew ? null : el('button.danger', {
+        type: 'button',
+        onclick: () => {
+          if (!window.confirm(`Steigerung „${upgrade.title}“ löschen?`)) return;
+          attempt(() => store.deleteUpgrade(upgrade.id));
+          refresh();
+          back();
+        },
+      }, 'Löschen')));
+
+  function save() {
+    const d = formData(form);
+    const payload = {
+      upgrade_of: base.id,
+      title: d.title,
+      notes: d.notes,
+      upgrade_every: d.upgrade_every,
+      upgrade_in: d.upgrade_in,
+      duration_min: (Number(d.duration_h) || 0) * 60 + (Number(d.duration_m) || 0) || '',
+    };
+    const ok = attempt(() => (isNew ? store.createUpgrade(payload) : store.updateUpgrade(upgrade.id, payload)));
+    if (!ok) return;
+    toast(isNew ? 'Steigerung angelegt' : 'Gespeichert');
+    refresh();
+    back();
+  }
+
+  openDialog(isNew ? 'Neue Steigerung' : 'Steigerung', form);
+}
+
 // --- Ansicht "Aufgaben & Projekte" ------------------------------------------
 
 const filters = { kind: 'all', view: 'open' };
@@ -539,7 +617,7 @@ function historyList(refresh) {
           el('button.link.task-title', {
             type: 'button',
             onclick: () => (task ? openTaskEditor(task, refresh) : null),
-          }, topicDot(item), item.title),
+          }, topicDot(item), task ? store.shownTitle(task) : item.title),
           el('div.meta', {},
             el('span.badge', {}, at.slice(11, 16)),
             el(`span.badge.kind${task ? `.${task.kind}` : '.project'}`, {}, label),

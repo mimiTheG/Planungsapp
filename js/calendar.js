@@ -23,6 +23,7 @@ const view = {
   mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
   showEvents: readSetting('showEvents', true),
+  showTasks: readSetting('showTasks', true),
   pickMonth: false,
   pickYear: new Date().getFullYear(),
 };
@@ -50,7 +51,7 @@ function segment(event) {
 function eventTitle(event) {
   if (event.is_birthday) return `🎂 ${event.title}${birthdayAge(event)}`;
   const task = event.task_id && store.taskById(event.task_id);
-  if (task) return `${task.status === 'done' ? '✓ ' : ''}${task.title}`;
+  if (task) return `${task.status === 'done' ? '✓ ' : ''}${store.shownTitle(task)}`;
   return (event.routine_id && store.taskById(event.routine_id)?.title) || event.title;
 }
 
@@ -89,8 +90,11 @@ export function renderCalendarView(root) {
   let events = store.eventsBetween(from, to);
   const hiddenCount = events.filter((e) => e.is_event).length;
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
-  const deadlines = store.deadlinesBetween(from, to);
-  const recurring = store.recurringBetween(from, to);
+  // Aufgaben (Deadlines und anstehende regelmäßige) lassen sich wie Veranstaltungen ausblenden.
+  let deadlines = store.deadlinesBetween(from, to);
+  let recurring = store.recurringBetween(from, to);
+  const hiddenTasks = deadlines.length + recurring.length;
+  if (!view.showTasks) { deadlines = []; recurring = []; }
 
   const step = (dir) => {
     view.anchor = view.mode === 'month'
@@ -134,7 +138,14 @@ export function renderCalendarView(root) {
           checked: view.showEvents,
           onchange: (e) => { view.showEvents = e.target.checked; writeSetting('showEvents', view.showEvents); refresh(); },
         }),
-        `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`)),
+        `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`),
+      el('label.check.small', {},
+        el('input', {
+          type: 'checkbox',
+          checked: view.showTasks,
+          onchange: (e) => { view.showTasks = e.target.checked; writeSetting('showTasks', view.showTasks); refresh(); },
+        }),
+        `Aufgaben${!view.showTasks && hiddenTasks ? ` (${hiddenTasks} aus)` : ''}`)),
       legend()),
     view.mode === 'month'
       ? monthGrid(from, to, events, deadlines, recurring, refresh)
@@ -314,16 +325,16 @@ function legend() {
 // Aufgabe mit Deadline: knallrot im Kalender – in Tag/Woche mit Uhrzeit, falls „spätestens um“ gesetzt ist
 // (im Monat ist dafür kein Platz).
 function deadlineText(task, withTime = true) {
-  return `⏰ ${withTime && task.deadline_time ? `${task.deadline_time} ` : ''}${task.title}`;
+  return `⏰ ${withTime && task.deadline_time ? `${task.deadline_time} ` : ''}${store.shownTitle(task)}`;
 }
 
 // Anstehende wiederkehrende Aufgabe: in Themenfarbe, aber hell – damit sie sich von Terminen abhebt.
 function recurringChip(task, tag, attrs = {}) {
   return el(`${tag}.chip.recurring`, {
     style: { '--c': store.topicColor(task.topic_id) },
-    title: `Steht an: ${task.title}`,
+    title: `Steht an: ${store.shownTitle(task)}`,
     ...attrs,
-  }, task.title);
+  }, store.shownTitle(task));
 }
 
 function dayGrid(from, count, allEvents, deadlines, recurring, refresh) {
@@ -394,9 +405,9 @@ function dayGrid(from, count, allEvents, deadlines, recurring, refresh) {
       col.append(el('button.deadline-mark', {
         type: 'button',
         style: { top: `${((h * 60 + m) / 60) * HOUR_PX}px` },
-        title: `Deadline ${task.deadline_time}: ${task.title}`,
+        title: `Deadline ${task.deadline_time}: ${store.shownTitle(task)}`,
         onclick: () => openTaskEditor(task, refresh),
-      }, el('span.deadline-flag', {}, count < 7 ? deadlineText(task) : task.title))); // Woche: schmal, nur der Titel
+      }, el('span.deadline-flag', {}, count < 7 ? deadlineText(task) : store.shownTitle(task)))); // Woche: schmal, nur der Titel
     }
     if (isoDate(day) === today) col.append(nowLine());
     return col;
@@ -415,7 +426,7 @@ function dayGrid(from, count, allEvents, deadlines, recurring, refresh) {
         : ev.task
         ? el('button.chip.deadline', {
           type: 'button',
-          title: `Deadline: ${ev.task.title}`,
+          title: `Deadline: ${store.shownTitle(ev.task)}`,
           onclick: () => openTaskEditor(ev.task, refresh),
         }, deadlineText(ev.task))
         : el(`button.chip${ev.is_event ? '.is-event' : ''}`, {
@@ -471,7 +482,7 @@ function monthGrid(from, to, events, deadlines, recurring, refresh) {
       onclick: () => openDay(day, refresh),
     },
     el('span.month-day', {}, String(day.getDate())),
-    deadlines.filter((t) => t.deadline_date === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${t.title}` }, deadlineText(t, false))),
+    deadlines.filter((t) => t.deadline_date === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${store.shownTitle(t)}` }, deadlineText(t, false))),
     recurring.filter((t) => t.day === key).map((t) => recurringChip(t, 'span')),
     dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
@@ -525,7 +536,7 @@ export function openEventEditor(event, refresh) {
     el('span.field-label', {}, 'Eingeplante Aufgabe'),
     el('div.planned-task-row', {},
       topicDot(plannedTask),
-      el('strong', {}, plannedTask.title),
+      el('strong', {}, store.shownTitle(plannedTask)),
       plannedTask.status === 'done' ? el('span.badge', {}, '✓ erledigt') : null),
     el('div.buttons', {},
       plannedTask.status === 'done'

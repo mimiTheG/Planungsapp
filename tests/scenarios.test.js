@@ -530,6 +530,63 @@ describe('Wiederkehrende Aufgaben im Kalender', () => {
   });
 });
 
+describe('Steigerungen', () => {
+  const saugen = () => store.createTask({ title: 'kurz saugen', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, repeat: { freq: 'weekly', interval: 1 } });
+  const doneAt = (id) => store.completeTask(id, new Date(`${store.taskById(id).window_start}T12:00`));
+
+  test('jedes 4. Mal steht die Steigerung statt der Aufgabe an', () => {
+    fresh();
+    const t = saugen();
+    store.createUpgrade({ upgrade_of: t.id, title: 'gründlich saugen', upgrade_every: 4 });
+    const shown = [];
+    for (let i = 0; i < 9; i++) { shown.push(store.shownTitle(store.taskById(t.id))); doneAt(t.id); }
+    assert.deepEqual(shown.map((x) => (x === 'gründlich saugen' ? 'G' : 'k')).join(''), 'kkkGkkkGk');
+  });
+
+  test('„dran in“ legt fest, wann sie das erste Mal kommt; die seltenere gewinnt', () => {
+    fresh();
+    const t = saugen();
+    store.createUpgrade({ upgrade_of: t.id, title: 'gründlich', upgrade_every: 2, upgrade_in: 1 });
+    store.createUpgrade({ upgrade_of: t.id, title: 'Grundreinigung', upgrade_every: 4, upgrade_in: 3 });
+    const shown = [];
+    for (let i = 0; i < 6; i++) { shown.push(store.shownTitle(store.taskById(t.id))); doneAt(t.id); }
+    assert.deepEqual(shown, ['gründlich', 'kurz saugen', 'Grundreinigung', 'kurz saugen', 'gründlich', 'kurz saugen']);
+  });
+
+  test('Steigerungen sind keine eigenen Aufgaben; Verlauf, Deadlines, Löschen', () => {
+    fresh();
+    const t = store.createTask({ title: 'kurz saugen', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, has_deadline: true, repeat: { freq: 'weekly', interval: 1 } });
+    const u = store.createUpgrade({ upgrade_of: t.id, title: 'gründlich saugen', upgrade_every: 2 });
+    assert.equal(store.tasks().length, 1);
+    assert.deepEqual(store.deadlinesBetween(new Date(2099, 0, 1), new Date(2099, 0, 31)).map((d) => `${d.deadline_date.slice(8)} ${store.shownTitle(d)}`),
+      ['05 kurz saugen', '12 gründlich saugen', '19 kurz saugen', '26 gründlich saugen']);
+    doneAt(t.id);
+    doneAt(t.id);
+    assert.deepEqual(store.history().map((h) => store.shownTitle(h.task)), ['gründlich saugen', 'kurz saugen']);
+    assert.throws(() => store.createUpgrade({ upgrade_of: store.createTask({ title: 'einmal' }).id, title: 'x', upgrade_every: 2 }), /nur für regelmäßige/);
+    store.updateTask(t.id, { ...store.taskById(t.id), topic_id: store.eventTopic().id });
+    assert.equal(store.upgradeById(u.id).topic_id, store.eventTopic().id, 'Thema wandert mit');
+    store.deleteTask(t.id);
+    assert.equal(store.upgradeById(u.id), null);
+  });
+});
+
+describe('Ab dem Erledigen neu zählen', () => {
+  test('kein fester Wochentag: alle 4 Wochen ab dem Tag des Erledigens (± Puffer)', () => {
+    fresh();
+    // Wochentag aus der Oberfläche wird ignoriert – nur „alle 4 Wochen“ zählt.
+    const t = store.createTask({
+      title: 'Friseur', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat_from_done: true,
+      repeat: { freq: 'weekly', interval: 4, weekdays: [3, 5] },
+    });
+    assert.deepEqual([t.repeat.freq, t.repeat.interval, t.window_start, t.window_end], ['weekly', 4, '2099-01-04', '2099-01-06']);
+    // 4 Wochen und 1 Tag nach dem ersten Termin erledigt → wieder 4 Wochen danach, ± 1 Tag
+    store.completeTask(t.id, new Date(2099, 1, 3, 12));
+    const next = store.taskById(t.id);
+    assert.deepEqual([next.window_start, next.window_end], ['2099-03-02', '2099-03-04']);
+  });
+});
+
 describe('Themen, Sicherung, Laden', () => {
   test('Thema löschen: Aufgaben, Termine und Wünsche behalten ihre Daten ohne Thema', () => {
     fresh();
