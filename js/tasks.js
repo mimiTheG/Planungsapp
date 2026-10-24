@@ -303,6 +303,26 @@ function monthDayInputs(prefix, value) {
     select(`${prefix}_month`, MONTHS.map((name, i) => [i + 1, name]), m));
 }
 
+// Datums-/Uhrzeitfeld mit ×, um es wieder zu leeren (die Android-Auswahl bietet das nicht immer an).
+function clearable(input) {
+  const clear = el('button.icon.clear-field', {
+    type: 'button',
+    'aria-label': 'Kein Datum',
+    title: 'Leeren',
+    onclick: (e) => {
+      e.preventDefault();
+      input.value = '';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      sync();
+    },
+  }, '×');
+  const sync = () => { clear.hidden = !input.value; };
+  input.addEventListener('input', sync);
+  input.addEventListener('change', sync);
+  sync();
+  return el('span.clearable', {}, input, clear);
+}
+
 export function openTaskEditor(task, refresh) {
   const isNew = !task.id;
   const t = {
@@ -353,9 +373,9 @@ export function openTaskEditor(task, refresh) {
 
   const recurrenceBoxes = {
     once: el('div.form-grid', {},
-      el('div.row', {},
-        field('Ab (leer = ab sofort)', el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' })),
-        field('Deadline (optional)', el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' }))),
+      el('div.form-grid', {},
+        field('Ab (leer = ab sofort)', clearable(el('input', { type: 'date', name: 'window_start', value: t.recurrence === 'once' ? t.window_start || '' : '' }))),
+        field('Deadline (optional)', clearable(el('input', { type: 'date', name: 'window_end', value: t.recurrence === 'once' ? t.window_end || '' : '' })))),
       el('small.muted', {}, 'Die Deadline erscheint im Kalender in Rot.')),
     rhythm: el('div.form-grid', {}, rhythmStart, rhythmRepeat.element,
       field('Puffer (± Tage)', el('input', { type: 'number', name: 'buffer', min: 0, max: 365, inputmode: 'numeric', value: t.buffer ?? 0 })),
@@ -406,7 +426,7 @@ export function openTaskEditor(task, refresh) {
         el('input', { type: 'radio', name: 'recurrence', value: v, checked: t.recurrence === v, onchange: showRecurrence }),
         label))),
     Object.values(recurrenceBoxes),
-    field('Spätestens um (optional)', el('input', { type: 'time', name: 'deadline_time', value: t.deadline_time || '' }),
+    field('Spätestens um (optional)', clearable(el('input', { type: 'time', name: 'deadline_time', value: t.deadline_time || '' })),
       'Uhrzeit am letzten Tag, z. B. Müll bis 6:00.'),
     field('Wenn nicht rechtzeitig erledigt', select('on_missed', [
       ['remind', 'Täglich erinnern (steht ganz oben)'],
@@ -669,6 +689,11 @@ const editingRoutines = new Set();
 // Mehrtägige Routine: ihre Aufgaben mit Rhythmus und Fälligkeit, direkt abhakbar (wie in der Aufgabenliste).
 function multiRoutineCard(routine, refresh) {
   const tasks = store.childrenOf(routine.id);
+  // Einklappen wie bei eintägigen Routinen: ab 5 Einträgen nur die ersten drei (Unteraufgaben zählen mit).
+  const all = store.descendantsOf(routine.id).filter((t) => t.status !== 'done');
+  const long = all.length >= ROUTINE_COLLAPSE_FROM;
+  const expanded = !long || expandedRoutines.has(routine.id);
+  const only = expanded ? null : new Set(all.slice(0, ROUTINE_PREVIEW).map((t) => t.id));
   return el('div.card.routine.multi', {},
     el('div.routine-head', {},
       topicDot(routine),
@@ -682,8 +707,17 @@ function multiRoutineCard(routine, refresh) {
         onclick: () => openTaskEditor(routine, refresh),
       }, '⚙')),
     tasks.length
-      ? taskTree(tasks, refresh, { parentId: routine.id })
+      // Umsortieren per langem Drücken nur aufgeklappt (sonst fehlen Einträge in der Reihenfolge).
+      ? taskTree(tasks, refresh, expanded ? { parentId: routine.id } : { only })
       : el('p.empty', {}, 'Noch keine Aufgaben – z. B. „Bad putzen“ wöchentlich, „Fenster putzen“ monatlich.'),
+    long ? el('button.link.more-steps', {
+      type: 'button',
+      'aria-expanded': String(expanded),
+      onclick: () => {
+        if (expanded) expandedRoutines.delete(routine.id); else expandedRoutines.add(routine.id);
+        refresh();
+      },
+    }, expanded ? '▴ Weniger anzeigen' : `▾ ${all.length - ROUTINE_PREVIEW} weitere Aufgaben anzeigen`) : null,
     el('div.buttons', {},
       el('button', {
         type: 'button',
