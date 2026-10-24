@@ -602,6 +602,8 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 }
 /* Deadline einer Aufgabe: knallrot, in hellem und dunklem Design gleich. */
 .chip.deadline { background: #ff1a1a; color: #fff; font-weight: 700; }
+/* Anstehende wiederkehrende Aufgabe: helle Themenfarbe mit farbigem Rand links. */
+.chip.recurring { background: color-mix(in srgb, var(--c) 28%, var(--surface)); color: var(--text); border-left: 3px solid var(--c); }
 
 /* Hinweis unten */
 
