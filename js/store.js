@@ -279,6 +279,28 @@ export function deadlinesBetween(from, to) {
     .sort((a, b) => (a.deadline_time || '').localeCompare(b.deadline_time || '') || a.title.localeCompare(b.title, 'de'));
 }
 
+// Wiederkehrende Aufgaben (auch aus mehrtägigen Routinen) an jedem Tag ihres aktuellen Durchgangs –
+// ab heute, Überfälliges heute. Tage mit roter Deadline oder eingeplantem Termin bekommen keinen Extra-Eintrag.
+export function recurringBetween(from, to, now = new Date()) {
+  const first = isoDate(from);
+  const last = isoDate(to);
+  const today = isoDate(now);
+  const planned = new Set(data.events.filter((e) => e.task_id && e.start_at).map((e) => `${e.task_id}|${e.start_at.slice(0, 10)}`));
+  const result = [];
+  for (const t of tasks(now)) {
+    if (t.recurrence === 'once' || isInRoutine(t) || !['due', 'upcoming', 'overdue'].includes(t.status)) continue;
+    const start = t.status === 'overdue' ? today : [t.window_start || today, today].sort().at(-1);
+    let day = [start, first].sort().at(-1);
+    const end = [t.status === 'overdue' ? today : t.window_end || today, last].sort()[0];
+    for (; day <= end; day = isoDate(addDays(parseDate(day), 1))) {
+      if (t.has_deadline && day === t.window_end) continue;
+      if (planned.has(`${t.id}|${day}`)) continue;
+      result.push({ ...t, day });
+    }
+  }
+  return result.sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
 // Einzeln geänderter Termin einer Serie → die Serie (sonst null).
 function seriesOf(event) {
   return event.series_id ? data.events.find((e) => e.id === event.series_id && e.repeat) || null : null;

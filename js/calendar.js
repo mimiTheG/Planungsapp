@@ -90,6 +90,7 @@ export function renderCalendarView(root) {
   const hiddenCount = events.filter((e) => e.is_event).length;
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
   const deadlines = store.deadlinesBetween(from, to);
+  const recurring = store.recurringBetween(from, to);
 
   const step = (dir) => {
     view.anchor = view.mode === 'month'
@@ -136,8 +137,8 @@ export function renderCalendarView(root) {
         `Veranstaltungen${!view.showEvents && hiddenCount ? ` (${hiddenCount} aus)` : ''}`)),
       legend()),
     view.mode === 'month'
-      ? monthGrid(from, to, events, deadlines, refresh)
-      : dayGrid(from, Number(view.mode), events, deadlines, refresh));
+      ? monthGrid(from, to, events, deadlines, recurring, refresh)
+      : dayGrid(from, Number(view.mode), events, deadlines, recurring, refresh));
 
   const scroller = root.querySelector('.week-scroll');
   // Ist heute zu sehen, zur aktuellen Uhrzeit scrollen (etwas Vorlauf), sonst zum Morgen.
@@ -316,7 +317,16 @@ function deadlineText(task, withTime = true) {
   return `⏰ ${withTime && task.deadline_time ? `${task.deadline_time} ` : ''}${task.title}`;
 }
 
-function dayGrid(from, count, allEvents, deadlines, refresh) {
+// Anstehende wiederkehrende Aufgabe: in Themenfarbe, aber hell – damit sie sich von Terminen abhebt.
+function recurringChip(task, tag, attrs = {}) {
+  return el(`${tag}.chip.recurring`, {
+    style: { '--c': store.topicColor(task.topic_id) },
+    title: `Steht an: ${task.title}`,
+    ...attrs,
+  }, task.title);
+}
+
+function dayGrid(from, count, allEvents, deadlines, recurring, refresh) {
   const days = [...Array(count)].map((_, i) => addDays(from, i));
   // Ganztägige Termine stehen in einer eigenen Zeile über den Stunden.
   const events = allEvents.filter((ev) => !ev.all_day);
@@ -325,6 +335,7 @@ function dayGrid(from, count, allEvents, deadlines, refresh) {
     return [
       // Deadlines ohne Uhrzeit gelten für den ganzen Tag; mit Uhrzeit stehen sie als Zeitpunkt in der Spalte.
       ...deadlines.filter((t) => t.deadline_date === key && !t.deadline_time).map((task) => ({ task })),
+      ...recurring.filter((t) => t.day === key).map((task) => ({ task, recurring: true })),
       ...allEvents.filter((ev) => ev.all_day && ev.start_at.slice(0, 10) <= key && ev.end_at.slice(0, 10) >= key),
     ];
   });
@@ -399,7 +410,9 @@ function dayGrid(from, count, allEvents, deadlines, refresh) {
         el('strong', {}, formatDate(d, count === 7 ? { day: 'numeric' } : { day: '2-digit', month: '2-digit' }))))),
     allDay.some((list) => list.length) ? el('div.allday-row', { style: { gridTemplateColumns: columns } },
       el('span.allday-label', {}, 'ganzt.'),
-      allDay.map((list) => el('div.allday-cell', {}, list.map((ev) => (ev.task
+      allDay.map((list) => el('div.allday-cell', {}, list.map((ev) => (ev.recurring
+        ? recurringChip(ev.task, 'button', { type: 'button', onclick: () => openTaskEditor(ev.task, refresh) })
+        : ev.task
         ? el('button.chip.deadline', {
           type: 'button',
           title: `Deadline: ${ev.task.title}`,
@@ -444,7 +457,7 @@ function layoutLanes(blocks) {
   if (group.length) flush();
 }
 
-function monthGrid(from, to, events, deadlines, refresh) {
+function monthGrid(from, to, events, deadlines, recurring, refresh) {
   const month = view.anchor.getMonth();
   const today = isoDate(new Date());
   const cells = [];
@@ -459,6 +472,7 @@ function monthGrid(from, to, events, deadlines, refresh) {
     },
     el('span.month-day', {}, String(day.getDate())),
     deadlines.filter((t) => t.deadline_date === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${t.title}` }, deadlineText(t, false))),
+    recurring.filter((t) => t.day === key).map((t) => recurringChip(t, 'span')),
     dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,

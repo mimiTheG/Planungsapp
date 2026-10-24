@@ -58,6 +58,10 @@ nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
   bei regelmäßigen Aufgaben mit Häkchen „Deadline“ der letzte Tag jedes Durchgangs, auch der künftigen (angenommen,
   man erledigt jeweils pünktlich).
   Über **+** und „Aufgabe“ legt man direkt eine Aufgabe mit Deadline am gewählten Tag an.
+- **Anstehende wiederkehrende Aufgaben** (auch aus mehrtägigen Routinen) stehen an jedem Tag ihres aktuellen
+  Durchgangs ab heute in der Ganztägig-Zeile bzw. im Monat – hell in der Themenfarbe mit farbigem Rand links.
+  Überfällige stehen heute. Am Deadline-Tag steht nur die rote Deadline, an eingeplanten Tagen nur der Termin.
+  Antippen öffnet die Aufgabe; nach dem Erledigen erscheint der nächste Durchgang.
 - **Termin nachträglich zur Aufgabe machen:** Termin öffnen und oben „Aufgabe“ wählen. Datum und Uhrzeit werden zur
   Deadline, der Termin verschwindet aus dem Kalender. Bei Serien: *dieser* → einmalige Aufgabe, *dieser und folgende*
   bzw. *alle* → regelmäßige Aufgabe mit derselben Wiederholung und Deadline-Häkchen.
