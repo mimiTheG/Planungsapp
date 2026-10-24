@@ -75,8 +75,9 @@ function nowItem(task, refresh, { left = false } = {}) {
   const days = left ? daysLeft(task) : null;
   return el(`li.now-item.status-${task.status}`, {},
     el('div.now-text', {},
-      el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) }, topicDot(task), task.title),
+      el('button.link.task-title', { type: 'button', onclick: () => openTaskEditor(task, refresh) }, topicDot(task), store.shownTitle(task)),
       el('div.meta', {},
+        task.upgrade ? el('span.badge.upgrade', {}, `⬆ statt „${task.title}“`) : null,
         task.kind !== 'todo' ? el(`span.badge.kind.${task.kind}`, {}, KIND_LABELS[task.kind]) : null,
         el('span.badge', { title: 'Wichtigkeit / Dringlichkeit' }, `W${task.importance} · D${task.urgency}`),
         task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
@@ -153,7 +154,7 @@ function runningNow(now = new Date()) {
     const start = parseDate(ev.start_at);
     const end = parseDate(ev.end_at);
     const task = ev.task_id ? store.taskById(ev.task_id) : null; // eingeplante Aufgabe
-    const title = ev.is_birthday ? `🎂 ${ev.title}${birthdayAge(ev)}` : task ? task.title : ev.title;
+    const title = ev.is_birthday ? `🎂 ${ev.title}${birthdayAge(ev)}` : task ? store.shownTitle(task) : ev.title;
     const parts = [{ from: start, to: end, routineId: ev.routine_id, title, allDay: ev.all_day, task }];
     for (const part of parts) {
       if (part.from > now) continue;
@@ -256,9 +257,9 @@ export function renderNowView(root) {
     openDialog('Wie wär’s mit …',
       el('div.pick', {},
         topicDot(item),
-        el('strong', {}, item.title),
+        el('strong', {}, item.isWish ? item.title : store.shownTitle(item)),
         el('p.muted', {}, subtitle),
-        item.notes ? el('p', {}, item.notes) : null,
+        item.upgrade?.notes || item.notes ? el('p', {}, item.upgrade?.notes || item.notes) : null,
         el('div.buttons', {}, el('button', { type: 'button', onclick: decide }, '🎲 Nochmal'), doneButton)));
   };
 
@@ -290,5 +291,5 @@ export function renderNowView(root) {
 
     upcoming.length ? el('section.card', {},
       el('h3', {}, 'Demnächst'),
-      el('ul.plain', {}, upcoming.map((t) => el('li', {}, topicDot(t), ` ${t.title} – ab ${formatDate(t.window_start)}`)))) : null);
+      el('ul.plain', {}, upcoming.map((t) => el('li', {}, topicDot(t), ` ${store.shownTitle(t)} – ab ${formatDate(t.window_start)}`)))) : null);
 }

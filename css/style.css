@@ -228,6 +228,10 @@ body.has-player { --player-h: 3.6rem; }
 }
 .badge.kind { background: var(--accent-soft); color: var(--accent); }
 .badge.kind.project { background: var(--pink-soft); color: var(--pink); border: 1px solid var(--p1); }
+/* Steigerung, die diesmal statt der eigentlichen Aufgabe dran ist */
+.badge.upgrade { background: var(--pink-soft); color: var(--accent); font-weight: 600; }
+.upgrade-list { margin: 0.3rem 0; }
+.upgrade-list li { padding: 0.2rem 0; }
 .badge.status-overdue, .badge.status-expired { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .badge.status-due { color: var(--ok); }
 
