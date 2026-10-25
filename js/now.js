@@ -217,19 +217,19 @@ export function renderNowView(root) {
   const everything = store.tasks().filter((t) => t.kind !== 'routine' && !store.isInRoutine(t));
   const all = everything.filter((t) => t.parent_id === null);
   const items = all.filter((t) => ACTIVE.includes(t.status) || isOverdue(t));
-  // 1. Überfällig – auch Unteraufgaben (außer ihre Oberaufgabe steht schon hier). Am längsten überfällig zuerst.
+  // 1. Überfällig – auch Unteraufgaben (außer ihre Oberaufgabe steht schon hier). Nach W×D, bei Gleichstand am längsten überfällig zuerst.
   const overdueIds = new Set(everything.filter(isOverdue).map((t) => t.id));
   const hasAncestorIn = (ids, t) => {
     for (let p = t.parent_id; p !== null; p = store.taskById(p)?.parent_id ?? null) if (ids.has(p)) return true;
     return false;
   };
   const overdue = everything.filter((t) => overdueIds.has(t.id) && !hasAncestorIn(overdueIds, t))
-    .sort((a, b) => String(a.closes_at).localeCompare(String(b.closes_at)) || byPriority(a, b));
+    .sort((a, b) => byPriority(a, b) || String(a.closes_at).localeCompare(String(b.closes_at)));
   // 2. Heute fällig: alles mit Deadline, dessen Zeitraum läuft (ohne „Ab“ = ab sofort) – auch Unteraufgaben, außer ihre
-  //    Oberaufgabe steht schon hier oder bei „Überfällig“. Nach verbleibender Zeit, bei Gleichstand nach W×D.
+  //    Oberaufgabe steht schon hier oder bei „Überfällig“. Nach W×D, bei Gleichstand nach verbleibender Zeit.
   const dueIds = new Set(everything.filter((t) => t.status === 'due' && t.window_end).map((t) => t.id));
   const today = everything.filter((t) => dueIds.has(t.id) && !hasAncestorIn(dueIds, t) && !hasAncestorIn(overdueIds, t))
-    .sort((a, b) => daysLeft(a) - daysLeft(b) || byPriority(a, b));
+    .sort((a, b) => byPriority(a, b) || daysLeft(a) - daysLeft(b));
   // 3. Alles andere Offene – nach W×D absteigend.
   const rest = items.filter((t) => !isOverdue(t) && !(t.status === 'due' && t.window_end)).sort(byPriority);
   const wishes = store.wishes();

@@ -144,9 +144,9 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   abbricht (kein automatisches Zurücksetzen mehr).
 - Reihenfolge der Aufgaben:
   1. **⚠ Überfällig** – alles, dessen Zeit abgelaufen ist, auch einmalige Aufgaben und Unteraufgaben
-     (am längsten überfällig zuerst).
+     (nach Wichtigkeit × Dringlichkeit, bei Gleichstand am längsten überfällig zuerst).
   2. **📅 Heute fällig** – alles mit Deadline, dessen Zeitraum gerade läuft (ohne „Ab“ gilt: ab sofort), auch
-     Unteraufgaben; nach verbleibender Zeit (letzter Tag zuerst).
+     Unteraufgaben; nach Wichtigkeit × Dringlichkeit, bei Gleichstand nach verbleibender Zeit.
   3. **Weitere Aufgaben** – nach Wichtigkeit × Dringlichkeit (sachlich), höchste zuerst.
 - Unter jeder Aufgabe stehen ihre Unteraufgaben zum direkten Abhaken.
 - Zeitangaben in passender Einheit: „noch 3 Tage“, „noch 6 Wochen“, „überfällig seit 2 Monaten“, „in 1 Jahr“ –
