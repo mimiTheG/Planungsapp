@@ -65,12 +65,7 @@ export function windowText(task) {
   }
 }
 
-// Priorität 1–25 (höher = zuerst). Skala: Wichtigkeit/Dringlichkeit 5 = sehr wichtig/sofort … 1 = unwichtig/kein Zeitdruck.
-export function priority(task, level = 'sachlich') {
-  return level === 'emotional'
-    ? task.importance_emo * task.urgency_emo
-    : task.importance * task.urgency;
-}
+export { priority } from './sections.js';
 
 export function topicDot(task) {
   return el('span.dot', {

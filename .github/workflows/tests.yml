@@ -1,5 +1,7 @@
 # Automatische Tests: laufen bei jedem Pull Request und bei jedem Push auf main.
 # Im Pull Request erscheint dann ein grüner Haken (alles ok) oder ein rotes Kreuz (ein Test schlägt fehl).
+#   test – Logik-Tests (npm test)
+#   e2e  – Klicktests im echten Browser in Handy-Größe (npm run test:e2e)
 name: Tests
 
 on:
@@ -17,3 +19,18 @@ jobs:
           node-version: 24
       - name: Tests (npm test)
         run: npm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Abhängigkeiten installieren
+        run: npm ci
+      - name: Browser installieren
+        run: npx playwright install --with-deps chromium
+      - name: Klicktests (npm run test:e2e)
+        run: npm run test:e2e
