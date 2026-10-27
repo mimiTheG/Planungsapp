@@ -173,16 +173,36 @@ nächsten Start. Wenn Dateien hinzukommen oder wegfallen, in `sw.js` die Liste `
 
 ```bash
 python3 -m http.server 8000   # dann http://localhost:8000 öffnen
-npm test                      # Tests (Node 18+): Fälligkeitslogik, Datenhaltung und Szenarien
+npm test                      # Logik-Tests (Node 18+, ohne Installation), dauern ca. 1 Sekunde
+npm install && npx playwright install chromium   # einmalig für die Klicktests
+npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), dauern ca. 1 Minute
 ```
 
-`tests/logic.test.js` prüft einzelne Regeln, `tests/scenarios.test.js` ganze Abläufe wie auf dem Handy – z. B. eine
+**Logik-Tests** (`npm test`, Ordner `tests/`):
+
+| Datei | prüft |
+| --- | --- |
+| `dates.test.js` | Datum lesen/schreiben, Tage rechnen (auch Zeitumstellung, Schaltjahr), lesbare Zeitspannen |
+| `repeat.test.js` | Wiederholungsregeln aller Arten, Ende, gelöschte Einzeltermine, Texte und Vorschläge |
+| `schedule.test.js` | Status (offen/fällig/überfällig …), Fenster, Puffer, „ab dem Erledigen“, Zeitraum, verpasste Durchgänge |
+| `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung |
+| `now.test.js` | „Was mache ich jetzt?“: welche Aufgabe in welchem Bereich, Reihenfolge nach W×D |
+| `logic.test.js` | einzelne Regeln (ältere Sammlung) |
+| `scenarios.test.js` | ganze Abläufe wie auf dem Handy |
+
+**Klicktests** (`npm run test:e2e`, Ordner `tests/e2e/`): Die App läuft in Chromium in Handy-Größe, die Tests tippen
+und wischen wie mit dem Finger (auch langes Drücken und Ziehen). Die Uhr steht dabei fest auf Do., 15.10.2026, 12:00,
+damit die Tests unabhängig vom heutigen Datum immer gleich laufen. Abgedeckt: Aufgaben anlegen/leeren/erledigen,
+Regelmäßig, Steigerungen, Umsortieren, Kalenderansichten, Ein-/Ausblenden, Termine ziehen, Serien, Geburtstage,
+Aufgaben einplanen, Routinen, „Was mache ich jetzt?“ und die Wunschliste.
+
+`scenarios.test.js` deckt z. B. ab: eine
 Serie auf „endet am …“ und wieder zurück auf „endet nie“ stellen, Einzeltermine verschieben und danach „dieser und
 alle folgenden“ ändern, Aufgaben von einmalig auf regelmäßig umstellen, verpasste Durchgänge, Sicherung einlesen.
 Gefundene Fehler bekommen hier einen eigenen Test, damit sie nicht wiederkommen.
 
-Auf GitHub laufen die Tests automatisch bei jedem Pull Request und bei jedem Push auf `main`
-(`.github/workflows/tests.yml`). Im Pull Request steht dann unten bei den Checks ein grüner Haken oder ein rotes
+Auf GitHub laufen beide Testarten automatisch bei jedem Pull Request und bei jedem Push auf `main`
+(`.github/workflows/tests.yml`, Checks „test“ und „e2e“). Im Pull Request steht dann unten bei den Checks ein grüner Haken oder ein rotes
 Kreuz; ein Klick auf „Details“ zeigt, welcher Test fehlschlägt.
 
 ## Aufbau
@@ -199,6 +219,7 @@ js/
   dates.js             Datumshelfer
   ui.js                DOM-Helfer, Dialog, Hinweise
   now.js               „Was mache ich jetzt?“
+  sections.js          Bereiche und Reihenfolge von „Was mache ich jetzt?“ (ohne Oberfläche, testbar)
   player.js            Leiste der laufenden Routine über der Navigation
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix
@@ -211,5 +232,6 @@ js/
   reorder.js           Umsortieren per langem Drücken
   samples.js           Beispieldaten
 icons/                 App-Icons
-tests/                 node:test-Tests (logic = Regeln, scenarios = Abläufe)
+tests/                 Logik-Tests (node:test), siehe „Lokal starten & testen“
+tests/e2e/             Klicktests im Browser (Playwright)
 ```

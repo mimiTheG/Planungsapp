@@ -8,30 +8,18 @@ import {
 } from './dates.js';
 import * as store from './store.js';
 import {
-  KIND_LABELS, cancelRoutine, completeTask, openTaskEditor, priority, progressBar, recurrenceText, routineChecklist,
+  KIND_LABELS, cancelRoutine, completeTask, openTaskEditor, progressBar, recurrenceText, routineChecklist,
   routineProgress, runRoutine, topicDot, windowText,
 } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { birthdayAge } from './calendar.js';
-
-const ACTIVE = ['open', 'due', 'overdue'];
+import { daysLeft, isOverdue, nowSections, priority } from './sections.js';
 
 // Gewicht für die Zufallsauswahl: Priorität (1–25), Überfälliges zählt doppelt. Wünsche haben keine Priorität.
 function weight(item) {
   if (item.isWish) return 1;
   return priority(item) * (isOverdue(item) ? 2 : 1);
 }
-
-// Überfällig: Zeit abgelaufen – bei „täglich erinnern“ (overdue) und bei einmaligen Aufgaben auch mit „verfällt“
-// (die verschwinden sonst einfach).
-const isOverdue = (t) => t.status === 'overdue' || (t.recurrence === 'once' && t.status === 'expired');
-
-// Ganze Tage bis zum Ende des Zeitraums (0 = heute ist der letzte Tag).
-function daysLeft(task) {
-  return Math.max(0, daysBetween(new Date(), parseDate(task.window_end)));
-}
-
-const byPriority = (a, b) => priority(b) - priority(a);
 
 // Verbleibende Zeit: „noch 3 Tage“, „noch 2 Wochen“ – am letzten Tag mit Uhrzeit „noch 3 Std.“.
 function leftText(task, days) {
@@ -214,30 +202,9 @@ export function renderNowView(root) {
     refresh();
   }, 60000);
   const running = runningNow();
-  const everything = store.tasks().filter((t) => t.kind !== 'routine' && !store.isInRoutine(t));
-  const all = everything.filter((t) => t.parent_id === null);
-  const items = all.filter((t) => ACTIVE.includes(t.status) || isOverdue(t));
-  // 1. Überfällig – auch Unteraufgaben (außer ihre Oberaufgabe steht schon hier). Nach W×D, bei Gleichstand am längsten überfällig zuerst.
-  const overdueIds = new Set(everything.filter(isOverdue).map((t) => t.id));
-  const hasAncestorIn = (ids, t) => {
-    for (let p = t.parent_id; p !== null; p = store.taskById(p)?.parent_id ?? null) if (ids.has(p)) return true;
-    return false;
-  };
-  const overdue = everything.filter((t) => overdueIds.has(t.id) && !hasAncestorIn(overdueIds, t))
-    .sort((a, b) => byPriority(a, b) || String(a.closes_at).localeCompare(String(b.closes_at)));
-  // 2. Heute fällig: alles mit Deadline, dessen Zeitraum läuft (ohne „Ab“ = ab sofort) – auch Unteraufgaben, außer ihre
-  //    Oberaufgabe steht schon hier oder bei „Überfällig“. Nach W×D, bei Gleichstand nach verbleibender Zeit.
-  const dueIds = new Set(everything.filter((t) => t.status === 'due' && t.window_end).map((t) => t.id));
-  const today = everything.filter((t) => dueIds.has(t.id) && !hasAncestorIn(dueIds, t) && !hasAncestorIn(overdueIds, t))
-    .sort((a, b) => byPriority(a, b) || daysLeft(a) - daysLeft(b));
-  // 3. Alles andere Offene – nach W×D absteigend.
-  const rest = items.filter((t) => !isOverdue(t) && !(t.status === 'due' && t.window_end)).sort(byPriority);
+  // Bereiche Überfällig / Heute fällig / Weitere / Demnächst (Reihenfolge siehe sections.js).
+  const { items, overdue, today, rest, upcoming } = nowSections();
   const wishes = store.wishes();
-  // Demnächst: oberste Ebene und Aufgaben mehrtägiger Routinen.
-  const upcoming = everything
-    .filter((t) => t.status === 'upcoming' && (t.parent_id === null || store.isMultiRoutine(store.taskById(t.parent_id))))
-    .sort((a, b) => a.window_start.localeCompare(b.window_start))
-    .slice(0, 8);
   const candidates = [...items, ...wishes.map((w) => ({ ...w, isWish: true }))];
 
   const decide = () => {
