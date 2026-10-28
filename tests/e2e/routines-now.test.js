@@ -187,3 +187,63 @@ describe('Was mache ich jetzt?', () => {
     await app.close();
   });
 });
+
+describe('Eingeplante Aufgaben: nie verschwinden, nie doppelt', () => {
+  const titleCount = async (app, title) => (await texts(app.page.locator('main .task-title, main .running-head strong')))
+    .filter((t) => t === title).length;
+
+  test('Jetzt: während der geplanten Zeit nur unter „Läuft gerade“, danach wieder unter „Heute fällig“', async () => {
+    const data = (s) => {
+      const t = s.createTask({ title: 'Bericht', window_end: '2026-10-15' });
+      s.createEvent({ task_id: t.id, start_at: '2026-10-15T11:00', end_at: '2026-10-15T13:00' });
+    };
+    const during = await browser.open('jetzt', { data });
+    assert.equal(await titleCount(during, 'Bericht'), 1);
+    assert.equal(await during.page.locator('.running-now:has-text("Bericht")').count(), 1);
+    assert.equal(await during.page.locator('section.today').count(), 0);
+    await during.close();
+
+    const after = await browser.open('jetzt', { data, now: '2026-10-15T14:00:00+02:00' });
+    assert.equal(await titleCount(after, 'Bericht'), 1, 'nicht abgehakt → wieder da, genau einmal');
+    assert.deepEqual(await texts(after.page.locator('section.today .now-item .task-title')), ['Bericht']);
+    await after.close();
+  });
+
+  test('Jetzt: für später eingeplant → steht da mit Hinweis „📅 morgen 15:00“', async () => {
+    const app = await browser.open('jetzt', {
+      data: (s) => {
+        const t = s.createTask({ title: 'Steuer', window_end: '2026-10-20' });
+        s.createEvent({ task_id: t.id, start_at: '2026-10-16T15:00', end_at: '2026-10-16T16:00' });
+      },
+    });
+    assert.equal(await titleCount(app, 'Steuer'), 1);
+    assert.match(await app.page.locator('.now-item:has-text("Steuer") .badge.planned').textContent(), /📅 morgen 15:00/);
+    await app.close();
+  });
+
+  test('Kalender: für einen anderen Tag eingeplant → Aufgabe steht trotzdem an ihrem Tag', async () => {
+    const app = await browser.open('kalender', {
+      data: (s) => {
+        const t = s.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2026-10-15', buffer: 0, repeat: { freq: 'weekly', interval: 1 } });
+        s.createEvent({ task_id: t.id, start_at: '2026-10-17T10:00', end_at: '2026-10-17T11:00' });
+      },
+    });
+    const cell = (d) => app.page.locator('.month-cell:not(.other)').nth(d - 1);
+    assert.deepEqual(await texts(cell(15).locator('.chip.recurring')), ['Bad']);
+    assert.deepEqual(await texts(cell(17).locator('.chip:not(.recurring)')), ['Bad'], 'am 17. der Termin');
+    assert.equal(await app.page.locator('.chip.recurring').count(), 1, 'nur 1× als Aufgabe');
+    await app.close();
+  });
+
+  test('Kalender: eingeplant, Zeit verstrichen, seitdem nochmal fällig → nur 1× als Aufgabe', async () => {
+    const app = await browser.open('kalender', {
+      data: (s) => {
+        const t = s.createTask({ title: 'Müll', recurrence: 'rhythm', window_start: '2026-10-08', buffer: 0, on_missed: 'remind', repeat: { freq: 'weekly', interval: 1 } });
+        s.createEvent({ task_id: t.id, start_at: '2026-10-08T07:00', end_at: '2026-10-08T07:15' });
+      },
+    });
+    assert.deepEqual(await texts(app.page.locator('.chip.recurring')), ['Müll'], 'genau einmal');
+    assert.deepEqual(await texts(app.page.locator('.month-cell:not(.other)').nth(14).locator('.chip.recurring')), ['Müll'], 'heute');
+    await app.close();
+  });
+});
