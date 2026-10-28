@@ -7,7 +7,7 @@ process.env.TZ = 'Europe/Berlin';
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as store from '../js/store.js';
-import { daysLeft, isOverdue, nowSections, priority } from '../js/sections.js';
+import { daysLeft, isOverdue, nowSections, plannedNow, priority } from '../js/sections.js';
 
 const memory = () => {
   const map = new Map();
@@ -16,7 +16,7 @@ const memory = () => {
 const fresh = () => store.load(memory());
 const NOW = new Date(2099, 0, 10, 12, 0); // Sa., 10.01.2099, 12:00
 const sections = () => {
-  const s = nowSections(NOW);
+  const { plans: _plans, ...s } = nowSections(NOW);
   return Object.fromEntries(Object.entries(s).map(([k, list]) => [k, list.map((t) => t.title)]));
 };
 const task = (title, extra = {}) => store.createTask({ title, ...extra });
@@ -160,3 +160,80 @@ describe('Reihenfolge in den Bereichen', () => {
     assert.deepEqual(sections().rest, ['sachlich hoch', 'emotional hoch']);
   });
 });
+
+describe('Eingeplante Aufgaben in „Jetzt“: nie verschwinden, nie doppelt', () => {
+  const plan = (task, start, end) => store.createEvent({ task_id: task.id, start_at: start, end_at: end });
+  // Wie oft steht eine Aufgabe insgesamt in den Bereichen (Überfällig, Heute fällig, Weitere, Demnächst)?
+  const count = (title, now) => {
+    const s = nowSections(now);
+    return [...s.overdue, ...s.today, ...s.rest, ...s.upcoming].filter((t) => t.title === title).length;
+  };
+
+  test('während der geplanten Zeit nur unter „Läuft gerade“, danach (nicht abgehakt) wieder genau einmal', () => {
+    fresh();
+    const t = task('Bericht', { window_end: '2099-01-10' });
+    plan(t, '2099-01-10T11:00', '2099-01-10T13:00');
+    assert.equal(count('Bericht', new Date(2099, 0, 10, 10, 0)), 1, 'vorher');
+    assert.equal(count('Bericht', NOW), 0, 'während: nur „Läuft gerade“');
+    assert.ok(plannedNowRunning(t.id, NOW));
+    assert.equal(count('Bericht', new Date(2099, 0, 10, 13, 1)), 1, 'danach wieder da');
+    assert.deepEqual(nowSections(new Date(2099, 0, 10, 13, 1)).today.map((x) => x.title), ['Bericht']);
+  });
+
+  test('für einen anderen Tag eingeplant → steht trotzdem heute, mit Hinweis auf den Plan', () => {
+    fresh();
+    const t = task('Steuer', { window_end: '2099-01-12' });
+    plan(t, '2099-01-11T15:00', '2099-01-11T16:00');
+    const s = nowSections(NOW);
+    assert.deepEqual(s.today.map((x) => x.title), ['Steuer']);
+    assert.deepEqual(s.plans.get(t.id).start, new Date(2099, 0, 11, 15, 0));
+  });
+
+  test('eingeplant, Zeit verstrichen, seitdem nochmal fällig → nur 1×', () => {
+    fresh();
+    const t = task('Bad', { recurrence: 'rhythm', window_start: '2099-01-03', buffer: 0, on_missed: 'remind', repeat: { freq: 'weekly', interval: 1 } });
+    plan(t, '2099-01-03T09:00', '2099-01-03T10:00');
+    assert.equal(count('Bad', NOW), 1);
+    assert.deepEqual(nowSections(NOW).overdue.map((x) => x.title), ['Bad']);
+    assert.equal(nowSections(NOW).plans.has(t.id), false, 'vergangene Planung ist kein Hinweis mehr');
+  });
+
+  test('verfällt: verpasst trotz Planung → nur 1× beim nächsten Durchgang', () => {
+    fresh();
+    const t = task('Müll', { recurrence: 'rhythm', window_start: '2099-01-02', buffer: 0, on_missed: 'expire', repeat: { freq: 'weekly', interval: 1 } });
+    plan(t, '2099-01-02T07:00', '2099-01-02T07:15');
+    assert.equal(count('Müll', NOW), 1);
+    assert.deepEqual(nowSections(NOW).upcoming.map((x) => x.title), ['Müll']);
+  });
+
+  test('mehrere Planungen: der nächste noch kommende Plan zählt; trotzdem nur 1×', () => {
+    fresh();
+    const t = task('Lernen', { window_end: '2099-01-20' });
+    plan(t, '2099-01-09T09:00', '2099-01-09T10:00');
+    plan(t, '2099-01-10T18:00', '2099-01-10T19:00');
+    plan(t, '2099-01-12T18:00', '2099-01-12T19:00');
+    assert.equal(count('Lernen', NOW), 1);
+    assert.deepEqual(nowSections(NOW).plans.get(t.id).start, new Date(2099, 0, 10, 18, 0));
+  });
+
+  test('abgehakt während der geplanten Zeit → nirgends mehr offen', () => {
+    fresh();
+    const t = task('Anruf', { window_end: '2099-01-10' });
+    plan(t, '2099-01-10T11:30', '2099-01-10T12:30');
+    store.completeTask(t.id, NOW);
+    assert.equal(count('Anruf', new Date(2099, 0, 10, 13, 0)), 0);
+  });
+
+  test('Unteraufgabe eingeplant: nur sie läuft, die Oberaufgabe bleibt in ihrem Bereich', () => {
+    fresh();
+    const p = task('Umzug', { window_end: '2099-01-20' });
+    const c = task('Kartons', { parent_id: p.id, window_end: '2099-01-10' });
+    plan(c, '2099-01-10T11:00', '2099-01-10T13:00');
+    const s = nowSections(NOW);
+    assert.deepEqual(s.today.map((x) => x.title), ['Umzug']);
+  });
+});
+
+function plannedNowRunning(id, now) {
+  return plannedNow(now).running.has(id);
+}

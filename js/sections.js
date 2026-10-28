@@ -1,6 +1,6 @@
 // Bereiche von „Was mache ich jetzt?“ – reine Logik ohne Oberfläche (wird in tests/now.test.js geprüft).
 
-import { daysBetween, parseDate } from './dates.js';
+import { addDays, daysBetween, parseDate, startOfDay } from './dates.js';
 import * as store from './store.js';
 
 const ACTIVE = ['open', 'due', 'overdue'];
@@ -23,7 +23,25 @@ export function daysLeft(task, now = new Date()) {
 
 const byPriority = (a, b) => priority(b) - priority(a);
 
-// Liefert { items, overdue, today, rest, upcoming }:
+// Eingeplante Zeiten (Termine mit task_id) ab heute bis in zwei Wochen, je Aufgabe:
+//   running – Aufgaben, deren geplante Zeit gerade läuft (stehen dann nur unter „Läuft gerade“)
+//   next    – Map Aufgabe → nächste geplante Zeit, die noch nicht vorbei ist ({ start, end })
+export function plannedNow(now = new Date()) {
+  const running = new Set();
+  const next = new Map();
+  const events = store.eventsBetween(startOfDay(now), addDays(startOfDay(now), 14))
+    .filter((e) => e.task_id)
+    .map((e) => ({ id: e.task_id, start: parseDate(e.start_at), end: parseDate(e.end_at) }))
+    .sort((a, b) => a.start - b.start);
+  for (const slot of events) {
+    if (slot.end <= now) continue; // vorbei – zählt nicht mehr (Aufgabe steht wieder normal da, falls offen)
+    if (slot.start <= now) running.add(slot.id);
+    if (!next.has(slot.id)) next.set(slot.id, { start: slot.start, end: slot.end });
+  }
+  return { running, next };
+}
+
+// Liefert { items, overdue, today, rest, upcoming, plans }:
 //   overdue  – Überfällig, auch Unteraufgaben (außer ihre Oberaufgabe steht schon hier).
 //              Nach W×D, bei Gleichstand am längsten überfällig zuerst.
 //   today    – Heute fällig: alles mit Deadline, dessen Zeitraum läuft (ohne „Ab“ = ab sofort) – auch Unteraufgaben,
@@ -31,8 +49,13 @@ const byPriority = (a, b) => priority(b) - priority(a);
 //   rest     – alles andere Offene der obersten Ebene, nach W×D.
 //   upcoming – Demnächst: oberste Ebene und Aufgaben mehrtägiger Routinen, früheste zuerst (höchstens 8).
 //   items    – alles Offene der obersten Ebene (für die Zufallsauswahl).
+//   plans    – nächste geplante Zeit je Aufgabe (für den Hinweis „📅 heute 15:00“).
+// Jede Aufgabe steht höchstens einmal da. Läuft ihre geplante Zeit gerade, steht sie nur unter „Läuft gerade“;
+// ist die Zeit vorbei und sie ist noch offen, steht sie wieder in ihrem Bereich.
 export function nowSections(now = new Date()) {
-  const everything = store.tasks(now).filter((t) => t.kind !== 'routine' && !store.isInRoutine(t));
+  const { running, next } = plannedNow(now);
+  const everything = store.tasks(now)
+    .filter((t) => t.kind !== 'routine' && !store.isInRoutine(t) && !running.has(t.id));
   const byId = new Map(everything.map((t) => [t.id, t]));
   const parentOf = (id) => byId.get(id)?.parent_id ?? store.taskById(id)?.parent_id ?? null;
   const hasAncestorIn = (ids, t) => {
@@ -56,5 +79,5 @@ export function nowSections(now = new Date()) {
     .sort((a, b) => a.window_start.localeCompare(b.window_start))
     .slice(0, 8);
 
-  return { items, overdue, today, rest, upcoming };
+  return { items, overdue, today, rest, upcoming, plans: next };
 }

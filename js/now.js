@@ -57,7 +57,14 @@ function subtaskList(task, refresh) {
     subtaskList(child, refresh))));
 }
 
-function nowItem(task, refresh, { left = false } = {}) {
+// Hinweis auf die nächste geplante Zeit: „📅 heute 15:00“, „📅 morgen 9:00“, „📅 Mo., 20.10. 15:00“.
+function planText(plan, now = new Date()) {
+  const days = daysBetween(now, plan.start);
+  const day = days === 0 ? 'heute' : days === 1 ? 'morgen' : formatDate(plan.start, { weekday: 'short', day: '2-digit', month: '2-digit' });
+  return `📅 ${day} ${formatTime(plan.start)}`;
+}
+
+function nowItem(task, refresh, { left = false, plan = null } = {}) {
   const openSubtasks = store.childrenOf(task.id).filter((c) => c.status !== 'done').length;
   const parent = task.parent_id ? store.taskById(task.parent_id) : null;
   const days = left ? daysLeft(task) : null;
@@ -71,6 +78,7 @@ function nowItem(task, refresh, { left = false } = {}) {
         task.recurrence !== 'once' ? el('span.badge', {}, `↻ ${recurrenceText(task)}`) : null,
         windowText(task) ? el(`span.badge.status-${task.status}`, {}, windowText(task)) : null,
         left ? el('span.badge.days-left', {}, leftText(task, days)) : null,
+        plan ? el('span.badge.planned', { title: 'Eingeplant' }, planText(plan)) : null,
         parent ? el('span.badge', {}, `in: ${parent.title}`) : null,
         openSubtasks ? el('span.badge', {}, `${openSubtasks} offen`) : null),
       progressBar(task),
@@ -203,7 +211,8 @@ export function renderNowView(root) {
   }, 60000);
   const running = runningNow();
   // Bereiche Überfällig / Heute fällig / Weitere / Demnächst (Reihenfolge siehe sections.js).
-  const { items, overdue, today, rest, upcoming } = nowSections();
+  const { items, overdue, today, rest, upcoming, plans } = nowSections();
+  const item = (t, options = {}) => nowItem(t, refresh, { ...options, plan: plans.get(t.id) });
   const wishes = store.wishes();
   const candidates = [...items, ...wishes.map((w) => ({ ...w, isWish: true }))];
 
@@ -242,16 +251,16 @@ export function renderNowView(root) {
 
         overdue.length ? el('section.card.alert', {},
           el('h3', {}, '⚠ Überfällig'),
-          el('ul.now-list', {}, overdue.map((t) => nowItem(t, refresh)))) : null,
+          el('ul.now-list', {}, overdue.map((t) => item(t)))) : null,
 
         today.length ? el('section.card.today', {},
           el('h3', {}, '📅 Heute fällig'),
-          el('ul.now-list', {}, today.map((t) => nowItem(t, refresh, { left: true })))) : null,
+          el('ul.now-list', {}, today.map((t) => item(t, { left: true })))) : null,
 
         el('section.card', {},
           el('h3', {}, 'Weitere Aufgaben'),
           rest.length
-            ? el('ul.now-list', {}, rest.map((t) => nowItem(t, refresh)))
+            ? el('ul.now-list', {}, rest.map((t) => item(t)))
             : el('p.empty', {}, overdue.length || today.length ? 'Sonst ist nichts offen.' : 'Alles erledigt 🎉'))),
 
       el('div.now-side', {},

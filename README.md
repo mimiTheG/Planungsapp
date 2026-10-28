@@ -63,7 +63,10 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
 - **Anstehende wiederkehrende Aufgaben** (auch aus mehrtägigen Routinen) stehen **einmal** am Termintag ihres
   nächsten Durchgangs in der Ganztägig-Zeile bzw. im Monat – hell in der Themenfarbe mit farbigem Rand links
   (der Puffer verteilt sie nicht über mehrere Tage). Ist der Termintag schon vorbei, der Puffer läuft aber noch,
-  oder ist sie überfällig, steht sie heute. Fällt sie auf die rote Deadline oder ist sie eingeplant, steht nur das.
+  oder ist sie überfällig, steht sie heute. Fällt sie auf die rote Deadline, steht nur die.
+  **Eingeplant (📅):** Ist sie genau an diesem Tag eingeplant und die geplante Zeit noch nicht vorbei, steht dort nur der
+  Termin. Für einen anderen Tag eingeplant oder geplante Zeit verstrichen, aber nicht abgehakt → die Aufgabe steht
+  weiter da – nie doppelt, nie verschwunden.
   Antippen öffnet die Aufgabe; nach dem Erledigen erscheint der nächste Durchgang.
 - **Termin nachträglich zur Aufgabe machen:** Termin öffnen und oben „Aufgabe“ wählen. Datum und Uhrzeit werden zur
   Deadline, der Termin verschwindet aus dem Kalender. Bei Serien: *dieser* → einmalige Aufgabe, *dieser und folgende*
@@ -142,6 +145,9 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
   Nicht abgeschlossene Routinen bleiben nach ihrer Zeit stehen und sind als **abgelaufen** markiert; ab 4:30 am
   Folgetag verschwinden sie aus „Jetzt“. Abgehakte Schritte bleiben abgehakt, bis man die Routine abschließt oder
   abbricht (kein automatisches Zurücksetzen mehr).
+- **Eingeplante Aufgaben:** Während der geplanten Zeit stehen sie nur unter „Läuft gerade“ (mit „✓ Aufgabe erledigt“).
+  Ist die Zeit vorbei und sie sind noch offen, stehen sie wieder in ihrem Bereich. Ein kommender Plan steht als Hinweis
+  dabei („📅 heute 15:00“, „📅 morgen 9:00“). Jede Aufgabe steht in „Jetzt“ höchstens einmal.
 - Reihenfolge der Aufgaben:
   1. **⚠ Überfällig** – alles, dessen Zeit abgelaufen ist, auch einmalige Aufgaben und Unteraufgaben
      (nach Wichtigkeit × Dringlichkeit, bei Gleichstand am längsten überfällig zuerst).

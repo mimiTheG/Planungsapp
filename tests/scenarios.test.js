@@ -516,17 +516,77 @@ describe('Wiederkehrende Aufgaben im Kalender', () => {
     assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 6, 14)), ['Bad 01-12']);
   });
 
-  test('überfällig (erinnern) steht heute; Deadline-Tag und eingeplante Durchgänge nicht doppelt', () => {
+  test('überfällig (erinnern) steht heute; am Deadline-Tag nur die rote Deadline', () => {
     fresh();
     store.createTask({ title: 'Pflanzen', recurrence: 'rhythm', window_start: '2099-01-02', buffer: 0, on_missed: 'remind', repeat: { freq: 'weekly', interval: 1 } });
     assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 6, 12)), ['Pflanzen 01-06']);
     fresh();
     store.createTask({ title: 'Miete', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 0, has_deadline: true, repeat: { freq: 'monthly', interval: 1, monthly: 'day' } });
     assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), [], 'nur die rote Deadline');
+  });
+});
+
+describe('Eingeplante Aufgaben im Kalender: nie verschwinden, nie doppelt', () => {
+  const on = (now) => store.recurringBetween(new Date('2099-01-01T00:00'), new Date('2099-01-31T00:00'), now).map((t) => `${t.title} ${t.day.slice(5)}`);
+  const bad = (extra = {}) => store.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 }, ...extra });
+  const plan = (task, day, from = '09:00', to = '10:00') => store.createEvent({ task_id: task.id, start_at: `${day}T${from}`, end_at: `${day}T${to}` });
+
+  test('für einen anderen Tag eingeplant → steht trotzdem an ihrem Tag', () => {
     fresh();
-    const d = store.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 } });
-    store.createEvent({ task_id: d.id, start_at: '2099-01-04T09:00', end_at: '2099-01-04T10:00' });
-    assert.deepEqual(on('2099-01-01T00:00', '2099-01-31T00:00', new Date(2099, 0, 1, 12)), [], 'eingeplant');
+    plan(bad(), '2099-01-04');
+    assert.deepEqual(on(new Date(2099, 0, 1, 12)), ['Bad 01-05']);
+  });
+
+  test('am selben Tag eingeplant, Zeit noch nicht vorbei → nur der Termin', () => {
+    fresh();
+    plan(bad(), '2099-01-05', '15:00', '16:00');
+    assert.deepEqual(on(new Date(2099, 0, 1, 12)), [], 'vorher');
+    assert.deepEqual(on(new Date(2099, 0, 5, 15, 30)), [], 'während der geplanten Zeit');
+  });
+
+  test('geplante Zeit verstrichen, aber nicht abgehakt → erscheint wieder (genau einmal)', () => {
+    fresh();
+    plan(bad(), '2099-01-05', '09:00', '10:00');
+    assert.deepEqual(on(new Date(2099, 0, 5, 10, 1)), ['Bad 01-05']);
+  });
+
+  test('eingeplant, Zeit verstrichen, seitdem nochmal fällig (verfällt) → nur 1× beim neuen Durchgang', () => {
+    fresh();
+    const t = bad({ on_missed: 'expire' });
+    plan(t, '2099-01-05');
+    const now = new Date(2099, 0, 13, 12); // Durchgang 11.–13. läuft, der vom 5. ist verfallen
+    assert.deepEqual(on(now), ['Bad 01-13']);
+    assert.equal(store.tasks(now).find((x) => x.id === t.id).missed_count, 1);
+  });
+
+  test('eingeplant, Zeit verstrichen, seitdem nochmal fällig (erinnern) → nur 1×, heute', () => {
+    fresh();
+    plan(bad({ on_missed: 'remind' }), '2099-01-05');
+    assert.deepEqual(on(new Date(2099, 0, 20, 12)), ['Bad 01-20']);
+  });
+
+  test('mehrmals eingeplant (gestern verstrichen, morgen geplant) → trotzdem nur 1×', () => {
+    fresh();
+    const t = bad();
+    plan(t, '2099-01-04');
+    plan(t, '2099-01-06');
+    assert.deepEqual(on(new Date(2099, 0, 5, 12)), ['Bad 01-05']);
+  });
+
+  test('abgehakt → nächster Durchgang; der alte Termin hält ihn nicht auf', () => {
+    fresh();
+    const t = bad();
+    plan(t, '2099-01-05');
+    store.completeTask(t.id, new Date(2099, 0, 5, 9, 30));
+    assert.deepEqual(on(new Date(2099, 0, 5, 12)), ['Bad 01-12']);
+  });
+
+  test('wiederkehrend eingeplant (jeden Montag) → am Termintag nur der Termin, solange er noch kommt', () => {
+    fresh();
+    const t = bad({ buffer: 0 });
+    store.createEvent({ task_id: t.id, start_at: '2099-01-05T18:00', end_at: '2099-01-05T19:00', repeat: { freq: 'weekly', interval: 1 } });
+    assert.deepEqual(on(new Date(2099, 0, 5, 12)), []);
+    assert.deepEqual(on(new Date(2099, 0, 5, 19, 30)), ['Bad 01-05'], 'Termin vorbei, nicht abgehakt');
   });
 });
 

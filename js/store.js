@@ -387,12 +387,13 @@ export function deadlinesBetween(from, to) {
 
 // Wiederkehrende Aufgaben (auch aus mehrtägigen Routinen): der anstehende Durchgang einmal, am Termintag
 // (bei „Zeitraum“ am ersten Tag). Liegt der schon zurück (Puffer läuft noch, überfällig), steht sie heute.
-// Ist der Tag die rote Deadline oder ist die Aufgabe in diesem Durchgang eingeplant, gibt es keinen Extra-Eintrag.
+// Kein Extra-Eintrag, wenn der Tag die rote Deadline ist oder die Aufgabe genau an diesem Tag eingeplant ist und die
+// geplante Zeit noch nicht vorbei ist (dann steht dort der Termin). Für einen anderen Tag eingeplant oder geplante
+// Zeit verstrichen, aber noch offen → die Aufgabe steht weiter da (genau einmal).
 export function recurringBetween(from, to, now = new Date()) {
   const first = isoDate(from);
   const last = isoDate(to);
   const today = isoDate(now);
-  const planned = data.events.filter((e) => e.task_id && e.start_at);
   const result = [];
   for (const t of tasks(now)) {
     if (t.recurrence === 'once' || isInRoutine(t) || !['due', 'upcoming', 'overdue'].includes(t.status)) continue;
@@ -402,12 +403,21 @@ export function recurringBetween(from, to, now = new Date()) {
     const day = t.status === 'overdue' || target < today ? today : target;
     if (day < first || day > last) continue;
     if (t.has_deadline && day === t.window_end) continue;
-    const from_ = t.window_start || today;
-    const to_ = t.status === 'overdue' ? today : t.window_end || today;
-    if (planned.some((e) => e.task_id === t.id && e.start_at.slice(0, 10) >= from_ && e.start_at.slice(0, 10) <= to_)) continue;
+    if (plannedSlots(t.id, parseDate(day), parseDate(day)).some((slot) => slot.end > now)) continue;
     result.push({ ...t, day });
   }
   return result.sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
+// Eingeplante Zeiten einer Aufgabe (Termine mit task_id) an den Tagen from–to (inklusive), früheste zuerst:
+// [{ start, end }] als Date.
+export function plannedSlots(taskId, from, to) {
+  const first = isoDate(from);
+  const last = isoDate(to);
+  return eventsBetween(from, to)
+    .filter((e) => e.task_id === taskId && e.start_at.slice(0, 10) >= first && e.start_at.slice(0, 10) <= last)
+    .map((e) => ({ start: parseDate(e.start_at), end: parseDate(e.end_at) }))
+    .sort((a, b) => a.start - b.start);
 }
 
 // Einzeln geänderter Termin einer Serie → die Serie (sonst null).
