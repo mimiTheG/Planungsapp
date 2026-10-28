@@ -115,22 +115,22 @@ export function renderCalendarView(root) {
   // Antippen des Titels öffnet die Monats-/Jahresauswahl.
   mount(root,
     el('div.toolbar.cal-head', {},
-      el('button.icon.nav', { type: 'button', 'aria-label': 'Zurück', onclick: () => step(-1) }, '‹'),
+      el('button.icon.nav', { type: 'button', 'aria-label': 'Zurück', title: 'Zurück (←)', dataset: { key: 'prev' }, onclick: () => step(-1) }, '‹'),
       el('button.link.cal-title', {
         type: 'button',
         'aria-expanded': String(view.pickMonth),
         onclick: () => { view.pickMonth = !view.pickMonth; view.pickYear = view.anchor.getFullYear(); refresh(); },
       }, title, el('span.caret', {}, view.pickMonth ? '▴' : '▾')),
-      el('button.icon.nav', { type: 'button', 'aria-label': 'Vor', onclick: () => step(1) }, '›'),
+      el('button.icon.nav', { type: 'button', 'aria-label': 'Vor', title: 'Vor (→)', dataset: { key: 'next' }, onclick: () => step(1) }, '›'),
       el('span.spacer'),
-      el('button', { type: 'button', onclick: () => { view.anchor = new Date(); view.pickMonth = false; refresh(); } }, 'Heute')),
+      el('button', { type: 'button', title: 'Heute (T)', dataset: { key: 'today' }, onclick: () => { view.anchor = new Date(); view.pickMonth = false; refresh(); } }, 'Heute')),
     view.pickMonth ? monthPicker(refresh) : null,
     el('div.segmented.modes', {}, Object.entries(MODES).map(([m, label]) =>
       el(`button${view.mode === m ? '.active' : ''}`, {
         type: 'button',
         onclick: () => setMode(m, refresh),
       }, label))),
-    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
+    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', title: 'Neuer Termin (N)', dataset: { key: 'new' }, onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
     el('div.legend', {},
       el('div.legend-toggles', {}, el('label.check.small', {},
         el('input', {

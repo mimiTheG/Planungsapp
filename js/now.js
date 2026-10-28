@@ -232,31 +232,35 @@ export function renderNowView(root) {
 
   mount(root,
     el('div.toolbar', {}, el('h2', {}, 'Was mache ich jetzt?')),
-    running.length ? el('section.card.running-now', {},
-      el('h3', {}, running.some((r) => !r.expired) ? '● Läuft gerade' : '● Heute noch offen'),
-      el('ul.now-list', {}, running.map((item) => runningItem(item, refresh)))) : null,
-    el('button.primary.big.wide', { type: 'button', onclick: decide, disabled: !candidates.length }, '🎲 Ich kann mich nicht entscheiden'),
+    // Am PC zwei Spalten (Aufgaben | Wunschliste & Demnächst), auf dem Handy untereinander in dieser Reihenfolge.
+    el('div.now-cols', {},
+      el('div.now-main', {},
+        running.length ? el('section.card.running-now', {},
+          el('h3', {}, running.some((r) => !r.expired) ? '● Läuft gerade' : '● Heute noch offen'),
+          el('ul.now-list', {}, running.map((item) => runningItem(item, refresh)))) : null,
+        el('button.primary.big.wide', { type: 'button', onclick: decide, disabled: !candidates.length }, '🎲 Ich kann mich nicht entscheiden'),
 
-    overdue.length ? el('section.card.alert', {},
-      el('h3', {}, '⚠ Überfällig'),
-      el('ul.now-list', {}, overdue.map((t) => nowItem(t, refresh)))) : null,
+        overdue.length ? el('section.card.alert', {},
+          el('h3', {}, '⚠ Überfällig'),
+          el('ul.now-list', {}, overdue.map((t) => nowItem(t, refresh)))) : null,
 
-    today.length ? el('section.card.today', {},
-      el('h3', {}, '📅 Heute fällig'),
-      el('ul.now-list', {}, today.map((t) => nowItem(t, refresh, { left: true })))) : null,
+        today.length ? el('section.card.today', {},
+          el('h3', {}, '📅 Heute fällig'),
+          el('ul.now-list', {}, today.map((t) => nowItem(t, refresh, { left: true })))) : null,
 
-    el('section.card', {},
-      el('h3', {}, 'Weitere Aufgaben'),
-      rest.length
-        ? el('ul.now-list', {}, rest.map((t) => nowItem(t, refresh)))
-        : el('p.empty', {}, overdue.length || today.length ? 'Sonst ist nichts offen.' : 'Alles erledigt 🎉')),
+        el('section.card', {},
+          el('h3', {}, 'Weitere Aufgaben'),
+          rest.length
+            ? el('ul.now-list', {}, rest.map((t) => nowItem(t, refresh)))
+            : el('p.empty', {}, overdue.length || today.length ? 'Sonst ist nichts offen.' : 'Alles erledigt 🎉'))),
 
-    el('section.card.wishes', {},
-      el('h3', {}, 'Wollte ich schon länger mal wieder machen'),
-      wishes.length ? el('ul.now-list', {}, wishes.map((w) => wishItem(w, refresh))) : null,
-      el('button', { type: 'button', onclick: () => openWishEditor({}, refresh) }, '+ Hinzufügen')),
+      el('div.now-side', {},
+        el('section.card.wishes', {},
+          el('h3', {}, 'Wollte ich schon länger mal wieder machen'),
+          wishes.length ? el('ul.now-list', {}, wishes.map((w) => wishItem(w, refresh))) : null,
+          el('button', { type: 'button', onclick: () => openWishEditor({}, refresh) }, '+ Hinzufügen')),
 
-    upcoming.length ? el('section.card', {},
-      el('h3', {}, 'Demnächst'),
-      el('ul.plain', {}, upcoming.map((t) => el('li', {}, topicDot(t), ` ${store.shownTitle(t)} – ab ${formatDate(t.window_start)}`)))) : null);
+        upcoming.length ? el('section.card', {},
+          el('h3', {}, 'Demnächst'),
+          el('ul.plain', {}, upcoming.map((t) => el('li', {}, topicDot(t), ` ${store.shownTitle(t)} – ab ${formatDate(t.window_start)}`)))) : null)));
 }

@@ -2,7 +2,7 @@
 // Mit Internet wird immer die neueste Version geladen (am Browser-Cache vorbei), ohne Internet die
 // zuletzt gespeicherte. Bei Änderungen an der Dateiliste VERSION erhöhen.
 
-const VERSION = 'v53';
+const VERSION = 'v54';
 const CACHE = `planungsapp-${VERSION}`;
 const FILES = [
   './',
@@ -31,6 +31,7 @@ const FILES = [
   'js/samples.js',
   'js/schedule.js',
   'js/sections.js',
+  'js/shortcuts.js',
   'js/store.js',
   'js/tasks.js',
   'js/topic-picker.js',
