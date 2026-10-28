@@ -716,3 +716,46 @@ kbd {
   /* Dialoge: etwas breiter */
   .dialog { width: min(760px, calc(100vw - 4rem)); }
 }
+
+/* Einplanen: Monat → Tag → freie Zeit (plan-picker.js) */
+.plan-picker { display: grid; gap: 0.6rem; }
+.pp-duration { display: flex; align-items: center; gap: 0.5rem; }
+.pp-duration label { font-weight: 600; font-size: 0.88rem; }
+.pp-duration input { width: 5.5rem; flex: none; text-align: center; }
+.pp-month-head { display: flex; align-items: center; justify-content: space-between; }
+.pp-month-head strong { color: var(--accent); }
+.pp-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.pp-wd { text-align: center; font-size: 0.72rem; color: var(--muted); }
+.pp-day {
+  min-height: 2.6rem; padding: 0.15rem 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--surface); line-height: 1.1;
+}
+.pp-day.other { opacity: 0.55; }
+.pp-day.past { opacity: 0.3; cursor: default; }
+.pp-day.today .pp-num { color: var(--accent); font-weight: 800; }
+.pp-day.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.pp-day.selected .pp-num, .pp-day.selected .pp-count { color: var(--on-accent); }
+.pp-num { font-size: 0.95rem; }
+.pp-count { font-size: 0.6rem; color: var(--accent); letter-spacing: 1px; min-height: 0.7rem; }
+.pp-day-title { margin: 0.3rem 0 0; font-size: 1rem; }
+.pp-allday { margin: 0; font-size: 0.85rem; }
+.pp-free-buttons { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.chip-button { min-height: 2rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.88rem; background: var(--pink-soft); border-color: var(--p1); }
+.chip-button.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.plan-picker .small { margin: 0; font-size: 0.8rem; }
+.pp-timeline { display: grid; grid-template-columns: 2.2rem 1fr; max-height: 18rem; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.pp-hour { font-size: 0.7rem; color: var(--muted); text-align: right; padding-right: 0.35rem; border-top: 1px solid var(--border); }
+.pp-lane { position: relative; cursor: crosshair; background-image: repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 40px); }
+.pp-free { position: absolute; left: 0; right: 0; background: var(--surface); }
+.pp-busy, .pp-pick {
+  position: absolute; left: 3px; right: 3px; border-radius: 5px; padding: 0 0.35rem; font-size: 0.72rem; line-height: 1.3;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; pointer-events: none;
+}
+.pp-busy { background: color-mix(in srgb, var(--c) 30%, var(--surface)); border-left: 3px solid var(--c); color: var(--text); }
+.pp-pick { background: var(--accent); color: var(--on-accent); font-weight: 700; box-shadow: 0 2px 8px rgba(58, 38, 48, 0.3); left: 18%; }
+.pp-pick.clash { background: var(--warn); }
+.pp-warning { margin: 0; color: var(--warn); font-weight: 600; font-size: 0.85rem; }
+@media (min-width: 1000px) {
+  .pp-timeline { max-height: 24rem; }
+}
+.pp-chosen { flex: 1 1 100%; margin: 0; font-weight: 700; color: var(--accent); }

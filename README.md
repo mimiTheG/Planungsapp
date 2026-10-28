@@ -34,12 +34,18 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
 - Termine über Mitternacht erscheinen am Folgetag nur, wenn sie nach **4:30** enden (vorher zählt die Nacht
   noch zum Vortag, z. B. Party 22–2 Uhr).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
-- **Aufgaben einplanen:** In der Aufgabenliste auf 📅 tippen (oder im Aufgaben-Editor „📅 Einplanen“) – das legt einen
-  Termin an, um die Aufgabe zu erledigen (Titel und Thema von der Aufgabe, Dauer aus ihrer Dauer, sonst 1 Stunde).
+- **Aufgaben einplanen:** In der Aufgabenliste auf 📅 tippen (oder im Aufgaben-Editor „📅 Einplanen“). Es öffnet sich
+  ein **Monatskalender mit allen Terminen** (Punkte = Anzahl; vergangene Tage gesperrt). Tag antippen → darunter der
+  **Tagesplan** mit den vorhandenen Terminen und den **freien Zeiten** als Knöpfe (Lücken zwischen 6 und 23 Uhr, in die die
+  Dauer passt; vorgeschlagen wird die erste ab 8 Uhr). Freie Zeit antippen oder direkt in die Zeitleiste tippen
+  (Viertelstunden), Dauer bei Bedarf ändern, **📅 Einplanen** – fertig. Überschneidungen werden angezeigt.
+  „Mehr Optionen …“ öffnet den Termin-Editor (z. B. für Wiederholungen). Der Termin bekommt Titel und Thema von der
+  Aufgabe, die Dauer aus ihrer Dauer (sonst 1 Stunde).
   Im Termin lässt sie sich direkt abhaken („✓ Erledigt“) oder öffnen; erledigt steht im Kalender „✓“ davor.
   Läuft die eingeplante Zeit gerade, kann man sie unter „Jetzt“ abhaken.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
-  oder bei der Routine auf **📅 Einplanen** tippen. Im Termin startet „▶ …“ die Routine.
+  oder bei der Routine auf **📅 Einplanen** tippen (derselbe Kalender wie bei Aufgaben; die Standardstartzeit wird
+  vorgeschlagen, wenn sie frei ist). Im Termin startet „▶ …“ die Routine.
 - **Veranstaltungen:** Thema **„Veranstaltung“** wählen – solche Termine lassen sich im Kalender per Haken
   „Veranstaltungen“ ein- und ausblenden.
 - **Aufgaben** im Kalender (rote Deadlines und anstehende regelmäßige Aufgaben) lassen sich genauso per Haken
@@ -232,6 +238,7 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 | `schedule.test.js` | Status (offen/fällig/überfällig …), Fenster, Puffer, „ab dem Erledigen“, Zeitraum, verpasste Durchgänge |
 | `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung |
 | `now.test.js` | „Was mache ich jetzt?“: welche Aufgabe in welchem Bereich, Reihenfolge nach W×D |
+| `free-slots.test.js` | Freie Zeiten zwischen Terminen fürs Einplanen (Lücken, Dauer, heute ab jetzt, ganztägig) |
 | `crypto.test.js` | Verschlüsselung: hin und zurück, falsches Passwort, veränderte Daten, nichts Lesbares |
 | `merge.test.js` | Abgleich: Zeitstempel, Löschvermerke, spätere Änderung gewinnt, Verlauf |
 | `cloud.test.js` | Cloud-Sync mit zwei Geräten gegen einen nachgebauten Supabase-Server (`tests/support/`) |
@@ -271,6 +278,8 @@ js/
   now.js               „Was mache ich jetzt?“
   sections.js          Bereiche und Reihenfolge von „Was mache ich jetzt?“ (ohne Oberfläche, testbar)
   shortcuts.js         Tastenkürzel am PC
+  plan-picker.js       Einplanen: Monat → Tag → freie Zeit zwischen den Terminen
+  free-slots.js        Freie Zeiten eines Tages (ohne Oberfläche, testbar)
   player.js            Leiste der laufenden Routine über der Navigation
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix

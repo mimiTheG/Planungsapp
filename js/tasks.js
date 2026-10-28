@@ -4,7 +4,7 @@ import {
   el, mount, field, select, formData, openDialog, toast, attempt,
 } from './ui.js';
 import {
-  addDays, daysBetween, formatDate, formatDuration, hoursText, isoDate, isoDateTime, parseDate, spanText,
+  addDays, daysBetween, formatDate, formatDuration, formatTime, hoursText, isoDate, parseDate, spanText,
 } from './dates.js';
 import * as store from './store.js';
 import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
@@ -13,6 +13,7 @@ import { enableLongPressReorder } from './reorder.js';
 import { parentPicker } from './parent-picker.js';
 import { openEventEditor } from './calendar.js';
 import { repeatFields } from './repeat-fields.js';
+import { asInputs, openPlanPicker } from './plan-picker.js';
 import { repeatText } from './repeat.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
@@ -807,28 +808,33 @@ export function routineStart(routine, day = null) {
 // Beginn zur nächsten vollen Stunde.
 const canPlan = (task) => task.kind !== 'routine' && !store.isInRoutine(task) && task.status !== 'done';
 
+// Einplanen: Kalender mit allen Terminen, Tag wählen, freie Zeit wählen (plan-picker.js).
+// „Mehr Optionen …“ öffnet den Termin-Editor (z. B. für Wiederholungen).
 export function planTask(task, refresh) {
-  const start = new Date();
-  start.setHours(start.getHours() + 1, 0, 0, 0);
-  const minutes = task.duration_min || 60;
-  openEventEditor({
-    task_id: task.id,
+  openPlanPicker({
     title: task.title,
-    topic_id: task.topic_id,
-    start_at: isoDateTime(start),
-    end_at: isoDateTime(new Date(+start + minutes * 60000)),
-  }, refresh);
+    minutes: task.duration_min || 60,
+    onPlan: (start, minutes) => {
+      store.createEvent({ task_id: task.id, ...asInputs(start, minutes) });
+      toast(`Eingeplant: ${formatDate(start)}, ${formatTime(start)}`);
+      refresh();
+    },
+    onMore: (start, minutes) => openEventEditor({ task_id: task.id, title: task.title, topic_id: task.topic_id, ...asInputs(start, minutes) }, refresh),
+  });
 }
 
 function planRoutine(routine, refresh) {
-  const start = routineStart(routine);
-  const minutes = store.routineMinutes(routine) || 30;
-  openEventEditor({
-    routine_id: routine.id,
-    topic_id: routine.topic_id,
-    start_at: isoDateTime(start),
-    end_at: isoDateTime(new Date(+start + minutes * 60000)),
-  }, refresh);
+  openPlanPicker({
+    title: routine.title,
+    minutes: store.routineMinutes(routine) || 30,
+    preferredTime: routine.default_time,
+    onPlan: (start, minutes) => {
+      store.createEvent({ routine_id: routine.id, ...asInputs(start, minutes) });
+      toast(`Eingeplant: ${formatDate(start)}, ${formatTime(start)}`);
+      refresh();
+    },
+    onMore: (start, minutes) => openEventEditor({ routine_id: routine.id, topic_id: routine.topic_id, ...asInputs(start, minutes) }, refresh),
+  });
 }
 
 export function renderRoutinesView(root) {
