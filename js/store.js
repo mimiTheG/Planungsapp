@@ -3,6 +3,7 @@
 import { addDays, isoDate, parseDate, stamp } from './dates.js';
 import * as schedule from './schedule.js';
 import * as repeating from './repeat.js';
+import { stampChanges } from './merge.js';
 
 const STORAGE_KEY = 'planungsapp.v1';
 // scale 'high5': Wichtigkeit/Dringlichkeit 5 = sehr wichtig/sofort, 1 = unwichtig/kein Zeitdruck.
@@ -37,6 +38,10 @@ function migrate(parsed) {
 
 let data = EMPTY();
 let storage = globalThis.localStorage;
+// Stand beim letzten Speichern – zum Erkennen, was sich geändert hat (Zeitstempel für den Cloud-Sync).
+let saved = null;
+let onLocalChange = null;
+const clone = (value) => JSON.parse(JSON.stringify(value));
 
 export class ValidationError extends Error {}
 
@@ -74,24 +79,49 @@ export function load(customStorage) {
   } catch {
     data = withFixedTopics(EMPTY());
   }
+  saved = clone(data);
   rollExpired();
   return raw !== null;
 }
 
+// IDs werden nie wiederverwendet (der Zähler läuft nie rückwärts) – sonst könnte ein Löschvermerk des
+// Cloud-Syncs einen neuen Eintrag mit derselben ID treffen.
 export function clearAll() {
-  data = withFixedTopics(EMPTY());
+  const keep = { deleted: data.deleted, modified_at: data.modified_at, nextId: data.nextId };
+  data = withFixedTopics({ ...EMPTY(), ...keep });
   save();
 }
 
-function save() {
+// Speichern. Änderungen auf diesem Gerät bekommen Zeitstempel (bzw. Löschvermerke) und melden sich beim
+// Cloud-Sync; Daten, die der Sync selbst einspielt (fromSync), bringen ihre Zeitstempel schon mit.
+function save({ fromSync = false } = {}) {
+  const changed = !fromSync && stampChanges(saved, data, Date.now());
   storage?.setItem(STORAGE_KEY, JSON.stringify(data));
+  saved = clone(data);
   // Ansichten wie die Leiste der laufenden Routine hören darauf.
   if (typeof Event === 'function') globalThis.dispatchEvent?.(new Event('planungsapp-change'));
+  if (changed) onLocalChange?.();
 }
 
+// Für den Cloud-Sync: wird nach jeder Änderung auf diesem Gerät aufgerufen.
+export function setLocalChangeListener(fn) {
+  onLocalChange = fn;
+}
+
+// Für den Cloud-Sync: kompletter Stand (Kopie) bzw. einen abgeglichenen Stand übernehmen.
+export const snapshot = () => clone(data);
+
+export function replaceData(next) {
+  data = withFixedTopics({ ...migrate(clone(next)), nextId: Math.max(data.nextId, Number(next.nextId) || 1) });
+  save({ fromSync: true });
+  rollExpired();
+}
+
+// IDs sind auch über mehrere Geräte eindeutig (Cloud-Sync): Zeit in Millisekunden × 1000 plus Zufall;
+// sie steigen trotzdem immer an, die Reihenfolge des Anlegens bleibt also erhalten.
 function nextId() {
-  const id = data.nextId;
-  data.nextId += 1;
+  const id = Math.max(data.nextId, Date.now() * 1000 + Math.floor(Math.random() * 1000));
+  data.nextId = id + 1;
   return id;
 }
 
@@ -104,7 +134,8 @@ export function importJson(text) {
   if (!parsed || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.topics) || !Array.isArray(parsed.events)) {
     throw new ValidationError('Das ist keine gültige Sicherung');
   }
-  data = withFixedTopics(migrate(parsed));
+  const keepNext = data.nextId;
+  data = withFixedTopics({ ...migrate(parsed), nextId: Math.max(keepNext, Number(parsed.nextId) || 1) });
   save();
   rollExpired();
 }

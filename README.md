@@ -3,8 +3,8 @@
 Persönlicher Planer fürs Handy: Kalender, Aufgaben, Projekte, Routinen – und „Was mache ich jetzt?“.
 
 Die App ist eine **PWA** (installierbare Web-App): Sie läuft im Browser, lässt sich auf dem Startbildschirm
-installieren und funktioniert danach auch **offline**. Es gibt keinen Server und kein Konto – alle Daten liegen
-nur auf dem Gerät (Sicherung über *Themen → Datensicherung*).
+installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem Gerät (Sicherung über
+*Themen → Datensicherung*) – und auf Wunsch zusätzlich **Ende-zu-Ende-verschlüsselt in der Cloud** (siehe Cloud-Sync).
 
 ## Auf dem Android-Handy installieren
 
@@ -159,6 +159,29 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 **Beispieldaten** werden beim allerersten Start angelegt. Unter *Themen → Beispieldaten* lassen sie sich neu laden
 oder mit „Alles löschen“ entfernen.
 
+## Cloud-Sync (verschlüsselt)
+
+Unter *Themen → Cloud-Sync* lassen sich die Daten verschlüsselt bei [Supabase](https://supabase.com) speichern und
+zwischen Geräten abgleichen. Einrichtung Schritt für Schritt: [supabase/ANLEITUNG.md](supabase/ANLEITUNG.md).
+
+- **Verschlüsselung auf dem Gerät:** Aus dem **Sync-Passwort** entsteht mit PBKDF2 (SHA-256, 600 000 Runden) ein
+  AES-256-GCM-Schlüssel (Web Crypto API, keine fremde Bibliothek). Supabase bekommt nur Salz, Zufallswert und
+  verschlüsselte Daten – nie das Sync-Passwort und nie lesbare Inhalte. Ein falsches Passwort oder veränderte Daten
+  werden erkannt.
+- **Konto:** Anmeldung bei Supabase mit E-Mail + Konto-Passwort (getrennt vom Sync-Passwort). Die Tabelle `vaults`
+  hat eine Zeile pro Konto; Zugriffsregeln (Row Level Security) erlauben nur die eigene Zeile
+  ([supabase/setup.sql](supabase/setup.sql)).
+- **Abgleich:** kurz nach jeder Änderung, beim Öffnen der App und wenn wieder Internet da ist (offline geht alles wie
+  bisher). Jeder Eintrag merkt sich, wann er zuletzt geändert wurde; pro Eintrag gewinnt die spätere Änderung,
+  Gelöschtes bleibt gelöscht (Löschvermerke), der Verlauf wird zusammengeführt. Eine Versionsnummer verhindert,
+  dass sich zwei Geräte gegenseitig überschreiben.
+- **Neues Gerät:** anmelden, Sync-Passwort eingeben – die Daten dieses Geräts werden durch die aus der Cloud ersetzt.
+- **Sync-Passwort vergessen = Cloud-Daten verloren** (niemand kann es zurücksetzen); die Daten auf dem Gerät bleiben.
+  Der abgeleitete Schlüssel wird auf dem Gerät gemerkt, damit man das Passwort nicht bei jedem Start eingeben muss –
+  dort liegen die Daten ohnehin unverschlüsselt.
+- IDs neuer Einträge sind geräteübergreifend eindeutig (Zeit × 1000 + Zufall).
+- Projekt-URL und Schlüssel lassen sich fest in `js/cloud-config.js` eintragen oder in der App eingeben.
+
 ## Veröffentlichen (GitHub Pages, kostenlos)
 
 1. Auf GitHub im Repository **Settings → Pages** öffnen.
@@ -187,6 +210,9 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 | `schedule.test.js` | Status (offen/fällig/überfällig …), Fenster, Puffer, „ab dem Erledigen“, Zeitraum, verpasste Durchgänge |
 | `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung |
 | `now.test.js` | „Was mache ich jetzt?“: welche Aufgabe in welchem Bereich, Reihenfolge nach W×D |
+| `crypto.test.js` | Verschlüsselung: hin und zurück, falsches Passwort, veränderte Daten, nichts Lesbares |
+| `merge.test.js` | Abgleich: Zeitstempel, Löschvermerke, spätere Änderung gewinnt, Verlauf |
+| `cloud.test.js` | Cloud-Sync mit zwei Geräten gegen einen nachgebauten Supabase-Server (`tests/support/`) |
 | `logic.test.js` | einzelne Regeln (ältere Sammlung) |
 | `scenarios.test.js` | ganze Abläufe wie auf dem Handy |
 
@@ -194,7 +220,8 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 und wischen wie mit dem Finger (auch langes Drücken und Ziehen). Die Uhr steht dabei fest auf Do., 15.10.2026, 12:00,
 damit die Tests unabhängig vom heutigen Datum immer gleich laufen. Abgedeckt: Aufgaben anlegen/leeren/erledigen,
 Regelmäßig, Steigerungen, Umsortieren, Kalenderansichten, Ein-/Ausblenden, Termine ziehen, Serien, Geburtstage,
-Aufgaben einplanen, Routinen, „Was mache ich jetzt?“ und die Wunschliste.
+Aufgaben einplanen, Routinen, „Was mache ich jetzt?“, die Wunschliste und den Cloud-Sync (Einrichten auf zwei
+Geräten gegen den nachgebauten Supabase-Server).
 
 `scenarios.test.js` deckt z. B. ab: eine
 Serie auf „endet am …“ und wieder zurück auf „endet nie“ stellen, Einzeltermine verschieben und danach „dieser und
@@ -224,6 +251,11 @@ js/
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix
   more.js              Themen, Datensicherung, Beispieldaten
+  cloud-view.js        Bereich „Cloud-Sync“ (verbinden, anmelden, Sync-Passwort, Status)
+  cloud.js             Cloud-Sync mit Supabase (Anmeldung, Abgleich, Konflikte)
+  cloud-config.js      Projekt-URL und Schlüssel von Supabase (optional)
+  crypto.js            Verschlüsselung (PBKDF2 + AES-GCM, Web Crypto)
+  merge.js             Zusammenführen zweier Stände (Zeitstempel, Löschvermerke)
   matrix-texts.js      Erklärungen zur Wichtigkeits-Dringlichkeits-Matrix
   topic-picker.js      Themenauswahl mit „+ Neues Thema anlegen“
   repeat.js            Wiederkehrende Termine (Berechnung, Texte, Vorschläge)
@@ -232,6 +264,7 @@ js/
   reorder.js           Umsortieren per langem Drücken
   samples.js           Beispieldaten
 icons/                 App-Icons
+supabase/              setup.sql (Tabelle + Zugriffsregeln) und Anleitung für den Cloud-Sync
 tests/                 Logik-Tests (node:test), siehe „Lokal starten & testen“
 tests/e2e/             Klicktests im Browser (Playwright)
 ```

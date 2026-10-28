@@ -524,7 +524,9 @@ describe('Sicherung', () => {
     const before = store.exportJson();
     fresh();
     store.importJson(before);
-    assert.equal(store.exportJson(), before);
+    // Einlesen ist selbst eine Änderung (Zeitpunkt modified_at für den Cloud-Sync) – alles andere bleibt gleich.
+    const content = (json) => { const { modified_at: _m, ...rest } = JSON.parse(json); return rest; };
+    assert.deepEqual(content(store.exportJson()), content(before));
   });
 
   test('alles löschen: leer, aber mit den festen Themen', () => {
@@ -540,6 +542,61 @@ describe('Sicherung', () => {
     store.load(broken);
     assert.equal(store.tasks().length, 0);
     assert.ok(store.birthdayTopic());
+  });
+});
+
+describe('IDs für den Cloud-Sync', () => {
+  // Uhr und Zufall festhalten: So würde eine Wiederverwendung sicher auffallen.
+  const frozen = (fn) => {
+    const [now, random] = [Date.now, Math.random];
+    const t = now();
+    Date.now = () => t;
+    Math.random = () => 0.5;
+    try { fn(); } finally { Date.now = now; Math.random = random; }
+  };
+
+  test('nach „Alles löschen“ werden IDs nie wiederverwendet', () => frozen(() => {
+    fresh();
+    const old = store.createTask({ title: 'alt' });
+    store.clearAll();
+    const neu = store.createTask({ title: 'neu' });
+    assert.ok(neu.id > old.id);
+    assert.ok(store.snapshot().deleted.some((d) => d.id === old.id), 'alte Aufgabe hat einen Löschvermerk');
+  }));
+
+  test('nach dem Einlesen einer älteren Sicherung werden IDs nie wiederverwendet', () => frozen(() => {
+    fresh();
+    const backup = store.exportJson();
+    const later = store.createTask({ title: 'später angelegt' });
+    store.importJson(backup);
+    assert.ok(store.createTask({ title: 'neu' }).id > later.id);
+  }));
+
+  test('IDs steigen immer an und sind große, sichere Ganzzahlen', () => {
+    fresh();
+    const ids = Array.from({ length: 50 }, (_, i) => store.createTask({ title: `t${i}` }).id);
+    assert.deepEqual(ids, [...ids].sort((a, b) => a - b));
+    assert.equal(new Set(ids).size, 50);
+    assert.ok(ids.every(Number.isSafeInteger));
+  });
+
+  test('Änderungen bekommen Zeitstempel, Löschen hinterlässt einen Löschvermerk', () => {
+    fresh();
+    const t = store.createTask({ title: 'x' });
+    assert.ok(store.snapshot().tasks[0].updated_at > 0);
+    store.deleteTask(t.id);
+    assert.deepEqual(store.snapshot().deleted.filter((d) => d.kind === 'tasks').map((d) => d.id), [t.id]);
+  });
+
+  test('Änderungen melden sich beim Sync; Übernehmen aus der Cloud nicht', () => {
+    fresh();
+    let calls = 0;
+    store.setLocalChangeListener(() => { calls += 1; });
+    store.createTask({ title: 'x' });
+    assert.equal(calls, 1);
+    store.replaceData(store.snapshot());
+    assert.equal(calls, 1);
+    store.setLocalChangeListener(null);
   });
 });
 
