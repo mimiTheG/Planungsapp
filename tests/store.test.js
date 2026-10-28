@@ -457,11 +457,13 @@ describe('Wiederkehrende Aufgaben im Kalender: weitere Fälle', () => {
     assert.deepEqual(on('2099-02-01', '2099-02-28', new Date(2099, 0, 1, 12)), []);
   });
 
-  test('eingeplanter Termin außerhalb des aktuellen Durchgangs verhindert den Eintrag nicht', () => {
+  test('eingeplant (auch außerhalb des aktuellen Durchgangs) → nur der Termin; verstrichen → wieder als Aufgabe', () => {
     fresh();
     const t = weeklyTask();
     store.createEvent({ task_id: t.id, start_at: '2099-01-20T09:00', end_at: '2099-01-20T10:00' });
-    assert.deepEqual(on('2099-01-01', '2099-01-31', new Date(2099, 0, 1, 12)), ['Bad putzen 2099-01-05']);
+    assert.deepEqual(on('2099-01-01', '2099-01-31', new Date(2099, 0, 1, 12)), []);
+    assert.equal(store.isPlanned(t.id, new Date(2099, 0, 1, 12)), true);
+    assert.equal(store.isPlanned(t.id, new Date(2099, 0, 20, 10, 0)), false, 'genau zum Ende vorbei');
   });
 
   test('Schritte eintägiger Routinen, einmalige und erledigte Aufgaben erscheinen nicht', () => {

@@ -526,15 +526,20 @@ describe('Wiederkehrende Aufgaben im Kalender', () => {
   });
 });
 
-describe('Eingeplante Aufgaben im Kalender: nie verschwinden, nie doppelt', () => {
+// Regel: Eingeplant (egal für welchen Tag) und die geplante Zeit ist noch nicht vorbei → nur der Termin, keine Aufgabe.
+// Geplante Zeit verstrichen, aber nicht abgehakt → wieder als Aufgabe, genau einmal.
+describe('Eingeplante Aufgaben im Kalender: als Termin statt als Aufgabe, nie doppelt', () => {
   const on = (now) => store.recurringBetween(new Date('2099-01-01T00:00'), new Date('2099-01-31T00:00'), now).map((t) => `${t.title} ${t.day.slice(5)}`);
   const bad = (extra = {}) => store.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2099-01-05', buffer: 1, repeat: { freq: 'weekly', interval: 1 }, ...extra });
   const plan = (task, day, from = '09:00', to = '10:00') => store.createEvent({ task_id: task.id, start_at: `${day}T${from}`, end_at: `${day}T${to}` });
 
-  test('für einen anderen Tag eingeplant → steht trotzdem an ihrem Tag', () => {
+  test('für einen anderen Tag eingeplant (z. B. am Folgetag) → keine Aufgabe mehr, nur der Termin', () => {
     fresh();
-    plan(bad(), '2099-01-04');
-    assert.deepEqual(on(new Date(2099, 0, 1, 12)), ['Bad 01-05']);
+    plan(bad(), '2099-01-06');
+    assert.deepEqual(on(new Date(2099, 0, 1, 12)), []);
+    fresh();
+    plan(bad(), '2099-01-20', '18:00', '19:00'); // auch außerhalb des Durchgangs
+    assert.deepEqual(on(new Date(2099, 0, 1, 12)), []);
   });
 
   test('am selben Tag eingeplant, Zeit noch nicht vorbei → nur der Termin', () => {
@@ -565,12 +570,13 @@ describe('Eingeplante Aufgaben im Kalender: nie verschwinden, nie doppelt', () =
     assert.deepEqual(on(new Date(2099, 0, 20, 12)), ['Bad 01-20']);
   });
 
-  test('mehrmals eingeplant (gestern verstrichen, morgen geplant) → trotzdem nur 1×', () => {
+  test('mehrmals eingeplant: gestern verstrichen, morgen geplant → keine Aufgabe (der Termin morgen zählt)', () => {
     fresh();
     const t = bad();
     plan(t, '2099-01-04');
     plan(t, '2099-01-06');
-    assert.deepEqual(on(new Date(2099, 0, 5, 12)), ['Bad 01-05']);
+    assert.deepEqual(on(new Date(2099, 0, 5, 12)), []);
+    assert.deepEqual(on(new Date(2099, 0, 6, 10, 1)), ['Bad 01-06'], 'auch der zweite Termin verstrichen → wieder da');
   });
 
   test('abgehakt → nächster Durchgang; der alte Termin hält ihn nicht auf', () => {
@@ -581,12 +587,20 @@ describe('Eingeplante Aufgaben im Kalender: nie verschwinden, nie doppelt', () =
     assert.deepEqual(on(new Date(2099, 0, 5, 12)), ['Bad 01-12']);
   });
 
-  test('wiederkehrend eingeplant (jeden Montag) → am Termintag nur der Termin, solange er noch kommt', () => {
+  test('wiederkehrend eingeplant (jeden Montag) → steht nur als Termin da', () => {
     fresh();
     const t = bad({ buffer: 0 });
     store.createEvent({ task_id: t.id, start_at: '2099-01-05T18:00', end_at: '2099-01-05T19:00', repeat: { freq: 'weekly', interval: 1 } });
     assert.deepEqual(on(new Date(2099, 0, 5, 12)), []);
-    assert.deepEqual(on(new Date(2099, 0, 5, 19, 30)), ['Bad 01-05'], 'Termin vorbei, nicht abgehakt');
+    assert.deepEqual(on(new Date(2099, 0, 5, 19, 30)), [], 'der nächste Montag ist schon eingeplant');
+  });
+
+  test('Folgetag eingeplant, Zeit verstrichen, nicht abgehakt → wieder genau einmal als Aufgabe', () => {
+    fresh();
+    plan(bad({ on_missed: 'remind' }), '2099-01-06', '09:00', '10:00');
+    assert.deepEqual(on(new Date(2099, 0, 5, 12)), [], 'vorher nur der Termin');
+    assert.deepEqual(on(new Date(2099, 0, 6, 10, 30)), ['Bad 01-06'], 'danach wieder da');
+    assert.deepEqual(on(new Date(2099, 0, 9, 12)), ['Bad 01-09'], 'überfällig: heute, genau einmal');
   });
 });
 

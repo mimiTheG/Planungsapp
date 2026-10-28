@@ -211,7 +211,7 @@ export function renderNowView(root) {
   }, 60000);
   const running = runningNow();
   // Bereiche Überfällig / Heute fällig / Weitere / Demnächst (Reihenfolge siehe sections.js).
-  const { items, overdue, today, rest, upcoming, plans } = nowSections();
+  const { items, overdue, today, rest, planned, upcoming, plans } = nowSections();
   const item = (t, options = {}) => nowItem(t, refresh, { ...options, plan: plans.get(t.id) });
   const wishes = store.wishes();
   const candidates = [...items, ...wishes.map((w) => ({ ...w, isWish: true }))];
@@ -264,6 +264,10 @@ export function renderNowView(root) {
             : el('p.empty', {}, overdue.length || today.length ? 'Sonst ist nichts offen.' : 'Alles erledigt 🎉'))),
 
       el('div.now-side', {},
+        planned.length ? el('section.card.planned', {},
+          el('h3', {}, '📅 Eingeplant'),
+          el('ul.now-list', {}, planned.map((t) => item(t)))) : null,
+
         el('section.card.wishes', {},
           el('h3', {}, 'Wollte ich schon länger mal wieder machen'),
           wishes.length ? el('ul.now-list', {}, wishes.map((w) => wishItem(w, refresh))) : null,

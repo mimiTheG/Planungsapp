@@ -387,9 +387,9 @@ export function deadlinesBetween(from, to) {
 
 // Wiederkehrende Aufgaben (auch aus mehrtägigen Routinen): der anstehende Durchgang einmal, am Termintag
 // (bei „Zeitraum“ am ersten Tag). Liegt der schon zurück (Puffer läuft noch, überfällig), steht sie heute.
-// Kein Extra-Eintrag, wenn der Tag die rote Deadline ist oder die Aufgabe genau an diesem Tag eingeplant ist und die
-// geplante Zeit noch nicht vorbei ist (dann steht dort der Termin). Für einen anderen Tag eingeplant oder geplante
-// Zeit verstrichen, aber noch offen → die Aufgabe steht weiter da (genau einmal).
+// Kein Eintrag, wenn der Tag die rote Deadline ist oder die Aufgabe eingeplant ist (egal für welchen Tag) und die
+// geplante Zeit noch nicht vorbei ist – dann steht sie dort als Termin. Ist die geplante Zeit verstrichen und die
+// Aufgabe noch offen, steht sie wieder als Aufgabe da (genau einmal).
 export function recurringBetween(from, to, now = new Date()) {
   const first = isoDate(from);
   const last = isoDate(to);
@@ -403,10 +403,16 @@ export function recurringBetween(from, to, now = new Date()) {
     const day = t.status === 'overdue' || target < today ? today : target;
     if (day < first || day > last) continue;
     if (t.has_deadline && day === t.window_end) continue;
-    if (plannedSlots(t.id, parseDate(day), parseDate(day)).some((slot) => slot.end > now)) continue;
+    if (isPlanned(t.id, now)) continue;
     result.push({ ...t, day });
   }
   return result.sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
+// Ist die Aufgabe eingeplant, und die geplante Zeit ist noch nicht vorbei (läuft gerade oder kommt noch)?
+// Gesucht wird bis ein Jahr im Voraus.
+export function isPlanned(taskId, now = new Date()) {
+  return plannedSlots(taskId, now, addDays(now, 366)).some((slot) => slot.end > now);
 }
 
 // Eingeplante Zeiten einer Aufgabe (Termine mit task_id) an den Tagen from–to (inklusive), früheste zuerst:

@@ -52,7 +52,7 @@ describe('Welche Aufgabe in welchem Bereich', () => {
     task('D', { window_start: '2099-01-15', window_end: '2099-01-20' });
     const done = task('E', { window_end: '2099-01-12' });
     store.completeTask(done.id, NOW);
-    assert.deepEqual(sections(), { items: ['Ü', 'H', 'W'], overdue: ['Ü'], today: ['H'], rest: ['W'], upcoming: ['D'] });
+    assert.deepEqual(sections(), { items: ['Ü', 'H', 'W'], overdue: ['Ü'], today: ['H'], rest: ['W'], planned: [], upcoming: ['D'] });
   });
 
   test('ohne Deadline aber mit „Ab“ in der Vergangenheit: bei „Weitere“', () => {
@@ -161,32 +161,53 @@ describe('Reihenfolge in den Bereichen', () => {
   });
 });
 
-describe('Eingeplante Aufgaben in „Jetzt“: nie verschwinden, nie doppelt', () => {
+// Regel: eingeplant (geplante Zeit kommt noch) → nur unter „Eingeplant“; läuft gerade → nur unter „Läuft gerade“;
+// vorbei und nicht abgehakt → wieder in ihrem Bereich. Immer genau einmal.
+describe('Eingeplante Aufgaben in „Jetzt“: eigener Bereich, nie doppelt', () => {
   const plan = (task, start, end) => store.createEvent({ task_id: task.id, start_at: start, end_at: end });
   // Wie oft steht eine Aufgabe insgesamt in den Bereichen (Überfällig, Heute fällig, Weitere, Demnächst)?
   const count = (title, now) => {
     const s = nowSections(now);
-    return [...s.overdue, ...s.today, ...s.rest, ...s.upcoming].filter((t) => t.title === title).length;
+    return [...s.overdue, ...s.today, ...s.rest, ...s.planned, ...s.upcoming].filter((t) => t.title === title).length;
   };
+  const where = (title, now) => Object.entries(nowSections(now))
+    .filter(([k, list]) => k !== 'items' && k !== 'plans' && list.some((t) => t.title === title)).map(([k]) => k);
 
   test('während der geplanten Zeit nur unter „Läuft gerade“, danach (nicht abgehakt) wieder genau einmal', () => {
     fresh();
     const t = task('Bericht', { window_end: '2099-01-10' });
     plan(t, '2099-01-10T11:00', '2099-01-10T13:00');
-    assert.equal(count('Bericht', new Date(2099, 0, 10, 10, 0)), 1, 'vorher');
+    assert.deepEqual(where('Bericht', new Date(2099, 0, 10, 10, 0)), ['planned'], 'vorher: eingeplant');
     assert.equal(count('Bericht', NOW), 0, 'während: nur „Läuft gerade“');
     assert.ok(plannedNowRunning(t.id, NOW));
     assert.equal(count('Bericht', new Date(2099, 0, 10, 13, 1)), 1, 'danach wieder da');
     assert.deepEqual(nowSections(new Date(2099, 0, 10, 13, 1)).today.map((x) => x.title), ['Bericht']);
   });
 
-  test('für einen anderen Tag eingeplant → steht trotzdem heute, mit Hinweis auf den Plan', () => {
+  test('am Folgetag eingeplant → nicht mehr unter „Heute fällig“, sondern unter „Eingeplant“', () => {
     fresh();
-    const t = task('Steuer', { window_end: '2099-01-12' });
+    const t = task('Steuer', { window_end: '2099-01-10' });
     plan(t, '2099-01-11T15:00', '2099-01-11T16:00');
     const s = nowSections(NOW);
-    assert.deepEqual(s.today.map((x) => x.title), ['Steuer']);
+    assert.deepEqual(s.today, []);
+    assert.deepEqual(s.planned.map((x) => x.title), ['Steuer']);
     assert.deepEqual(s.plans.get(t.id).start, new Date(2099, 0, 11, 15, 0));
+  });
+
+  test('überfällige Aufgabe eingeplant → unter „Eingeplant“; nach der Zeit wieder überfällig', () => {
+    fresh();
+    task('Zahnarzt anrufen', { window_end: '2099-01-05' });
+    const t = store.tasks(NOW).find((x) => x.title === 'Zahnarzt anrufen');
+    plan(t, '2099-01-10T16:00', '2099-01-10T16:15');
+    assert.deepEqual(where('Zahnarzt anrufen', NOW), ['planned']);
+    assert.deepEqual(where('Zahnarzt anrufen', new Date(2099, 0, 10, 17, 0)), ['overdue']);
+  });
+
+  test('„Eingeplant“: früheste geplante Zeit zuerst', () => {
+    fresh();
+    plan(task('später'), '2099-01-12T09:00', '2099-01-12T10:00');
+    plan(task('gleich'), '2099-01-10T14:00', '2099-01-10T15:00');
+    assert.deepEqual(nowSections(NOW).planned.map((x) => x.title), ['gleich', 'später']);
   });
 
   test('eingeplant, Zeit verstrichen, seitdem nochmal fällig → nur 1×', () => {
@@ -213,6 +234,7 @@ describe('Eingeplante Aufgaben in „Jetzt“: nie verschwinden, nie doppelt', (
     plan(t, '2099-01-10T18:00', '2099-01-10T19:00');
     plan(t, '2099-01-12T18:00', '2099-01-12T19:00');
     assert.equal(count('Lernen', NOW), 1);
+    assert.deepEqual(where('Lernen', NOW), ['planned']);
     assert.deepEqual(nowSections(NOW).plans.get(t.id).start, new Date(2099, 0, 10, 18, 0));
   });
 
