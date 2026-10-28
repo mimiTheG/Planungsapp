@@ -1,5 +1,6 @@
 // Reihenfolge per langem Drücken ändern: Finger (oder Maus) auf einem Eintrag halten, dann nach oben
 // oder unten ziehen und loslassen. Funktioniert für die direkten Einträge einer Liste.
+// Mit der Maus (am PC) geht es ohne langes Drücken: einfach ziehen.
 // Mit level = { onChange(id, ids, direction), canOutdent } ändert Ziehen nach rechts/links die Ebene:
 // rechts = Unteraufgabe des Eintrags darüber, links = eine Ebene höher.
 
@@ -37,6 +38,7 @@ export function enableLongPressReorder(list, onReorder, level = null) {
   let lastY = 0;
   let scroller = null;
   let frame = null;
+  let mouse = false;
 
   const items = () => [...list.children];
 
@@ -89,12 +91,15 @@ export function enableLongPressReorder(list, onReorder, level = null) {
 
   function onMove(e) {
     if (!list.classList.contains('reordering')) {
-      // Bewegt sich der Finger vor Ablauf der Haltezeit, ist es Scrollen – kein Verschieben.
-      if (Math.abs(e.clientY - startY) > MOVE_TOLERANCE || Math.abs(e.clientX - startX) > MOVE_TOLERANCE) {
+      if (Math.abs(e.clientY - startY) <= MOVE_TOLERANCE && Math.abs(e.clientX - startX) <= MOVE_TOLERANCE) return;
+      // Maus: Ziehen beginnt sofort. Finger: Bewegung vor Ablauf der Haltezeit ist Scrollen – kein Verschieben.
+      if (!mouse) {
         dragged = null;
         reset();
+        return;
       }
-      return;
+      clearTimeout(timer);
+      start();
     }
     e.preventDefault();
     if (level) showLevel(e.clientX - startX);
@@ -139,6 +144,8 @@ export function enableLongPressReorder(list, onReorder, level = null) {
     if (!li || li.parentElement !== list) return; // verschachtelte Listen regeln das selbst
     if (items().length < 2 && !level?.canOutdent) return;
     if (e.target.closest('input, .actions, .twisty') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    mouse = e.pointerType === 'mouse';
+    if (mouse) e.preventDefault(); // kein Markieren von Text beim Ziehen
     dragged = li;
     startY = e.clientY;
     startX = e.clientX;

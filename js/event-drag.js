@@ -1,6 +1,7 @@
 // Termine in Tag-/3-Tage-/Wochenansicht verschieben: Block lang drücken, dann ziehen.
 // Hoch/runter = andere Uhrzeit (in 15-Minuten-Schritten), in eine andere Spalte = anderer Tag.
 // Hält man den Finger am linken oder rechten Rand, blättert der Kalender zum vorigen/nächsten Tag.
+// Mit der Maus (am PC) geht es ohne langes Drücken: einfach ziehen.
 
 import { formatDate, formatTime } from './dates.js';
 
@@ -24,8 +25,10 @@ export function enableEventDrag(week, options) {
     const block = e.target.closest('.block');
     if (!block?._drag || drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const rect = block.getBoundingClientRect();
+    const mouse = e.pointerType === 'mouse';
+    if (mouse) e.preventDefault(); // kein Markieren von Text beim Ziehen
     drag = {
-      block, options, active: false,
+      block, options, active: false, mouse,
       startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
       grabY: e.clientY - rect.top, grabX: e.clientX - rect.left,
       timer: setTimeout(() => begin(rect), HOLD_MS),
@@ -59,9 +62,15 @@ function onMove(e) {
   drag.x = e.clientX;
   drag.y = e.clientY;
   if (!drag.active) {
-    // Bewegt sich der Finger vor Ablauf der Haltezeit, ist es Scrollen oder Wischen.
-    if (Math.abs(e.clientX - drag.startX) > MOVE_TOLERANCE || Math.abs(e.clientY - drag.startY) > MOVE_TOLERANCE) stop();
-    return;
+    const moved = Math.abs(e.clientX - drag.startX) > MOVE_TOLERANCE || Math.abs(e.clientY - drag.startY) > MOVE_TOLERANCE;
+    if (!moved) return;
+    // Maus: Ziehen beginnt sofort. Finger: Bewegung vor Ablauf der Haltezeit ist Scrollen oder Wischen.
+    if (!drag.mouse) {
+      stop();
+      return;
+    }
+    clearTimeout(drag.timer);
+    begin(drag.block.getBoundingClientRect());
   }
   e.preventDefault();
   update();

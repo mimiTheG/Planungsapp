@@ -159,6 +159,21 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 **Beispieldaten** werden beim allerersten Start angelegt. Unter *Themen → Beispieldaten* lassen sie sich neu laden
 oder mit „Alles löschen“ entfernen.
 
+## Am PC
+
+Die App läuft auch im Browser am PC (z. B. Chrome oder Edge: Adresse öffnen, dann in der Adresszeile
+„App installieren“ – dann hat sie ein eigenes Fenster). Ab etwa 1000 px Fensterbreite stellt sie sich um:
+
+- **Navigation als Seitenleiste** links statt unten; Inhalt breiter, Kalender in voller Höhe mit lesbarer Schrift.
+- **„Was mache ich jetzt?“ in zwei Spalten** (links Überfällig/Heute fällig/Weitere, rechts Wunschliste und Demnächst),
+  **Routinen als Kacheln** nebeneinander.
+- **Maus:** Termine und Aufgaben einfach ziehen – ohne langes Drücken (Termine: Uhrzeit und Tag; Aufgaben:
+  Reihenfolge und – nach rechts/links – Ebene). Zeilen werden beim Darüberfahren hervorgehoben.
+- **Tastenkürzel:** `1`–`5` Bereiche (Kalender, Jetzt, Aufgaben, Routinen, Themen), `N` neu (Termin/Aufgabe/Routine je
+  nach Bereich), `←`/`→` im Kalender blättern, `T` heute, `Esc` Dialog schließen, `?` Übersicht
+  (auch über „⌨ Tastenkürzel“ unten in der Seitenleiste). Beim Tippen in ein Feld greifen sie nicht.
+- Daten zwischen Handy und PC: über den Cloud-Sync (unten).
+
 ## Cloud-Sync (verschlüsselt)
 
 Unter *Themen → Cloud-Sync* lassen sich die Daten verschlüsselt bei [Supabase](https://supabase.com) speichern und
@@ -221,7 +236,8 @@ und wischen wie mit dem Finger (auch langes Drücken und Ziehen). Die Uhr steht 
 damit die Tests unabhängig vom heutigen Datum immer gleich laufen. Abgedeckt: Aufgaben anlegen/leeren/erledigen,
 Regelmäßig, Steigerungen, Umsortieren, Kalenderansichten, Ein-/Ausblenden, Termine ziehen, Serien, Geburtstage,
 Aufgaben einplanen, Routinen, „Was mache ich jetzt?“, die Wunschliste und den Cloud-Sync (Einrichten auf zwei
-Geräten gegen den nachgebauten Supabase-Server).
+Geräten gegen den nachgebauten Supabase-Server). `desktop.test.js` prüft die PC-Ansicht (1440 × 900, Maus und
+Tastatur): Seitenleiste, Spalten, Tastenkürzel und Ziehen mit der Maus.
 
 `scenarios.test.js` deckt z. B. ab: eine
 Serie auf „endet am …“ und wieder zurück auf „endet nie“ stellen, Einzeltermine verschieben und danach „dieser und
@@ -247,6 +263,7 @@ js/
   ui.js                DOM-Helfer, Dialog, Hinweise
   now.js               „Was mache ich jetzt?“
   sections.js          Bereiche und Reihenfolge von „Was mache ich jetzt?“ (ohne Oberfläche, testbar)
+  shortcuts.js         Tastenkürzel am PC
   player.js            Leiste der laufenden Routine über der Navigation
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix

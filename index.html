@@ -15,11 +15,13 @@
   <main id="view" class="container" aria-live="polite"></main>
   <div id="player" class="player" hidden></div>
   <nav class="tabs" aria-label="Bereiche">
+    <div class="brand" aria-hidden="true">Planungsapp</div>
     <a href="#kalender" data-view="kalender"><span aria-hidden="true">📅</span>Kalender</a>
     <a href="#jetzt" data-view="jetzt"><span aria-hidden="true">🎯</span>Jetzt</a>
     <a href="#aufgaben" data-view="aufgaben"><span aria-hidden="true">✅</span>Aufgaben</a>
     <a href="#routinen" data-view="routinen"><span aria-hidden="true">🔁</span>Routinen</a>
     <a href="#mehr" data-view="mehr"><span aria-hidden="true">🎨</span>Themen</a>
+    <button type="button" class="shortcut-hint" id="shortcut-hint">⌨ Tastenkürzel <kbd>?</kbd></button>
   </nav>
   <dialog id="dialog" class="dialog"></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

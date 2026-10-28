@@ -659,7 +659,7 @@ export function renderTasksView(root) {
     el('div.toolbar', {},
       el('h2', {}, 'Aufgaben'),
       el('span.spacer'),
-      el('button.primary', { type: 'button', onclick: () => openTaskEditor({}, refresh) }, '+ Neu')),
+      el('button.primary', { type: 'button', title: 'Neue Aufgabe (N)', dataset: { key: 'new' }, onclick: () => openTaskEditor({}, refresh) }, '+ Neu')),
     el('div.toolbar', {},
       el('div.segmented', {}, [['open', 'Offen'], ['done', 'Erledigt']].map(([v, label]) =>
         el(`button${filters.view === v ? '.active' : ''}`, { type: 'button', onclick: () => { filters.view = v; refresh(); } }, label))),
@@ -841,6 +841,8 @@ export function renderRoutinesView(root) {
       el('span.spacer'),
       el('button.primary', {
         type: 'button',
+        title: 'Neue Routine (N)',
+        dataset: { key: 'new' },
         onclick: () => openTaskEditor({ kind: 'routine' }, () => {
           // Eine neu angelegte eintägige Routine gleich im Bearbeiten-Modus öffnen, damit man Schritte hinzufügen kann.
           const created = store.routines().find((r) => !list.some((old) => old.id === r.id));

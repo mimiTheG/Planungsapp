@@ -43,10 +43,13 @@ export async function launch() {
   const errors = [];
 
   // supabase: nachgebauter Server (tests/support/fake-supabase.js) – Anfragen an SUPABASE_URL landen dort.
-  async function open(hash = '', { data, now = NOW, supabase } = {}) {
+  // desktop: PC-Fenster (1440 × 900, Maus statt Touch) statt Handy.
+  async function open(hash = '', { data, now = NOW, supabase, desktop = false } = {}) {
+    const device = desktop
+      ? { viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false }
+      : { viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true };
     const context = await browser.newContext({
-      viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true,
-      locale: 'de-DE', timezoneId: 'Europe/Berlin', serviceWorkers: 'block',
+      ...device, locale: 'de-DE', timezoneId: 'Europe/Berlin', serviceWorkers: 'block',
     });
     await context.clock.setFixedTime(new Date(now));
     if (supabase) await routeSupabase(context, supabase);

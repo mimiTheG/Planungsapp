@@ -9,6 +9,7 @@ import { renderMoreView } from './more.js';
 import { loadSamples } from './samples.js';
 import { initPlayer } from './player.js';
 import { cloud } from './cloud.js';
+import { initShortcuts, showShortcuts } from './shortcuts.js';
 
 const VIEWS = {
   jetzt: renderNowView,
@@ -24,6 +25,7 @@ function show(keepScroll = false) {
     link.classList.toggle('active', link.dataset.view === name);
   }
   const root = document.getElementById('view');
+  root.dataset.view = name; // für das Layout am PC (z. B. Spalten in „Jetzt“)
   try {
     VIEWS[name](root);
   } catch (err) {
@@ -54,6 +56,8 @@ window.addEventListener('planungsapp-remote', () => {
   if (!document.getElementById('dialog').open) show(true);
 });
 cloud.sync().catch(() => {});
+initShortcuts();
+document.getElementById('shortcut-hint').addEventListener('click', showShortcuts);
 show();
 initPlayer(() => show(true));
 
