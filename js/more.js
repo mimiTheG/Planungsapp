@@ -6,6 +6,11 @@ import * as store from './store.js';
 import { nextTopicColor } from './topic-picker.js';
 import { colorChooser } from './color-chooser.js';
 import { loadSamples } from './samples.js';
+import { cloudSection } from './cloud-view.js';
+import { cloud } from './cloud.js';
+
+// Bei eingeschaltetem Cloud-Sync gelten Ersetzen/Löschen auch für die Cloud und die anderen Geräte.
+const alsoCloud = () => (cloud.status().phase === 'on' ? ' Das gilt auch für die Cloud und deine anderen Geräte.' : '');
 
 export function renderMoreView(root) {
   const refresh = () => renderMoreView(root);
@@ -29,7 +34,7 @@ export function renderMoreView(root) {
     onchange: async () => {
       const file = fileInput.files[0];
       if (!file) return;
-      if (!window.confirm('Alle aktuellen Daten durch die Sicherung ersetzen?')) return;
+      if (!window.confirm(`Alle aktuellen Daten durch die Sicherung ersetzen?${alsoCloud()}`)) return;
       const content = await file.text();
       if (attempt(() => store.importJson(content))) {
         toast('Sicherung eingelesen');
@@ -80,9 +85,12 @@ export function renderMoreView(root) {
             }, '🗑'))))
         : el('p.empty', {}, 'Noch keine Themen.')),
 
+    el('div.toolbar', {}, el('h2', {}, 'Cloud-Sync')),
+    cloudSection(refresh),
+
     el('div.toolbar', {}, el('h2', {}, 'Datensicherung')),
     el('div.card', {},
-      el('p.muted', {}, 'Alle Daten liegen nur auf diesem Gerät. Speichere ab und zu eine Sicherung, ',
+      el('p.muted', {}, 'Ohne Cloud-Sync liegen alle Daten nur auf diesem Gerät. Speichere ab und zu eine Sicherung, ',
         'z. B. bevor du den Browser-Speicher löschst oder das Handy wechselst.'),
       el('div.buttons', {},
         el('button.primary', { type: 'button', onclick: download }, '⬇ Sicherung speichern'),
@@ -97,7 +105,7 @@ export function renderMoreView(root) {
         el('button', {
           type: 'button',
           onclick: () => {
-            if (!window.confirm('Alle aktuellen Daten durch die Beispieldaten ersetzen?')) return;
+            if (!window.confirm(`Alle aktuellen Daten durch die Beispieldaten ersetzen?${alsoCloud()}`)) return;
             loadSamples();
             toast('Beispieldaten geladen');
             refresh();
@@ -106,7 +114,7 @@ export function renderMoreView(root) {
         el('button.danger', {
           type: 'button',
           onclick: () => {
-            if (!window.confirm('Wirklich ALLE Daten löschen? Das lässt sich nicht rückgängig machen.')) return;
+            if (!window.confirm(`Wirklich ALLE Daten löschen? Das lässt sich nicht rückgängig machen.${alsoCloud()}`)) return;
             store.clearAll();
             toast('Alle Daten gelöscht');
             refresh();

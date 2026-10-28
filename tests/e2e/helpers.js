@@ -42,12 +42,14 @@ export async function launch() {
   const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
   const errors = [];
 
-  async function open(hash = '', { data, now = NOW } = {}) {
+  // supabase: nachgebauter Server (tests/support/fake-supabase.js) – Anfragen an SUPABASE_URL landen dort.
+  async function open(hash = '', { data, now = NOW, supabase } = {}) {
     const context = await browser.newContext({
       viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true,
       locale: 'de-DE', timezoneId: 'Europe/Berlin', serviceWorkers: 'block',
     });
     await context.clock.setFixedTime(new Date(now));
+    if (supabase) await routeSupabase(context, supabase);
     const page = await context.newPage();
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('dialog', (d) => d.accept()); // Rückfragen wie „Wirklich löschen?“ bestätigen
@@ -76,6 +78,28 @@ export async function launch() {
   }
 
   return { open, close, errors };
+}
+
+export const SUPABASE_URL = 'https://test-projekt.supabase.co';
+
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'apikey, authorization, content-type, prefer',
+  'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+};
+
+async function routeSupabase(context, server) {
+  await context.route(`${SUPABASE_URL}/**`, async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: CORS });
+      return;
+    }
+    const { status, body } = server.handle({
+      method: request.method(), url: request.url(), headers: request.headers(), body: request.postData(),
+    });
+    await route.fulfill({ status, headers: { ...CORS, 'content-type': 'application/json' }, body: body === null ? '' : JSON.stringify(body) });
+  });
 }
 
 // Funktion mit dem Store der Seite ausführen: store(page, (s, arg) => s.tasks().length).

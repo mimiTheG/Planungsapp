@@ -8,6 +8,7 @@ import { renderTasksView, renderRoutinesView } from './tasks.js';
 import { renderMoreView } from './more.js';
 import { loadSamples } from './samples.js';
 import { initPlayer } from './player.js';
+import { cloud } from './cloud.js';
 
 const VIEWS = {
   jetzt: renderNowView,
@@ -35,13 +36,24 @@ function show(keepScroll = false) {
 // Beim allerersten Start Beispieldaten anlegen (lassen sich unter "Themen" wieder löschen).
 if (!store.load()) loadSamples();
 window.addEventListener('hashchange', show);
-// Beim Zurückkehren in die App Fälligkeiten neu berechnen (z. B. am nächsten Morgen).
+// Beim Zurückkehren in die App Fälligkeiten neu berechnen (z. B. am nächsten Morgen) und abgleichen.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !document.getElementById('dialog').open) {
+  if (document.visibilityState !== 'visible') return;
+  cloud.sync().catch(() => {});
+  if (!document.getElementById('dialog').open) {
     store.rollExpired();
     show();
   }
 });
+
+// Cloud-Sync: Änderungen kurz verzögert hochladen, beim Start und bei wieder vorhandenem Internet abgleichen.
+// Kommen Daten aus der Cloud, die Ansicht neu zeichnen (nicht während ein Dialog offen ist).
+store.setLocalChangeListener(() => cloud.markDirty());
+window.addEventListener('online', () => cloud.sync().catch(() => {}));
+window.addEventListener('planungsapp-remote', () => {
+  if (!document.getElementById('dialog').open) show(true);
+});
+cloud.sync().catch(() => {});
 show();
 initPlayer(() => show(true));
 

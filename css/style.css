@@ -623,3 +623,9 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
 .toast.error { background: var(--error); }
+
+/* Cloud-Sync */
+.cloud p { margin: 0 0 0.6rem; }
+.cloud .warning { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 0.5rem 0.7rem; font-size: 0.88rem; }
+.cloud .error-text { color: var(--error); font-weight: 600; }
+.cloud .small { font-size: 0.8rem; }
