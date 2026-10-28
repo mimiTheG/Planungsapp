@@ -41,7 +41,7 @@ export function plannedNow(now = new Date()) {
   return { running, next };
 }
 
-// Liefert { items, overdue, today, rest, upcoming, plans }:
+// Liefert { items, overdue, today, rest, planned, upcoming, plans }:
 //   overdue  – Überfällig, auch Unteraufgaben (außer ihre Oberaufgabe steht schon hier).
 //              Nach W×D, bei Gleichstand am längsten überfällig zuerst.
 //   today    – Heute fällig: alles mit Deadline, dessen Zeitraum läuft (ohne „Ab“ = ab sofort) – auch Unteraufgaben,
@@ -49,13 +49,17 @@ export function plannedNow(now = new Date()) {
 //   rest     – alles andere Offene der obersten Ebene, nach W×D.
 //   upcoming – Demnächst: oberste Ebene und Aufgaben mehrtägiger Routinen, früheste zuerst (höchstens 8).
 //   items    – alles Offene der obersten Ebene (für die Zufallsauswahl).
-//   plans    – nächste geplante Zeit je Aufgabe (für den Hinweis „📅 heute 15:00“).
-// Jede Aufgabe steht höchstens einmal da. Läuft ihre geplante Zeit gerade, steht sie nur unter „Läuft gerade“;
-// ist die Zeit vorbei und sie ist noch offen, steht sie wieder in ihrem Bereich.
+//   planned  – eingeplante Aufgaben, deren geplante Zeit noch kommt (früheste zuerst)
+//   plans    – nächste geplante Zeit je Aufgabe ({ start, end })
+// Jede Aufgabe steht höchstens einmal da. Eingeplant (geplante Zeit kommt noch) → nur unter „Eingeplant“;
+// läuft die geplante Zeit gerade → nur unter „Läuft gerade“; ist sie vorbei und die Aufgabe noch offen,
+// steht sie wieder in ihrem Bereich.
 export function nowSections(now = new Date()) {
-  const { running, next } = plannedNow(now);
-  const everything = store.tasks(now)
-    .filter((t) => t.kind !== 'routine' && !store.isInRoutine(t) && !running.has(t.id));
+  const { next } = plannedNow(now);
+  const all = store.tasks(now).filter((t) => t.kind !== 'routine' && !store.isInRoutine(t));
+  const planned = all.filter((t) => next.has(t.id) && next.get(t.id).start > now && t.status !== 'done')
+    .sort((a, b) => next.get(a.id).start - next.get(b.id).start);
+  const everything = all.filter((t) => !next.has(t.id));
   const byId = new Map(everything.map((t) => [t.id, t]));
   const parentOf = (id) => byId.get(id)?.parent_id ?? store.taskById(id)?.parent_id ?? null;
   const hasAncestorIn = (ids, t) => {
@@ -79,5 +83,5 @@ export function nowSections(now = new Date()) {
     .sort((a, b) => a.window_start.localeCompare(b.window_start))
     .slice(0, 8);
 
-  return { items, overdue, today, rest, upcoming, plans: next };
+  return { items, overdue, today, rest, planned, upcoming, plans: next };
 }
