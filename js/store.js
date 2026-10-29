@@ -3,7 +3,7 @@
 import { addDays, isoDate, parseDate, stamp } from './dates.js';
 import * as schedule from './schedule.js';
 import * as repeating from './repeat.js';
-import { stampChanges } from './merge.js';
+import { COLLECTIONS, stableStringify, stampChanges } from './merge.js';
 
 const STORAGE_KEY = 'planungsapp.v1';
 // scale 'high5': Wichtigkeit/Dringlichkeit 5 = sehr wichtig/sofort, 1 = unwichtig/kein Zeitdruck.
@@ -115,6 +115,18 @@ export function replaceData(next) {
   data = withFixedTopics({ ...migrate(clone(next)), nextId: Math.max(data.nextId, Number(next.nextId) || 1) });
   save({ fromSync: true });
   rollExpired();
+}
+
+// Rückgängig: einen früheren Stand (aus snapshot) wiederherstellen. Was sich seitdem geändert hat oder gelöscht
+// wurde, gilt als jetzt geändert – sonst würde ein Löschvermerk aus der Cloud es beim Abgleich wieder entfernen.
+export function restore(previous) {
+  const next = clone(previous);
+  for (const kind of COLLECTIONS) {
+    const current = new Map((data[kind] || []).map((item) => [item.id, stableStringify(item)]));
+    for (const item of next[kind] || []) if (current.get(item.id) !== stableStringify(item)) delete item.updated_at;
+  }
+  data = withFixedTopics({ ...next, deleted: data.deleted, nextId: Math.max(data.nextId, Number(next.nextId) || 1) });
+  save();
 }
 
 // IDs sind auch über mehrere Geräte eindeutig (Cloud-Sync): Zeit in Millisekunden × 1000 plus Zufall;
@@ -407,6 +419,32 @@ export function recurringBetween(from, to, now = new Date()) {
     result.push({ ...t, day });
   }
   return result.sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
+// Erledigte Aufgaben für den Kalender: jedes Erledigen (aus dem Verlauf) am Tag, an dem es geschah – dort steht die
+// Aufgabe durchgestrichen. Nur, was sonst auch im Kalender stünde: wiederkehrende Aufgaben (auch aus mehrtägigen
+// Routinen) und einmalige mit Datum. Kein Eintrag, wenn die Aufgabe an dem Tag eingeplant war – dann ist der Termin
+// durchgestrichen (siehe plannedDone).
+export function doneBetween(from, to) {
+  const first = isoDate(from);
+  const last = isoDate(to);
+  const planned = new Set(eventsBetween(from, to).filter((e) => e.task_id).map((e) => `${e.task_id}:${e.start_at.slice(0, 10)}`));
+  return history()
+    .filter(({ task, at }) => task && task.kind !== 'routine' && (task.recurrence !== 'once' || task.window_start || task.window_end)
+      && at.slice(0, 10) >= first && at.slice(0, 10) <= last && !planned.has(`${task.id}:${at.slice(0, 10)}`))
+    .map(({ task, at }) => ({ ...task, day: at.slice(0, 10), done: true }))
+    .sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
+// Eingeplante Aufgabe bzw. Routine (Termin mit task_id/routine_id) erledigt? Einmalige Aufgabe: abgehakt.
+// Sonst: an dem Tag des Termins erledigt.
+export function plannedDone(event) {
+  const id = event.task_id || event.routine_id;
+  const task = id && taskById(id);
+  if (!task) return false;
+  if (task.kind !== 'routine' && task.recurrence === 'once' && task.done_at) return true;
+  const day = event.start_at.slice(0, 10);
+  return data.log.some((l) => l.task_id === id && l.action === 'done' && l.at.slice(0, 10) === day);
 }
 
 // Ist die Aufgabe eingeplant, und die geplante Zeit ist noch nicht vorbei (läuft gerade oder kommt noch)?

@@ -33,12 +33,15 @@ describe('Einmalige Aufgabe', () => {
     assert.equal(await clear('window_end').isVisible(), false, '× nur mit Datum');
     await page.fill('#dialog input[name="window_start"]', '2026-10-20');
     await page.fill('#dialog input[name="window_end"]', '2026-10-31');
+    assert.equal(await page.locator('#dialog input[name="deadline_time"]').isVisible(), false, 'Uhrzeit steht unter „Weitere Angaben“');
+    await page.click('#dialog summary:has-text("Weitere Angaben")');
     await page.fill('#dialog input[name="deadline_time"]', '18:00');
     await save(app);
     let t = await stored(app, 'Steuer');
     assert.deepEqual([t.window_start, t.window_end, t.deadline_time, t.status], ['2026-10-20', '2026-10-31', '18:00', 'upcoming']);
 
     await openTask(app, 'Steuer');
+    assert.equal(await page.locator('#dialog details.more-fields[open]').count(), 1, 'mit Uhrzeit gleich offen');
     for (const name of ['window_start', 'window_end', 'deadline_time']) await clear(name).click();
     assert.equal(await page.locator('#dialog[open]').count(), 1, 'Dialog bleibt offen');
     await save(app);
@@ -136,6 +139,39 @@ describe('Regelmäßige Aufgabe', () => {
     const t = await stored(app, 'Müll');
     assert.deepEqual([t.window_start, t.status], ['2026-10-22', 'upcoming']);
     assert.match(await app.page.locator('#toast').textContent(), /erledigt – wieder fällig ab/);
+    await app.close();
+  });
+});
+
+describe('Rückgängig', () => {
+  const undo = async (app) => { await app.page.click('#toast button:has-text("Rückgängig")'); await app.page.waitForTimeout(250); };
+
+  test('abhaken → „Rückgängig“ öffnet die Aufgabe wieder', async () => {
+    const app = await browser.open('aufgaben', {
+      data: (s) => s.createTask({ title: 'Müll', recurrence: 'rhythm', window_start: '2026-10-15', buffer: 0, repeat: { freq: 'weekly', interval: 1 } }),
+    });
+    await app.page.locator('.task-row:has-text("Müll") input[type=checkbox]').click();
+    await app.page.waitForTimeout(250);
+    assert.equal((await stored(app, 'Müll')).window_start, '2026-10-22');
+    await undo(app);
+    const t = await stored(app, 'Müll');
+    assert.deepEqual([t.window_start, t.last_done_at, t.status], ['2026-10-15', null, 'due']);
+    assert.equal(await app.store((s) => s.history().length), 0, 'kein Verlaufseintrag');
+    await app.close();
+  });
+
+  test('im Editor löschen ohne Rückfrage → „Rückgängig“ holt sie samt Unteraufgabe zurück', async () => {
+    const app = await browser.open('aufgaben', { data: (s) => { const p = s.createTask({ title: 'Umzug' }); s.createTask({ title: 'Kartons', parent_id: p.id }); } });
+    const { page } = app;
+    assert.equal(await page.locator('.task-row button[aria-label="Löschen"]').count(), 0, 'kein 🗑 mehr in der Liste');
+    await page.click('.task-row:has-text("Kartons") .task-title');
+    await page.waitForTimeout(200);
+    await page.click('#dialog button.danger:has-text("Löschen")');
+    await page.waitForTimeout(250);
+    assert.deepEqual(await texts(page.locator('.task-row .task-title')), ['Umzug']);
+    assert.match(await page.locator('#toast').textContent(), /„Kartons“ gelöscht/);
+    await undo(app);
+    assert.deepEqual(await texts(page.locator('.task-row .task-title')), ['Umzug', 'Kartons']);
     await app.close();
   });
 });

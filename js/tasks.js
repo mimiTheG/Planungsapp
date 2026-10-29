@@ -102,16 +102,28 @@ export function progressBar(task) {
 
 // --- Aktionen --------------------------------------------------------------
 
+// Hinweis mit „Rückgängig“: stellt den Stand von vorher wieder her.
+export function undoToast(message, before, refresh) {
+  toast(message, false, {
+    undo: () => {
+      store.restore(before);
+      toast('Rückgängig gemacht');
+      refresh();
+    },
+  });
+}
+
 export function completeTask(task, refresh) {
+  const before = store.snapshot();
   attempt(() => {
     const updated = store.completeTask(task.id);
     if (updated.recurrence !== 'once') {
       const next = updated.upgrades.length ? ` (dann: ${store.shownTitle(updated)})` : '';
-      toast(`„${store.shownTitle(task)}“ erledigt – wieder fällig ab ${formatDate(updated.window_start)}${next}`);
+      undoToast(`„${store.shownTitle(task)}“ erledigt – wieder fällig ab ${formatDate(updated.window_start)}${next}`, before, refresh);
     } else if (updated.kind === 'routine') {
-      toast(`Routine „${task.title}“ abgeschlossen`);
+      undoToast(`Routine „${task.title}“ abgeschlossen`, before, refresh);
     } else {
-      toast(`„${task.title}“ erledigt`);
+      undoToast(`„${task.title}“ erledigt`, before, refresh);
     }
   });
   refresh();
@@ -122,13 +134,12 @@ function reopenTask(task, refresh) {
   refresh();
 }
 
+// Nur mit Unteraufgaben wird nachgefragt – sonst reicht „Rückgängig“.
 function deleteTask(task, refresh) {
   const subCount = store.descendantsOf(task.id).length;
-  const question = subCount
-    ? `„${task.title}“ und ${subCount} Unteraufgabe(n) löschen?`
-    : `„${task.title}“ löschen?`;
-  if (!window.confirm(question)) return;
-  attempt(() => store.deleteTask(task.id));
+  if (subCount && !window.confirm(`„${task.title}“ und ${subCount} Unteraufgabe(n) löschen?`)) return;
+  const before = store.snapshot();
+  if (attempt(() => store.deleteTask(task.id))) undoToast(`„${task.title}“ gelöscht`, before, refresh);
   refresh();
 }
 
@@ -219,8 +230,7 @@ function taskNode(task, refresh, options) {
         }, '+'),
         canPlan(task) ? el('button.icon', {
           type: 'button', 'aria-label': 'Im Kalender einplanen', title: 'Im Kalender einplanen', onclick: () => planTask(task, refresh),
-        }, '📅') : null,
-        el('button.icon', { type: 'button', 'aria-label': 'Löschen', onclick: () => deleteTask(task, refresh) }, '🗑'))),
+        }, '📅') : null)),
     children.length && !isCollapsed ? taskTree(children, refresh, { ...options, parentId: task.id }) : null);
 }
 
@@ -421,13 +431,21 @@ export function openTaskEditor(task, refresh) {
       .map(([v, label]) => el('label', {},
         el('input', { type: 'radio', name: 'recurrence', value: v, checked: t.recurrence === v, onchange: showRecurrence }),
         label))),
-    Object.values(recurrenceBoxes),
+    Object.values(recurrenceBoxes));
+  // Selten gebraucht – steht unter „Weitere Angaben“ (offen, sobald dort schon etwas eingetragen ist).
+  const missedFields = el('div.form-grid', {},
     field('Spätestens um (optional)', clearable(el('input', { type: 'time', name: 'deadline_time', value: t.deadline_time || '' })),
       'Uhrzeit am letzten Tag, z. B. Müll bis 6:00.'),
     field('Wenn nicht rechtzeitig erledigt', select('on_missed', [
       ['remind', 'Täglich erinnern (steht ganz oben)'],
       ['expire', 'Verfällt (nicht nachholbar)'],
     ], t.on_missed)));
+  const more = el('details.more-fields', { open: Boolean(t.parent_id || t.notes || t.deadline_time || t.on_missed === 'expire') },
+    el('summary', {}, 'Weitere Angaben'),
+    el('div.form-grid', {},
+      el('div.field', {}, el('span.field-label', {}, 'Gehört zu'), parent_.element),
+      missedFields,
+      field('Notizen', el('textarea', { name: 'notes', rows: 3 }, t.notes || ''))));
 
   const form = el('form.form-grid', { onsubmit: (e) => { e.preventDefault(); save(); } },
     field('Titel', titleInput),
@@ -443,11 +461,10 @@ export function openTaskEditor(task, refresh) {
     defaultTimeField,
     el('small.muted', {}, 'Projekt = freiwillig, macht Spaß. Routine = wiederkehrende Abläufe (ein- oder mehrtägig).'),
     topicPicker(t.topic_id),
-    el('div.field', {}, el('span.field-label', {}, 'Gehört zu'), parent_.element),
-    prioFieldset,
     whenFieldset,
+    prioFieldset,
     !isNew && t.recurrence !== 'once' && !store.isInRoutine(t) ? upgradesFieldset(t, refresh) : null,
-    field('Notizen', el('textarea', { name: 'notes', rows: 3 }, t.notes || '')),
+    more,
     !isNew && t.recurrence !== 'once' ? el('p.muted', {},
       `Zuletzt erledigt: ${t.last_done_at ? formatDate(t.last_done_at) : 'noch nie'}`,
       t.missed_count ? `, ${t.missed_count}× verpasst` : '') : null,
@@ -465,6 +482,7 @@ export function openTaskEditor(task, refresh) {
     const routineLike = store.isInRoutine({ kind: kindSelect.value, parent_id: Number(parentSelect.value) || null });
     prioFieldset.hidden = routineLike;
     whenFieldset.hidden = routineLike;
+    missedFields.hidden = routineLike;
     const topRoutine = kindSelect.value === 'routine' && !parentSelect.value;
     routineTypeField.hidden = !topRoutine;
     const multi = form.elements.routine_type?.value === 'multi';
