@@ -34,16 +34,21 @@ export function mount(node, ...children) {
   node.replaceChildren(...clean(children));
 }
 
-export function toast(message, isError = false) {
+// Hinweis unten einblenden. Mit undo erscheint daneben „Rückgängig“ (und der Hinweis bleibt länger stehen).
+export function toast(message, isError = false, { undo = null } = {}) {
   const box = document.getElementById('toast');
   // Ein offener <dialog> liegt über allem – der Hinweis muss dann darin stehen.
   const dialog = document.getElementById('dialog');
   (dialog.open ? dialog : document.body).append(box);
-  box.textContent = message;
+  const hide = () => box.classList.remove('visible');
+  box.replaceChildren(el('span', {}, message), undo ? el('button.toast-undo', {
+    type: 'button',
+    onclick: () => { clearTimeout(toast.timer); hide(); undo(); },
+  }, 'Rückgängig') : null);
   box.classList.toggle('error', isError);
   box.classList.add('visible');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => box.classList.remove('visible'), 3000);
+  toast.timer = setTimeout(hide, undo ? 6000 : 3000);
 }
 
 // Führt eine Änderung aus und zeigt Fehler als Hinweis an. Gibt true bei Erfolg zurück.

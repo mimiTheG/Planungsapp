@@ -613,3 +613,42 @@ describe('App-Tag beginnt um 4:30', () => {
     assert.equal(start('2099-01-05T23:59'), '5. 04:30');
   });
 });
+
+describe('Rückgängig (restore)', () => {
+  test('Löschen rückgängig: Aufgabe samt Unteraufgabe wieder da, Löschvermerke weg', () => {
+    fresh();
+    const p = store.createTask({ title: 'Umzug' });
+    store.createTask({ title: 'Kartons', parent_id: p.id });
+    const before = store.snapshot();
+    store.deleteTask(p.id);
+    assert.equal(store.snapshot().deleted.length, 2);
+    store.restore(before);
+    assert.deepEqual(titles(store.tasks()), ['Umzug', 'Kartons']);
+    assert.deepEqual(store.snapshot().deleted, []);
+  });
+
+  test('wiederhergestellte Einträge sind jünger als der Löschvermerk – der Cloud-Abgleich löscht sie nicht erneut', async () => {
+    const { mergeData } = await import('../js/merge.js');
+    fresh();
+    const t = store.createTask({ title: 'Steuer' });
+    const before = store.snapshot();
+    store.deleteTask(t.id);
+    const cloud = store.snapshot(); // mit Löschvermerk hochgeladen
+    await new Promise((r) => setTimeout(r, 5));
+    store.restore(before);
+    assert.deepEqual(titles(mergeData(cloud, store.snapshot()).tasks), ['Steuer']);
+  });
+
+  test('Erledigen rückgängig: Zeitraum und Verlauf wie vorher; später Angelegtes bleibt nicht', () => {
+    fresh();
+    const t = weeklyTask();
+    const before = store.snapshot();
+    store.completeTask(t.id, new Date('2099-01-05T10:00'));
+    store.createTask({ title: 'danach' });
+    store.restore(before);
+    const back = store.taskById(t.id);
+    assert.deepEqual([back.window_start, back.last_done_at], [t.window_start, null]);
+    assert.equal(store.history().length, 0);
+    assert.deepEqual(titles(store.tasks()), ['Bad putzen']);
+  });
+});

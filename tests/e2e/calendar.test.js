@@ -297,6 +297,22 @@ describe('Aufgaben einplanen', () => {
     await app.close();
   });
 
+  test('Termin löschen → „Rückgängig“', async () => {
+    const app = await browser.open('kalender', {
+      data: (s) => s.createEvent({ title: 'Zahnarzt', start_at: '2026-10-15T15:00', end_at: '2026-10-15T16:00' }),
+    });
+    const { page } = app;
+    await openDay(app, 15, 12);
+    await page.locator('.block:has-text("Zahnarzt")').click();
+    await page.waitForTimeout(200);
+    await page.click('#dialog button.danger:has-text("Löschen")');
+    await page.waitForTimeout(250);
+    assert.equal(await app.store((s) => s.eventsBetween(new Date(2026, 9, 1), new Date(2026, 10, 1)).length), 0);
+    await page.click('#toast button:has-text("Rückgängig")');
+    await page.waitForTimeout(250);
+    assert.deepEqual(await app.store((s) => s.eventsBetween(new Date(2026, 9, 1), new Date(2026, 10, 1)).map((e) => e.title)), ['Zahnarzt']);
+    await app.close();
+  });
   test('Termin nachträglich zur Aufgabe machen', async () => {
     const app = await browser.open('kalender', {
       data: (s) => s.createEvent({ title: 'Bericht', start_at: '2026-10-20T14:00', end_at: '2026-10-20T15:00' }),

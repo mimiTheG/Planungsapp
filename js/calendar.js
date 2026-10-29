@@ -8,7 +8,7 @@ import {
 } from './dates.js';
 import * as store from './store.js';
 import {
-  completeTask, openTaskEditor, routineStart, runRoutine, topicDot,
+  completeTask, openTaskEditor, routineStart, runRoutine, topicDot, undoToast,
 } from './tasks.js';
 import { topicPicker } from './topic-picker.js';
 import { askScope, repeatFields } from './repeat-fields.js';
@@ -684,12 +684,15 @@ export function openEventEditor(event, refresh) {
 
   function remove() {
     const run = (scope) => {
-      attempt(() => store.deleteEvent(ev.id, { scope, occurrence: ev.occurrence }));
+      const before = store.snapshot();
+      const done = attempt(() => store.deleteEvent(ev.id, { scope, occurrence: ev.occurrence }));
       close();
+      // Erst nach dem Schließen: sonst stünde der Hinweis im geschlossenen Dialog.
+      if (done) undoToast(ev.is_birthday ? `Geburtstag „${ev.title}“ gelöscht` : `Termin „${ev.title}“ gelöscht`, before, refresh);
       refresh();
     };
     if (ev.series && !ev.is_birthday) askScope('Wiederkehrenden Termin löschen', run);
-    else if (window.confirm(ev.is_birthday ? `Geburtstag „${ev.title}“ löschen?` : `Termin „${ev.title}“ löschen?`)) run('all');
+    else if (!ev.is_birthday || window.confirm(`Geburtstag „${ev.title}“ löschen?`)) run('all'); // Termin: „Rückgängig“ reicht
   }
 
   const topic = store.topicById(ev.topic_id);

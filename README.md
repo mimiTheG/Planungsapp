@@ -104,6 +104,12 @@ und Helligkeit. Es ist immer nur eine Farbauswahl offen.
 - **Einmalig** (optional mit Zeitraum/Deadline), **regelmäßig** mit Puffer oder **fester Zeitraum** im Jahr.
   Optional eine Uhrzeit („spätestens um“), wenn der Tag als Genauigkeit nicht reicht.
   „Ab“, „Deadline“ und „Spätestens um“ lassen sich mit **×** wieder leeren (kein Datum).
+- Im Editor steht oben das Wichtigste (Titel, Art, Dauer, Thema, **Wann?**, Wichtigkeit & Dringlichkeit). Seltenes –
+  „Gehört zu“, „Spätestens um“, „Wenn nicht rechtzeitig erledigt“ und Notizen – liegt unter **Weitere Angaben**
+  (klappt von selbst auf, wenn dort schon etwas eingetragen ist).
+- **Rückgängig:** Nach dem Abhaken oder Löschen einer Aufgabe und dem Löschen eines Termins steht unten ein paar
+  Sekunden lang **Rückgängig**. Deshalb fragt die App beim Löschen nur noch bei Aufgaben mit Unteraufgaben,
+  Geburtstagen und Serien nach. Gelöscht wird eine Aufgabe im Editor (Antippen → **Löschen**).
 - **Regelmäßig:** „Erstes Mal am“ plus direkt **Alle n Tage/Wochen/Monate/Jahre** (bei Wochen Wochentage wählbar,
   bei Monaten am 14. bzw. am zweiten Dienstag) – ohne Vorschlagsliste. Der **Puffer** gilt in beide Richtungen (± Tage):
   0 = nur am Termintag, 1 = einen Tag vorher bis einen Tag nachher, 2 = zwei Tage vorher bis zwei Tage nachher.
@@ -236,7 +242,7 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 | `dates.test.js` | Datum lesen/schreiben, Tage rechnen (auch Zeitumstellung, Schaltjahr), lesbare Zeitspannen |
 | `repeat.test.js` | Wiederholungsregeln aller Arten, Ende, gelöschte Einzeltermine, Texte und Vorschläge |
 | `schedule.test.js` | Status (offen/fällig/überfällig …), Fenster, Puffer, „ab dem Erledigen“, Zeitraum, verpasste Durchgänge |
-| `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung |
+| `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung, Rückgängig |
 | `now.test.js` | „Was mache ich jetzt?“: welche Aufgabe in welchem Bereich, Reihenfolge nach W×D |
 | `free-slots.test.js` | Freie Zeiten zwischen Terminen fürs Einplanen (Lücken, Dauer, heute ab jetzt, ganztägig) |
 | `crypto.test.js` | Verschlüsselung: hin und zurück, falsches Passwort, veränderte Daten, nichts Lesbares |
@@ -247,7 +253,7 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 
 **Klicktests** (`npm run test:e2e`, Ordner `tests/e2e/`): Die App läuft in Chromium in Handy-Größe, die Tests tippen
 und wischen wie mit dem Finger (auch langes Drücken und Ziehen). Die Uhr steht dabei fest auf Do., 15.10.2026, 12:00,
-damit die Tests unabhängig vom heutigen Datum immer gleich laufen. Abgedeckt: Aufgaben anlegen/leeren/erledigen,
+damit die Tests unabhängig vom heutigen Datum immer gleich laufen. Abgedeckt: Aufgaben anlegen/leeren/erledigen, Rückgängig,
 Regelmäßig, Steigerungen, Umsortieren, Kalenderansichten, Ein-/Ausblenden, Termine ziehen, Serien, Geburtstage,
 Aufgaben einplanen, Routinen, „Was mache ich jetzt?“, die Wunschliste und den Cloud-Sync (Einrichten auf zwei
 Geräten gegen den nachgebauten Supabase-Server). `desktop.test.js` prüft die PC-Ansicht (1440 × 900, Maus und

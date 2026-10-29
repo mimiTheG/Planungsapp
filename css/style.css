@@ -278,8 +278,8 @@ body.has-player { --player-h: 3.6rem; }
 .routine-head button { flex: none; white-space: nowrap; }
 .routine-head .spacer { display: none; }
 .routine .tree { margin: 0.4rem 0; }
-.routine-actions { margin-top: 0.4rem; }
-.routine-actions button { flex: 1 1 auto; white-space: nowrap; padding-left: 0.6rem; padding-right: 0.6rem; }
+.routine-actions { margin-top: 0.4rem; flex-wrap: nowrap; }
+.routine-actions button { flex: 1 1 0; min-width: 0; white-space: nowrap; padding-left: 0.35rem; padding-right: 0.35rem; font-size: 0.92rem; }
 .routine-section { margin: 1rem 0 0.4rem; font-size: 0.95rem; color: var(--muted); font-weight: 600; }
 .routine.editing { border: 2px dashed var(--accent); }
 .edit-hint { margin: 0.3rem 0; font-size: 0.85rem; color: var(--accent); }
@@ -360,6 +360,8 @@ progress { width: 100%; height: 0.6rem; accent-color: var(--accent); }
 fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.75rem 0.8rem; display: grid; gap: 0.6rem; margin: 0; min-width: 0; }
 legend { font-weight: 600; padding: 0 0.3rem; }
 details summary { cursor: pointer; color: var(--accent); padding: 0.3rem 0; }
+.more-fields > summary { font-weight: 600; }
+.more-fields[open] > summary { margin-bottom: 0.5rem; }
 .buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 .planned-task { display: grid; gap: 0.4rem; padding: 0.6rem 0.75rem; border-radius: var(--radius); background: var(--accent-soft); }
 .planned-task-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
@@ -624,6 +626,11 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
 .toast.error { background: var(--error); }
+.toast.visible:has(.toast-undo) { pointer-events: auto; display: flex; align-items: center; gap: 0.8rem; }
+.toast-undo {
+  background: none; border: 0; padding: 0.2rem 0; min-height: 0; color: inherit; font: inherit;
+  font-weight: 700; text-decoration: underline; cursor: pointer; white-space: nowrap;
+}
 
 /* Cloud-Sync */
 .cloud p { margin: 0 0 0.6rem; }
