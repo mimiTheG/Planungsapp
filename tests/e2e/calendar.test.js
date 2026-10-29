@@ -63,6 +63,44 @@ describe('Ansichten', () => {
   });
 });
 
+describe('Erledigte Aufgaben durchgestrichen', () => {
+  test('in „Jetzt“ abhaken → im Kalender am selben Tag durchgestrichen (Monat und Tag), nächster Durchgang offen', async () => {
+    const app = await browser.open('jetzt', {
+      data: (s) => {
+        s.createTask({ title: 'Bad', recurrence: 'rhythm', window_start: '2026-10-15', buffer: 0, repeat: { freq: 'weekly', interval: 1 } });
+        s.createTask({ title: 'Steuer', window_end: '2026-10-20' });
+      },
+    });
+    const { page } = app;
+    for (const title of ['Bad', 'Steuer']) {
+      await page.locator(`.now-item:has-text("${title}") .done-btn`).click();
+      await page.waitForTimeout(250);
+    }
+    await app.go('kalender');
+    assert.deepEqual(await texts(monthCell(app, 15).locator('.chip.done')), ['Bad', 'Steuer']);
+    assert.equal(await monthCell(app, 15).locator('.chip.done').first().evaluate((n) => getComputedStyle(n).textDecorationLine), 'line-through');
+    assert.deepEqual(await texts(monthCell(app, 22).locator('.chip.recurring:not(.done)')), ['Bad'], 'nächste Woche wieder offen');
+    assert.equal(await monthCell(app, 20).locator('.chip.deadline').count(), 0, 'keine rote Deadline mehr');
+    await openDay(app, 15);
+    assert.deepEqual(await texts(page.locator('.allday-cell .chip.done')), ['Bad', 'Steuer']);
+    await app.close();
+  });
+
+  test('eingeplante Aufgabe erledigt → der Termin ist durchgestrichen und hat ein ✓', async () => {
+    const app = await browser.open('kalender', {
+      data: (s) => {
+        const t = s.createTask({ title: 'Fenster putzen' });
+        s.createEvent({ title: '', task_id: t.id, start_at: '2026-10-15T09:00', end_at: '2026-10-15T10:00' });
+        s.completeTask(t.id);
+      },
+    });
+    assert.deepEqual(await texts(monthCell(app, 15).locator('.chip.done')), ['✓ Fenster putzen']);
+    await openDay(app, 15, 8);
+    assert.equal(await app.page.locator('.block.done:has-text("Fenster putzen")').count(), 1);
+    await app.close();
+  });
+});
+
 describe('Aufgaben und Veranstaltungen ein-/ausblenden', () => {
   const data = (s) => {
     s.createTask({ title: 'Steuer', window_end: '2026-10-20' });

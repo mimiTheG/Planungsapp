@@ -615,6 +615,9 @@ button.icon.info.active { background: var(--accent); color: var(--on-accent); }
 .chip.deadline { background: #ff1a1a; color: #fff; font-weight: 700; }
 /* Anstehende wiederkehrende Aufgabe: helle Themenfarbe mit farbigem Rand links. */
 .chip.recurring { background: color-mix(in srgb, var(--c) 28%, var(--surface)); color: var(--text); border-left: 3px solid var(--c); }
+/* Erledigte Aufgabe (auch eingeplante oder Routine): durchgestrichen und blasser. */
+.chip.done, .block.done { text-decoration: line-through; opacity: 0.55; }
+.block.done .block-title, .block.done .block-time { text-decoration: line-through; }
 
 /* Hinweis unten */
 

@@ -47,12 +47,14 @@ function segment(event) {
 }
 
 // Eingeplante Routinen und Aufgaben heißen im Kalender immer wie die Routine/Aufgabe (auch nach Umbenennen);
-// eine erledigte eingeplante Aufgabe bekommt ein ✓.
+// erledigt bekommen sie ein ✓ und sind durchgestrichen.
 function eventTitle(event) {
   if (event.is_birthday) return `🎂 ${event.title}${birthdayAge(event)}`;
   const task = event.task_id && store.taskById(event.task_id);
-  if (task) return `${task.status === 'done' ? '✓ ' : ''}${store.shownTitle(task)}`;
-  return (event.routine_id && store.taskById(event.routine_id)?.title) || event.title;
+  if (task) return `${store.plannedDone(event) ? '✓ ' : ''}${store.shownTitle(task)}`;
+  const routine = event.routine_id && store.taskById(event.routine_id);
+  if (routine) return `${store.plannedDone(event) ? '✓ ' : ''}${routine.title}`;
+  return event.title;
 }
 
 // Alter am Geburtstag, wenn das Geburtsjahr bekannt ist: " (36)".
@@ -92,7 +94,8 @@ export function renderCalendarView(root) {
   if (!view.showEvents) events = events.filter((e) => !e.is_event);
   // Aufgaben (Deadlines und anstehende regelmäßige) lassen sich wie Veranstaltungen ausblenden.
   let deadlines = store.deadlinesBetween(from, to);
-  let recurring = store.recurringBetween(from, to);
+  // Erledigte stehen durchgestrichen am Tag des Erledigens (wie die anstehenden, mit done: true).
+  let recurring = [...store.recurringBetween(from, to), ...store.doneBetween(from, to)];
   const hiddenTasks = deadlines.length + recurring.length;
   if (!view.showTasks) { deadlines = []; recurring = []; }
 
@@ -329,10 +332,11 @@ function deadlineText(task, withTime = true) {
 }
 
 // Anstehende wiederkehrende Aufgabe: in Themenfarbe, aber hell – damit sie sich von Terminen abhebt.
+// Erledigt: durchgestrichen.
 function recurringChip(task, tag, attrs = {}) {
-  return el(`${tag}.chip.recurring`, {
+  return el(`${tag}.chip.recurring${task.done ? '.done' : ''}`, {
     style: { '--c': store.topicColor(task.topic_id) },
-    title: `Steht an: ${store.shownTitle(task)}`,
+    title: `${task.done ? 'Erledigt' : 'Steht an'}: ${store.shownTitle(task)}`,
     ...attrs,
   }, store.shownTitle(task));
 }
@@ -380,7 +384,7 @@ function dayGrid(from, count, allEvents, deadlines, recurring, refresh) {
       const e = Math.min(seg.end, dayEnd);
       const top = ((s - dayStart) / 3600000) * HOUR_PX;
       const height = Math.max(16, ((e - s) / 3600000) * HOUR_PX - 2);
-      const block = el(`button.block${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}`, {
+      const block = el(`button.block${ev.is_event ? '.is-event' : ''}${height < 30 ? '.short' : ''}${store.plannedDone(ev) ? '.done' : ''}`, {
         type: 'button',
         style: {
           top: `${top}px`,
@@ -484,7 +488,7 @@ function monthGrid(from, to, events, deadlines, recurring, refresh) {
     el('span.month-day', {}, String(day.getDate())),
     deadlines.filter((t) => t.deadline_date === key).map((t) => el('span.chip.deadline', { title: `Deadline: ${store.shownTitle(t)}` }, deadlineText(t, false))),
     recurring.filter((t) => t.day === key).map((t) => recurringChip(t, 'span')),
-    dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}`, {
+    dayEvents.map((ev) => el(`span.chip${ev.is_event ? '.is-event' : ''}${store.plannedDone(ev) ? '.done' : ''}`, {
       style: { '--c': store.topicColor(ev.topic_id), '--on': textOn(store.topicColor(ev.topic_id)) },
       title: `${ev.all_day ? 'ganztägig' : formatTime(parseDate(ev.start_at))} ${ev.title}`,
     }, eventTitle(ev)))));

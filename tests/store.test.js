@@ -652,3 +652,53 @@ describe('Rückgängig (restore)', () => {
     assert.deepEqual(titles(store.tasks()), ['Bad putzen']);
   });
 });
+
+describe('Erledigte Aufgaben im Kalender (doneBetween, plannedDone)', () => {
+  const day = (iso) => new Date(`${iso}T00:00`);
+
+  test('wiederkehrende Aufgabe: am Tag des Erledigens durchgestrichen, danach steht der nächste Durchgang an', () => {
+    fresh();
+    const t = weeklyTask();
+    store.completeTask(t.id, new Date('2099-01-06T09:00'));
+    assert.deepEqual(store.doneBetween(day('2099-01-01'), day('2099-01-31')).map((d) => [d.title, d.day, d.done]),
+      [['Bad putzen', '2099-01-06', true]]);
+    assert.deepEqual(store.recurringBetween(day('2099-01-01'), day('2099-01-31'), new Date('2099-01-06T10:00')).map((r) => r.day), ['2099-01-12']);
+  });
+
+  test('jedes Erledigen einzeln; außerhalb des Zeitraums nichts', () => {
+    fresh();
+    const t = weeklyTask();
+    store.completeTask(t.id, new Date('2099-01-05T09:00'));
+    store.completeTask(t.id, new Date('2099-01-12T09:00'));
+    assert.deepEqual(store.doneBetween(day('2099-01-01'), day('2099-01-31')).map((d) => d.day).sort(), ['2099-01-05', '2099-01-12']);
+    assert.deepEqual(store.doneBetween(day('2099-02-01'), day('2099-02-28')), []);
+  });
+
+  test('einmalig: mit Deadline durchgestrichen statt rot; ohne Datum gar nicht; wieder geöffnet → weg', () => {
+    fresh();
+    const a = store.createTask({ title: 'Steuer', window_end: '2099-01-20' });
+    const b = store.createTask({ title: 'Irgendwann' });
+    store.completeTask(a.id, new Date('2099-01-10T09:00'));
+    store.completeTask(b.id, new Date('2099-01-10T09:00'));
+    const range = [day('2099-01-01'), day('2099-01-31')];
+    assert.deepEqual(store.doneBetween(...range).map((d) => [d.title, d.day]), [['Steuer', '2099-01-10']]);
+    assert.deepEqual(store.deadlinesBetween(...range), []);
+    store.reopenTask(a.id);
+    assert.deepEqual(store.doneBetween(...range), []);
+  });
+
+  test('eingeplante Aufgabe/Routine: Termin gilt als erledigt, keine doppelte Anzeige', () => {
+    fresh();
+    const t = weeklyTask();
+    const ev = store.createEvent({ title: '', task_id: t.id, start_at: '2099-01-05T10:00', end_at: '2099-01-05T11:00' });
+    const routine = store.createTask({ title: 'Morgen', kind: 'routine' });
+    const rev = store.createEvent({ title: '', routine_id: routine.id, start_at: '2099-01-05T07:00', end_at: '2099-01-05T07:30' });
+    assert.equal(store.plannedDone(ev), false);
+    store.completeTask(t.id, new Date('2099-01-05T11:00'));
+    store.completeTask(routine.id, new Date('2099-01-05T07:30'));
+    assert.equal(store.plannedDone(store.eventById(ev.id)), true);
+    assert.equal(store.plannedDone(store.eventById(rev.id)), true);
+    assert.deepEqual(store.doneBetween(day('2099-01-01'), day('2099-01-31')), [], 'nur der durchgestrichene Termin');
+    assert.equal(store.plannedDone({ ...store.eventById(ev.id), start_at: '2099-01-12 10:00' }), false, 'anderer Tag: offen');
+  });
+});

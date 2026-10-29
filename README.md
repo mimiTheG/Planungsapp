@@ -41,7 +41,8 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
   (Viertelstunden), Dauer bei Bedarf ändern, **📅 Einplanen** – fertig. Überschneidungen werden angezeigt.
   „Mehr Optionen …“ öffnet den Termin-Editor (z. B. für Wiederholungen). Der Termin bekommt Titel und Thema von der
   Aufgabe, die Dauer aus ihrer Dauer (sonst 1 Stunde).
-  Im Termin lässt sie sich direkt abhaken („✓ Erledigt“) oder öffnen; erledigt steht im Kalender „✓“ davor.
+  Im Termin lässt sie sich direkt abhaken („✓ Erledigt“) oder öffnen; erledigt steht sie im Kalender mit „✓“ und durchgestrichen da
+  (wiederkehrende: wenn sie an dem Tag erledigt wurde). Eingeplante Routinen ebenso, sobald sie abgeschlossen sind.
   Läuft die eingeplante Zeit gerade, kann man sie unter „Jetzt“ abhaken.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
   oder bei der Routine auf **📅 Einplanen** tippen (derselbe Kalender wie bei Aufgaben; die Standardstartzeit wird
@@ -50,6 +51,8 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
   „Veranstaltungen“ ein- und ausblenden.
 - **Aufgaben** im Kalender (rote Deadlines und anstehende regelmäßige Aufgaben) lassen sich genauso per Haken
   „Aufgaben“ ein- und ausblenden. Eingeplante Aufgaben (📅) sind Termine und bleiben sichtbar.
+- **Erledigte Aufgaben** stehen **durchgestrichen** an dem Tag im Kalender, an dem sie abgehakt wurden
+  (wiederkehrende und solche mit Datum; Aufgaben ganz ohne Datum nicht). Wieder geöffnet → verschwindet der Eintrag.
 - **Geburtstage:** Thema **„Geburtstag“** wählen – dann ist der Termin ganztägig, wiederholt sich jedes Jahr an diesem
   Tag und steht im Kalender mit 🎂 (immer sichtbar). Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“).
 - „Geburtstag“ und „Veranstaltung“ sind feste Themen: Es gibt sie immer, man kann sie umbenennen und umfärben,
