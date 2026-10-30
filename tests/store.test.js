@@ -702,3 +702,90 @@ describe('Erledigte Aufgaben im Kalender (doneBetween, plannedDone)', () => {
     assert.equal(store.plannedDone({ ...store.eventById(ev.id), start_at: '2099-01-12 10:00' }), false, 'anderer Tag: offen');
   });
 });
+
+describe('Urlaub', () => {
+  const vacation = (from, to, title = 'Urlaub') => store.createEvent({
+    title, topic_id: store.vacationTopic().id, all_day: true, start_at: `${from}T00:00`, end_at: `${to}T00:00`,
+  });
+  // Friseur: alle 4 Wochen ab dem Erledigen, erledigt am Sa., 10.1.2099 → Termintag Sa., 7.2.
+  const haircut = (buffer = 0) => {
+    const t = store.createTask({
+      title: 'Friseur', recurrence: 'rhythm', window_start: '2099-01-10', buffer, repeat_from_done: true, repeat: { freq: 'weekly', interval: 4 },
+    });
+    store.completeTask(t.id, new Date('2099-01-10T10:00'));
+    return t.id;
+  };
+  const win = (id) => { const t = store.taskById(id); return [t.window_start, t.window_end]; };
+
+  test('festes Thema „Urlaub“: immer ganztägig, ohne Wiederholung, nicht löschbar', () => {
+    fresh();
+    const ev = store.createEvent({
+      title: 'Ostsee', topic_id: store.vacationTopic().id, start_at: '2099-03-01T10:00', end_at: '2099-03-05T12:00', repeat: { freq: 'weekly', interval: 1 },
+    });
+    assert.deepEqual([ev.all_day, ev.is_vacation, ev.repeat, ev.start_at, ev.end_at], [true, true, null, '2099-03-01 00:00', '2099-03-05 23:59']);
+    assert.equal(store.isFixedTopic(store.vacationTopic()), true);
+    assert.deepEqual(store.vacations().map((v) => [v.title, v.from, v.to]), [['Ostsee', '2099-03-01', '2099-03-05']]);
+  });
+
+  test('Urlaub zwischen Erledigen und Termintag → um die Urlaubstage später; ändern und löschen wirken', () => {
+    fresh();
+    const id = haircut();
+    assert.deepEqual(win(id), ['2099-02-07', '2099-02-07']);
+    const v = vacation('2099-01-20', '2099-01-26'); // 7 Tage
+    assert.deepEqual(win(id), ['2099-02-14', '2099-02-14']);
+    store.updateEvent(v.id, { title: 'Urlaub', topic_id: store.vacationTopic().id, all_day: true, start_at: '2099-01-20T00:00', end_at: '2099-01-22T00:00' });
+    assert.deepEqual(win(id), ['2099-02-10', '2099-02-10'], 'nur noch 3 Tage');
+    store.deleteEvent(v.id);
+    assert.deepEqual(win(id), ['2099-02-07', '2099-02-07'], 'wieder wie vorher');
+    assert.equal(store.taskById(id).vacation_shift, undefined);
+  });
+
+  test('mehrere Urlaube addieren sich; rutscht der Termintag in einen Urlaub, kommt er danach', () => {
+    fresh();
+    const id = haircut();
+    vacation('2099-01-15', '2099-01-16'); // 2 Tage → 9.2.
+    vacation('2099-02-08', '2099-02-12'); // 9.2. liegt drin → 2 + 5 Tage = 14.2.
+    assert.deepEqual(win(id), ['2099-02-14', '2099-02-14']);
+  });
+
+  test('Puffer bleibt um den verschobenen Termintag; Urlaub nach dem Termintag oder vor dem Erledigen zählt nicht', () => {
+    fresh();
+    const id = haircut(1);
+    vacation('2099-01-01', '2099-01-09'); // vor dem Erledigen
+    vacation('2099-03-01', '2099-03-10'); // nach dem Termintag
+    assert.deepEqual(win(id), ['2099-02-06', '2099-02-08']);
+    vacation('2099-01-12', '2099-01-13');
+    assert.deepEqual(win(id), ['2099-02-08', '2099-02-10']);
+  });
+
+  test('Aufgaben mit festen Tagen und Aufgaben ohne Erledigen bleiben', () => {
+    fresh();
+    const fixed = weeklyTask({ window_start: '2099-01-05' });
+    store.completeTask(fixed.id, new Date('2099-01-05T10:00'));
+    const never = store.createTask({ title: 'Neu', recurrence: 'rhythm', window_start: '2099-01-20', buffer: 0, repeat_from_done: true, repeat: { freq: 'weekly', interval: 2 } });
+    vacation('2099-01-06', '2099-01-25');
+    assert.deepEqual(win(fixed.id), ['2099-01-12', '2099-01-12']);
+    assert.deepEqual(win(never.id), ['2099-01-20', '2099-01-20']);
+  });
+
+  test('nach dem Erledigen zählt der Urlaub neu ab dann; im Editor speichern verschiebt nicht doppelt', () => {
+    fresh();
+    const id = haircut();
+    vacation('2099-01-20', '2099-01-26');
+    assert.deepEqual(win(id), ['2099-02-14', '2099-02-14']);
+    const t = store.taskById(id);
+    store.updateTask(id, { ...t, rhythm_start: '2099-02-14' });
+    assert.deepEqual(win(id), ['2099-02-14', '2099-02-14'], 'unverändert gespeichert');
+    store.completeTask(id, new Date('2099-02-14T10:00'));
+    assert.deepEqual(win(id), ['2099-03-14', '2099-03-14'], 'Urlaub liegt vor dem Erledigen');
+  });
+
+  test('Urlaub auf einem Gerät eingetragen: die verschobene Aufgabe ist mit Zeitstempel geändert (Cloud-Sync)', () => {
+    fresh();
+    const id = haircut();
+    const before = store.snapshot().tasks.find((t) => t.id === id).updated_at;
+    vacation('2099-01-20', '2099-01-21');
+    assert.ok(store.snapshot().tasks.find((t) => t.id === id).updated_at >= before);
+    assert.deepEqual(store.snapshot().tasks.find((t) => t.id === id).vacation_shift, { start: '2099-02-07', end: '2099-02-07', days: 2 });
+  });
+});

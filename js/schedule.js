@@ -188,3 +188,25 @@ export function windowAfterMissed(task, now = new Date()) {
   }
   return [null, null];
 }
+
+// Urlaub: Bei „ab dem Erledigen neu zählen“ zählen Urlaubstage nicht mit – der Termintag rückt um die Urlaubstage
+// zwischen dem Erledigen und ihm nach hinten (und um weitere, wenn er dadurch in einen Urlaub rutscht).
+// vacationDays: Set mit Tagen „JJJJ-MM-TT“. Ergebnis: Anzahl Tage, um die verschoben wird.
+export function vacationShift(doneDay, targetDay, vacationDays) {
+  if (!vacationDays.size) return 0;
+  const count = (from, to) => { // Urlaubstage in (from, to]
+    let n = 0;
+    for (let d = addDays(from, 1); d <= to; d = addDays(d, 1)) if (vacationDays.has(isoDate(d))) n += 1;
+    return n;
+  };
+  let shift = 0;
+  let to = startOfDay(targetDay);
+  let extra = count(startOfDay(doneDay), to);
+  while (extra > 0 && shift < 3660) {
+    shift += extra;
+    const next = addDays(to, extra);
+    extra = count(to, next);
+    to = next;
+  }
+  return shift;
+}

@@ -19,6 +19,50 @@ import { enableEventDrag, justDragged } from './event-drag.js';
 const HOUR_PX = 44;
 const MODES = { 1: 'Tag', 3: '3 Tage', 7: 'Woche', month: 'Monat' };
 
+// Einplanen (Aufgabe oder Routine): der ganz normale Kalender – blättern, Tag/Woche/Monat – mit einem Hinweis oben.
+// Antippen einer Uhrzeit öffnet den Termin-Editor für die Aufgabe bzw. Routine (Uhrzeit dort frei änderbar);
+// nach dem Speichern geht es zurück, woher man kam. input: { task_id } oder { routine_id } plus topic_id/title.
+let planning = null; // { title, minutes, input, back }
+
+export function planInCalendar({ title, minutes, input }) {
+  planning = { title, minutes, input, back: location.hash.slice(1) || 'kalender' };
+  view.anchor = new Date();
+  view.pickMonth = false;
+  view.mode = '1'; // gleich der heutige Tag mit allen Terminen; über „Monat“ oder Wischen zu anderen Tagen
+  if (location.hash === '#kalender') window.dispatchEvent(new HashChangeEvent('hashchange'));
+  else location.hash = 'kalender';
+}
+
+function endPlanning(message) {
+  const { back } = planning;
+  planning = null;
+  if (message) toast(message);
+  if (back !== 'kalender') location.hash = back;
+  else window.dispatchEvent(new HashChangeEvent('hashchange'));
+}
+
+// Wer den Kalender verlässt (andere Ansicht), bricht das Einplanen ab.
+window.addEventListener('hashchange', () => {
+  if (planning && location.hash !== '#kalender') planning = null;
+});
+
+function planBanner() {
+  return el('div.plan-banner', {},
+    el('div', {},
+      el('strong', {}, `📅 „${planning.title}“ einplanen`),
+      el('span', {}, view.mode === 'month'
+        ? 'Tag antippen, dann auf die gewünschte Uhrzeit.'
+        : `Auf die gewünschte Uhrzeit tippen (${planning.minutes} Min.) – wischen für andere Tage.`)),
+    el('button', { type: 'button', onclick: () => endPlanning() }, 'Abbrechen'));
+}
+
+// Uhrzeit in der Tages-/Wochenansicht angetippt: Termin-Editor für die Aufgabe/Routine.
+function planAt(start) {
+  const { input, minutes, title } = planning;
+  openEventEditor({ ...input, start_at: isoDateTime(start), end_at: isoDateTime(new Date(+start + minutes * 60000)) },
+    () => endPlanning(`„${title}“ eingeplant: ${formatDate(start)}, ${formatTime(start)}`));
+}
+
 const view = {
   mode: 'month', // beim Öffnen immer die Monatsansicht
   anchor: new Date(),
@@ -117,6 +161,7 @@ export function renderCalendarView(root) {
   // Kompakter Kopf, damit möglichst viel Platz für den Kalender bleibt.
   // Antippen des Titels öffnet die Monats-/Jahresauswahl.
   mount(root,
+    planning ? planBanner() : null,
     el('div.toolbar.cal-head', {},
       el('button.icon.nav', { type: 'button', 'aria-label': 'Zurück', title: 'Zurück (←)', dataset: { key: 'prev' }, onclick: () => step(-1) }, '‹'),
       el('button.link.cal-title', {
@@ -133,7 +178,7 @@ export function renderCalendarView(root) {
         type: 'button',
         onclick: () => setMode(m, refresh),
       }, label))),
-    el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', title: 'Neuer Termin (N)', dataset: { key: 'new' }, onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
+    planning ? null : el('button.primary.fab', { type: 'button', 'aria-label': 'Neuer Termin', title: 'Neuer Termin (N)', dataset: { key: 'new' }, onclick: () => openEventEditor(newEventAt(from, to), refresh) }, '+'),
     el('div.legend', {},
       el('div.legend-toggles', {}, el('label.check.small', {},
         el('input', {
@@ -282,7 +327,7 @@ function openDay(day, refresh) {
 }
 
 window.addEventListener('popstate', () => {
-  if (!['', '#kalender'].includes(location.hash) || document.getElementById('dialog')?.open) return;
+  if (!['', '#kalender'].includes(location.hash) || document.getElementById('dialog')?.open || planning) return;
   if (view.mode === 'month') return;
   view.mode = 'month';
   view.pickMonth = false;
@@ -369,6 +414,12 @@ function dayGrid(from, count, allEvents, deadlines, recurring, refresh) {
       onclick: (e) => {
         if (e.target !== col) return;
         const start = new Date(dayStart);
+        // Beim Einplanen auf die Viertelstunde genau, sonst zur vollen Stunde.
+        if (planning) {
+          start.setMinutes(Math.floor(e.offsetY / (HOUR_PX / 4)) * 15);
+          planAt(start);
+          return;
+        }
         start.setHours(Math.floor(e.offsetY / HOUR_PX));
         openEventEditor({ start_at: isoDateTime(start), end_at: isoDateTime(new Date(+start + 3600000)) }, refresh);
       },
@@ -590,16 +641,22 @@ export function openEventEditor(event, refresh) {
     && topicSelect.value !== '' && topicSelect.value === String(store.birthdayTopic()?.id);
   const birthYearField = field('Geburtsjahr (optional, für das Alter)',
     el('input', { type: 'number', name: 'birth_year', min: 1900, max: new Date().getFullYear(), inputmode: 'numeric', value: ev.birth_year || '' }));
-  const endBox = el('div.field', {}, el('span.field-label', {}, 'Ende'), endField.element);
+  const endLabel = el('span.field-label', {}, 'Ende');
+  const endBox = el('div.field', {}, endLabel, endField.element);
   const startLabel = el('span.field-label', {}, 'Beginn');
+  // Thema „Urlaub“: ganztägig von–bis, ohne Wiederholung.
+  const isVacation = () => typeSwitch.querySelector('input:checked').value !== 'routine'
+    && topicSelect.value !== '' && topicSelect.value === String(store.vacationTopic()?.id);
   function showBirthday() {
     const on = isBirthday();
-    if (on) allDayInput.checked = true;
-    allDayLabel.hidden = on || typeSwitch.querySelector('input:checked').value === 'routine';
+    const vacation = isVacation();
+    if (on || vacation) allDayInput.checked = true;
+    allDayLabel.hidden = on || vacation || typeSwitch.querySelector('input:checked').value === 'routine';
     endBox.hidden = on;
-    repeat.element.hidden = on;
+    repeat.element.hidden = on || vacation;
     birthYearField.hidden = !on;
-    startLabel.textContent = on ? 'Datum' : 'Beginn';
+    startLabel.textContent = on ? 'Datum' : vacation ? 'Von' : 'Beginn';
+    endLabel.textContent = vacation ? 'Bis' : 'Ende';
     showAllDay();
   }
 
@@ -700,6 +757,7 @@ export function openEventEditor(event, refresh) {
   }
 
   const topic = store.topicById(ev.topic_id);
-  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : plannedTask ? 'Aufgabe einplanen' : 'Neuer Termin')
+  const close = openDialog(isNew ? (ev.routine_id ? 'Routine einplanen' : plannedTask ? 'Aufgabe einplanen'
+    : ev.topic_id && ev.topic_id === store.vacationTopic()?.id ? 'Urlaub eintragen' : 'Neuer Termin')
     : `${ev.is_birthday ? 'Geburtstag' : plannedTask ? 'Eingeplante Aufgabe' : 'Termin'}${topic ? ` · ${topic.name}` : ''}`, form);
 }

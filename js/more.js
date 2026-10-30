@@ -1,13 +1,14 @@
 // "Mehr": Themen mit Farben, Datensicherung und Beispieldaten.
 
 import { el, mount, toast, attempt } from './ui.js';
-import { isoDate } from './dates.js';
+import { addDays, formatDate, isoDate, isoDateTime, parseDate, startOfDay } from './dates.js';
 import * as store from './store.js';
 import { nextTopicColor } from './topic-picker.js';
 import { colorChooser } from './color-chooser.js';
 import { loadSamples } from './samples.js';
 import { cloudSection } from './cloud-view.js';
 import { cloud } from './cloud.js';
+import { openEventEditor } from './calendar.js';
 
 // Bei eingeschaltetem Cloud-Sync gelten Ersetzen/Löschen auch für die Cloud und die anderen Geräte.
 const alsoCloud = () => (cloud.status().phase === 'on' ? ' Das gilt auch für die Cloud und deine anderen Geräte.' : '');
@@ -73,7 +74,7 @@ export function renderMoreView(root) {
           }),
           // „Geburtstag“ und „Veranstaltung“ gibt es immer – umbenennen ja, löschen nein.
           store.isFixedTopic(topic)
-            ? el('span.icon-placeholder', { title: 'Festes Thema – lässt sich nicht löschen' }, topic.birthday ? '🎂' : '🎫')
+            ? el('span.icon-placeholder', { title: 'Festes Thema – lässt sich nicht löschen' }, topic.birthday ? '🎂' : topic.vacation ? '🏝' : '🎫')
             : el('button.icon', {
               type: 'button',
               'aria-label': 'Löschen',
@@ -84,6 +85,9 @@ export function renderMoreView(root) {
               },
             }, '🗑'))))
         : el('p.empty', {}, 'Noch keine Themen.')),
+
+    el('div.toolbar', {}, el('h2', {}, 'Urlaub')),
+    vacationSection(refresh),
 
     el('div.toolbar', {}, el('h2', {}, 'Cloud-Sync')),
     cloudSection(refresh),
@@ -120,4 +124,32 @@ export function renderMoreView(root) {
             refresh();
           },
         }, 'Alles löschen'))));
+}
+
+// Urlaub: anstehende und laufende Urlaube (Termine mit dem Thema „Urlaub“) und „+ Urlaub eintragen“.
+function vacationSection(refresh) {
+  const today = isoDate(new Date());
+  const list = store.vacations().filter((v) => v.to >= today);
+  const days = (v) => Math.round((parseDate(v.to) - parseDate(v.from)) / 86400000) + 1;
+  const short = (d) => formatDate(parseDate(d), { weekday: 'short', day: '2-digit', month: '2-digit' });
+  const add = () => {
+    const start = startOfDay(new Date());
+    openEventEditor({
+      title: 'Urlaub',
+      topic_id: store.vacationTopic().id,
+      all_day: true,
+      start_at: isoDateTime(start),
+      end_at: isoDateTime(addDays(start, 6)),
+    }, refresh);
+  };
+  return el('div.card.vacations', {},
+    el('p.muted', {}, 'Aufgaben, die ab dem Erledigen neu zählen (z. B. „alle 4 Wochen nach dem letzten Mal“), ',
+      'rücken um die Urlaubstage nach hinten. Aufgaben mit festen Tagen (Müll jeden Freitag) bleiben, wie sie sind.'),
+    list.length ? el('ul.vacation-list', {}, list.map((v) => el('li', {},
+      el('button.link', {
+        type: 'button',
+        onclick: () => openEventEditor(store.eventById(v.id), refresh),
+      }, `🏝 ${v.title}`),
+      el('span.muted', {}, `${short(v.from)} – ${short(v.to)} · ${days(v)} ${days(v) === 1 ? 'Tag' : 'Tage'}`)))) : null,
+    el('div.buttons', {}, el('button.primary', { type: 'button', onclick: add }, '+ Urlaub eintragen')));
 }

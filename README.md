@@ -18,8 +18,9 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
 
 **Kalender** (Tag, 3 Tage, Woche, Monat) – die Startseite der App, öffnet in der Monatsansicht
 - Termine mit Thema (Farbe), mit Uhrzeit oder **ganztägig** (nur Datum; in Tag/Woche in einer eigenen Zeile oben).
-- Beginn und Ende wählt man in einem **Monatskalender** (Tage mit Terminen haben einen Punkt) plus Uhrzeit –
-  statt der Drehräder des Handys.
+- Beginn und Ende: Datum und Uhrzeit sind **getrennt**. Antippen des **Datums** öffnet einen Monatskalender (Tage
+  mit Terminen haben einen Punkt; Tag antippen → fertig), Antippen der **Uhrzeit** direkt die Uhrzeit-Auswahl des
+  Handys. Das Ende wandert mit, wenn man den Beginn verschiebt.
 - Einträge im Kalender sind klein und platzsparend: genau in der Themenfarbe, Schrift automatisch hell oder dunkel.
 - In der Monatsansicht öffnet Antippen immer den Tag – auch auf einem Termin; von dort öffnet man den Termin.
 - Aus Tag, 3 Tage und Woche führt die Zurück-Taste des Handys immer zur Monatsansicht.
@@ -35,18 +36,18 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
   noch zum Vortag, z. B. Party 22–2 Uhr).
 - Antippen des Monats oben (z. B. „Oktober 2026“) öffnet eine Monats- und Jahresauswahl.
 - **Aufgaben einplanen:** In der Aufgabenliste auf 📅 tippen (oder im Aufgaben-Editor „📅 Einplanen“). Es öffnet sich
-  ein **Monatskalender mit allen Terminen** (Punkte = Anzahl; vergangene Tage gesperrt). Tag antippen → darunter der
-  **Tagesplan** mit den vorhandenen Terminen und den **freien Zeiten** als Knöpfe (Lücken zwischen 6 und 23 Uhr, in die die
-  Dauer passt; vorgeschlagen wird die erste ab 8 Uhr). Freie Zeit antippen oder direkt in die Zeitleiste tippen
-  (Viertelstunden), Dauer bei Bedarf ändern, **📅 Einplanen** – fertig. Überschneidungen werden angezeigt.
-  „Mehr Optionen …“ öffnet den Termin-Editor (z. B. für Wiederholungen). Der Termin bekommt Titel und Thema von der
-  Aufgabe, die Dauer aus ihrer Dauer (sonst 1 Stunde).
+  der **ganz normale Kalender** (heute in der Tagesansicht, mit allen Terminen) und oben der Hinweis
+  „… einplanen“. Man blättert wie sonst auch (wischen, Tag/3 Tage/Woche/Monat, im Monat einen Tag antippen) und
+  **tippt auf die gewünschte Uhrzeit** (auf die Viertelstunde genau). Dann öffnet sich der Termin-Editor mit der
+  Aufgabe – Titel und Thema von der Aufgabe, Dauer aus ihrer Dauer (sonst 1 Stunde); Uhrzeit und Datum lassen sich
+  dort noch ändern. **Anlegen** → eingeplant, und es geht zurück, woher man kam. **Abbrechen** im Hinweis beendet das
+  Einplanen.
   Im Termin lässt sie sich direkt abhaken („✓ Erledigt“) oder öffnen; erledigt steht sie im Kalender mit „✓“ und durchgestrichen da
   (wiederkehrende: wenn sie an dem Tag erledigt wurde). Eingeplante Routinen ebenso, sobald sie abgeschlossen sind.
   Läuft die eingeplante Zeit gerade, kann man sie unter „Jetzt“ abhaken.
 - **Routinen einplanen:** Beim Anlegen „Termin | Routine“ wählen (Titel, Thema und Dauer kommen von der Routine)
-  oder bei der Routine auf **📅 Einplanen** tippen (derselbe Kalender wie bei Aufgaben; die Standardstartzeit wird
-  vorgeschlagen, wenn sie frei ist). Im Termin startet „▶ …“ die Routine.
+  oder bei der Routine auf **📅 Einplanen** tippen (genauso wie bei Aufgaben; Dauer aus den Schritten).
+  Im Termin startet „▶ …“ die Routine.
 - **Veranstaltungen:** Thema **„Veranstaltung“** wählen – solche Termine lassen sich im Kalender per Haken
   „Veranstaltungen“ ein- und ausblenden.
 - **Aufgaben** im Kalender (rote Deadlines und anstehende regelmäßige Aufgaben) lassen sich genauso per Haken
@@ -55,7 +56,13 @@ installieren und funktioniert danach auch **offline**. Die Daten liegen auf dem 
   (wiederkehrende und solche mit Datum; Aufgaben ganz ohne Datum nicht). Wieder geöffnet → verschwindet der Eintrag.
 - **Geburtstage:** Thema **„Geburtstag“** wählen – dann ist der Termin ganztägig, wiederholt sich jedes Jahr an diesem
   Tag und steht im Kalender mit 🎂 (immer sichtbar). Mit Geburtsjahr steht das Alter dabei („🎂 Anna (36)“).
-- „Geburtstag“ und „Veranstaltung“ sind feste Themen: Es gibt sie immer, man kann sie umbenennen und umfärben,
+- **Urlaub:** Unter „Themen“ → **Urlaub** → „+ Urlaub eintragen“ (oder ein Termin mit dem Thema **„Urlaub“**):
+  ganztägig von–bis, ohne Wiederholung. Aufgaben, die **ab dem Erledigen** zählen („alle 4 Wochen nach dem letzten
+  Mal“), rücken um die Urlaubstage zwischen dem letzten Erledigen und ihrem Termin nach hinten – rutscht der Termin
+  dadurch in einen Urlaub, kommt er danach. Beispiel: Friseur alle 4 Wochen, erledigt am 10.10. → 7.11.; mit 7 Tagen
+  Urlaub dazwischen → 14.11. Gilt auch für nachträglich eingetragene, geänderte oder gelöschte Urlaube. Aufgaben mit
+  festen Tagen (Müll jeden Freitag) bleiben, wie sie sind.
+- „Geburtstag“, „Veranstaltung“ und „Urlaub“ sind feste Themen: Es gibt sie immer, man kann sie umbenennen und umfärben,
   aber nicht löschen.
 - Termine lassen sich **wiederholen** wie bei Google Kalender: Täglich, Wöchentlich am …, Monatlich am 14. bzw.
   am zweiten Dienstag, Jährlich, Jeden Werktag oder **Benutzerdefiniert** (alle n Tage/Wochen/Monate/Jahre,
@@ -245,9 +252,8 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 | `dates.test.js` | Datum lesen/schreiben, Tage rechnen (auch Zeitumstellung, Schaltjahr), lesbare Zeitspannen |
 | `repeat.test.js` | Wiederholungsregeln aller Arten, Ende, gelöschte Einzeltermine, Texte und Vorschläge |
 | `schedule.test.js` | Status (offen/fällig/überfällig …), Fenster, Puffer, „ab dem Erledigen“, Zeitraum, verpasste Durchgänge |
-| `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung, Rückgängig |
+| `store.test.js` | Eingabeprüfung, Themen, Wunschliste, Aufgabenbaum, Termine, Steigerungen, Sicherung, Rückgängig, Urlaub |
 | `now.test.js` | „Was mache ich jetzt?“: welche Aufgabe in welchem Bereich, Reihenfolge nach W×D |
-| `free-slots.test.js` | Freie Zeiten zwischen Terminen fürs Einplanen (Lücken, Dauer, heute ab jetzt, ganztägig) |
 | `crypto.test.js` | Verschlüsselung: hin und zurück, falsches Passwort, veränderte Daten, nichts Lesbares |
 | `merge.test.js` | Abgleich: Zeitstempel, Löschvermerke, spätere Änderung gewinnt, Verlauf |
 | `cloud.test.js` | Cloud-Sync mit zwei Geräten gegen einen nachgebauten Supabase-Server (`tests/support/`) |
@@ -258,7 +264,7 @@ npm run test:e2e              # Klicktests im echten Browser (Handy-Ansicht), da
 und wischen wie mit dem Finger (auch langes Drücken und Ziehen). Die Uhr steht dabei fest auf Do., 15.10.2026, 12:00,
 damit die Tests unabhängig vom heutigen Datum immer gleich laufen. Abgedeckt: Aufgaben anlegen/leeren/erledigen, Rückgängig,
 Regelmäßig, Steigerungen, Umsortieren, Kalenderansichten, Ein-/Ausblenden, Termine ziehen, Serien, Geburtstage,
-Aufgaben einplanen, Routinen, „Was mache ich jetzt?“, die Wunschliste und den Cloud-Sync (Einrichten auf zwei
+Aufgaben im Kalender einplanen, Datum/Uhrzeit getrennt, Urlaub, Routinen, „Was mache ich jetzt?“, die Wunschliste und den Cloud-Sync (Einrichten auf zwei
 Geräten gegen den nachgebauten Supabase-Server). `desktop.test.js` prüft die PC-Ansicht (1440 × 900, Maus und
 Tastatur): Seitenleiste, Spalten, Tastenkürzel und Ziehen mit der Maus.
 
@@ -287,8 +293,6 @@ js/
   now.js               „Was mache ich jetzt?“
   sections.js          Bereiche und Reihenfolge von „Was mache ich jetzt?“ (ohne Oberfläche, testbar)
   shortcuts.js         Tastenkürzel am PC
-  plan-picker.js       Einplanen: Monat → Tag → freie Zeit zwischen den Terminen
-  free-slots.js        Freie Zeiten eines Tages (ohne Oberfläche, testbar)
   player.js            Leiste der laufenden Routine über der Navigation
   calendar.js          Kalender und Termin-Editor
   tasks.js             Aufgaben-/Routinen-Ansichten, Editor mit Matrix

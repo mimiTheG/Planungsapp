@@ -203,7 +203,7 @@ describe('Termine ziehen und Serien', () => {
     assert.match(await page.locator('.allday-row .chip').textContent(), /🎂 Anna \(36\)/);
     await page.locator('.allday-row .chip:has-text("Anna")').click();
     await page.waitForTimeout(200);
-    await page.locator('#dialog .dt-display').first().click();
+    await page.locator('#dialog .dt-date').first().click();
     await page.waitForTimeout(100);
     await page.locator('#dialog .dt-panel:not([hidden]) .dt-day.selected + .dt-day').click();
     await page.click('#dialog button[type=submit]');
@@ -215,108 +215,82 @@ describe('Termine ziehen und Serien', () => {
   });
 });
 
-describe('Aufgaben einplanen', () => {
-  test('📅 in der Aufgabenliste: Dauer aus der Aufgabe, Termin verweist auf sie, im Termin abhaken', async () => {
+describe('Aufgaben einplanen (im echten Kalender)', () => {
+  const planned = (app) => app.store((s) => s.eventsBetween(new Date(2026, 9, 1), new Date(2026, 11, 31))
+    .filter((e) => e.task_id || e.routine_id).map((e) => `${e.start_at}–${e.end_at.slice(11)}`));
+  // In der Tages-/Wochenansicht auf eine Uhrzeit tippen (Spalte des Tages, Stunde als Dezimalzahl).
+  const tapTime = async (app, day, hour) => {
+    await app.page.locator('.week-scroll').evaluate((n, top) => { n.scrollTop = top; }, Math.max(0, hour - 1) * HOUR_PX);
+    await app.page.waitForTimeout(50);
+    await app.page.locator(`.day-col[data-day="${day}"]`).click({ position: { x: 20, y: hour * HOUR_PX + 2 } });
+    await app.page.waitForTimeout(250);
+  };
+
+  test('📅 in der Aufgabenliste → Kalender (heute) mit Hinweis; Uhrzeit antippen → Termin-Editor; speichern → zurück', async () => {
     const app = await browser.open('aufgaben', {
-      data: (s) => s.createTask({ title: 'Präsentation', duration_min: 90 }),
+      data: (s) => {
+        s.createTask({ title: 'Präsentation', duration_min: 90 });
+        s.createEvent({ title: 'Arzt', start_at: '2026-10-15T14:00', end_at: '2026-10-15T15:00' });
+      },
     });
     const { page } = app;
     await page.click('.task-row:has-text("Präsentation") button[aria-label="Im Kalender einplanen"]');
     await page.waitForTimeout(250);
-    assert.equal(await page.locator('#dialog h2').textContent(), '„Präsentation“ einplanen');
-    assert.equal(await page.locator('#pp-minutes').inputValue(), '90');
-    await page.click('#dialog button:has-text("📅 Einplanen")');
-    await page.waitForTimeout(250);
-    const ev = await app.store((s) => s.eventsBetween(new Date(2026, 0, 1), new Date(2027, 0, 1))[0]);
-    assert.ok(ev.task_id);
-    assert.equal((new Date(ev.end_at.replace(' ', 'T')) - new Date(ev.start_at.replace(' ', 'T'))) / 60000, 90);
-
-    await app.go('kalender');
-    await openDay(app, Number(ev.start_at.slice(8, 10)), Math.max(0, Number(ev.start_at.slice(11, 13)) - 1));
-    await page.locator('.block:has-text("Präsentation")').click();
-    await page.waitForTimeout(200);
-    await page.click('#dialog .planned-task button:has-text("Erledigt")');
-    await page.waitForTimeout(250);
-    assert.equal(await app.store((s) => s.tasks()[0].status), 'done');
-    assert.match(await page.locator('.block').first().innerText(), /✓ Präsentation/);
-    await app.close();
-  });
-
-  // Termine am Fr., 16.10.: 9–12 Büro, 14–15 Arzt, 18:30–19:30 Yoga.
-  const busyFriday = (s) => {
-    s.createTask({ title: 'Präsentation', duration_min: 90 });
-    s.createEvent({ title: 'Büro', start_at: '2026-10-16T09:00', end_at: '2026-10-16T12:00' });
-    s.createEvent({ title: 'Arzt', start_at: '2026-10-16T14:00', end_at: '2026-10-16T15:00' });
-    s.createEvent({ title: 'Yoga', start_at: '2026-10-16T18:30', end_at: '2026-10-16T19:30' });
-  };
-  const openPicker = async (app) => {
-    await app.page.click('.task-row:has-text("Präsentation") button[aria-label="Im Kalender einplanen"]');
-    await app.page.waitForTimeout(250);
-  };
-  const planned = (app) => app.store((s) => s.eventsBetween(new Date(2026, 9, 1), new Date(2026, 11, 31))
-    .filter((e) => e.task_id).map((e) => `${e.start_at}–${e.end_at.slice(11)}`));
-
-  test('Einplanen: Monat mit Terminen, vergangene Tage gesperrt, Tag wählen zeigt Termine und freie Zeiten', async () => {
-    const app = await browser.open('aufgaben', { data: busyFriday });
-    const { page } = app;
-    await openPicker(app);
-    assert.equal(await page.locator('.pp-day[data-day="2026-10-14"]').isDisabled(), true, 'gestern gesperrt');
-    assert.equal(await page.locator('.pp-day.selected').getAttribute('data-day'), '2026-10-15', 'heute vorgewählt');
-    assert.equal((await page.locator('.pp-day[data-day="2026-10-16"] .pp-count').textContent()).trim(), '•••', '3 Termine');
-    await page.click('.pp-day[data-day="2026-10-16"]');
-    await page.waitForTimeout(200);
-    assert.deepEqual(await texts(page.locator('.pp-free-buttons .chip-button')), ['06:00–09:00', '12:00–14:00', '15:00–18:30', '19:30–23:00']);
-    assert.deepEqual(await texts(page.locator('.pp-busy')), ['09:00 Büro', '14:00 Arzt', '18:30 Yoga']);
-    assert.equal(await page.locator('.pp-chosen').textContent(), 'Fr., 16.10., 12:00–13:30', 'erste passende Lücke ab 8 Uhr');
-    await page.click('.pp-free-buttons .chip-button:has-text("15:00–18:30")');
-    await page.click('#dialog button:has-text("📅 Einplanen")');
-    await page.waitForTimeout(250);
-    assert.deepEqual(await planned(app), ['2026-10-16 15:00–16:30']);
-    assert.equal(await page.locator('#dialog[open]').count(), 0);
-    assert.match(await page.locator('#toast').textContent(), /Eingeplant: Fr\., 16\.10\., 15:00/);
-    await app.close();
-  });
-
-  test('Einplanen: in die Zeitleiste tippen wählt die Uhrzeit (Viertelstunde); Überschneidung wird angezeigt', async () => {
-    const app = await browser.open('aufgaben', { data: busyFriday });
-    const { page } = app;
-    await openPicker(app);
-    await page.click('.pp-day[data-day="2026-10-16"]');
-    await page.waitForTimeout(200);
-    const lane = page.locator('.pp-lane');
-    const box = await lane.boundingBox();
-    await lane.click({ position: { x: 10, y: (16.5 - 6) * 40 + 2 } }); // 16:30
-    assert.equal(await page.locator('.pp-chosen').textContent(), 'Fr., 16.10., 16:30–18:00');
-    assert.equal(await page.locator('.pp-warning').count(), 0);
-    await lane.click({ position: { x: 10, y: (13.5 - 6) * 40 + 2 } }); // 13:30 → reicht in den Arzttermin
-    assert.equal(await page.locator('.pp-chosen').textContent(), 'Fr., 16.10., 13:30–15:00');
-    assert.match(await page.locator('.pp-warning').textContent(), /Überschneidet/);
-    assert.ok(box.height > 600);
-    await app.close();
-  });
-
-  test('Einplanen: Dauer ändern verschiebt den Vorschlag; Monat blättern; „Mehr Optionen“ öffnet den Termin-Editor', async () => {
-    const app = await browser.open('aufgaben', { data: busyFriday });
-    const { page } = app;
-    await openPicker(app);
-    await page.click('.pp-day[data-day="2026-10-16"]');
-    await page.fill('#pp-minutes', '180');
-    await page.locator('#pp-minutes').dispatchEvent('change');
-    await page.waitForTimeout(200);
-    assert.deepEqual(await texts(page.locator('.pp-free-buttons .chip-button')), ['06:00–09:00', '15:00–18:30', '19:30–23:00']);
-    await page.click('button[aria-label="Nächster Monat"]');
-    assert.match(await page.locator('.pp-month-head strong').textContent(), /November 2026/);
-    await page.click('.pp-day[data-day="2026-11-03"]');
-    await page.waitForTimeout(150);
-    assert.equal(await page.locator('.pp-chosen').textContent(), 'Di., 03.11., 08:00–11:00');
-    await page.click('#dialog button:has-text("Mehr Optionen")');
-    await page.waitForTimeout(250);
-    assert.match(await page.locator('#dialog h2').textContent(), /einplanen/i);
+    assert.equal(await page.evaluate(() => location.hash), '#kalender');
+    assert.match(await page.locator('.plan-banner').textContent(), /„Präsentation“ einplanen.*90 Min/);
+    assert.equal(await page.locator('.day-col').getAttribute('data-day'), '2026-10-15', 'heute in der Tagesansicht');
+    assert.equal(await page.locator('.block:has-text("Arzt")').count(), 1, 'vorhandene Termine sichtbar');
+    assert.equal(await page.locator('.fab').count(), 0);
+    await tapTime(app, '2026-10-15', 15.5);
+    assert.equal(await page.locator('#dialog h2').textContent(), 'Aufgabe einplanen');
     assert.equal(await page.locator('#dialog .planned-task strong').textContent(), 'Präsentation');
+    assert.deepEqual(await page.locator('#dialog .dt-time').evaluateAll((l) => l.map((n) => n.value)), ['15:30', '17:00'], 'Viertelstunde, Dauer der Aufgabe');
+    await page.click('#dialog button[type=submit]');
+    await page.waitForTimeout(250);
+    assert.deepEqual(await planned(app), ['2026-10-15 15:30–17:00']);
+    assert.equal(await page.evaluate(() => location.hash), '#aufgaben', 'zurück, woher man kam');
+    assert.match(await page.locator('#toast').textContent(), /„Präsentation“ eingeplant: .*15:30/);
     await app.close();
   });
 
-  test('Routine einplanen: Standardstartzeit wird vorgeschlagen, wenn sie frei ist', async () => {
+  test('im Einplanen-Modus blättern: Monat → Tag antippen → Uhrzeit; im Editor Uhrzeit ändern', async () => {
+    const app = await browser.open('aufgaben', { data: (s) => s.createTask({ title: 'Präsentation', duration_min: 90 }) });
+    const { page } = app;
+    await page.click('.task-row:has-text("Präsentation") button[aria-label="Im Kalender einplanen"]');
+    await page.waitForTimeout(250);
+    await page.click('.segmented.modes button:has-text("Monat")');
+    await page.waitForTimeout(200);
+    assert.match(await page.locator('.plan-banner').textContent(), /Tag antippen/);
+    await monthCell(app, 20).click();
+    await page.waitForTimeout(200);
+    await tapTime(app, '2026-10-20', 9);
+    await page.fill('#dialog .dt-time >> nth=0', '10:15');
+    await page.locator('#dialog .dt-time').first().dispatchEvent('change');
+    await page.click('#dialog button[type=submit]');
+    await page.waitForTimeout(250);
+    assert.deepEqual(await planned(app), ['2026-10-20 10:15–11:45'], 'Ende wandert mit');
+    await app.close();
+  });
+
+  test('Abbrechen bzw. Editor schließen: nichts eingeplant; Abbrechen führt zurück', async () => {
+    const app = await browser.open('aufgaben', { data: (s) => s.createTask({ title: 'Präsentation' }) });
+    const { page } = app;
+    await page.click('.task-row:has-text("Präsentation") button[aria-label="Im Kalender einplanen"]');
+    await page.waitForTimeout(250);
+    await tapTime(app, '2026-10-15', 16);
+    await page.click('#dialog button[aria-label="Schließen"]');
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('.plan-banner').count(), 1, 'weiter im Einplanen-Modus');
+    await page.click('.plan-banner button:has-text("Abbrechen")');
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => location.hash), '#aufgaben');
+    assert.deepEqual(await planned(app), []);
+    await app.go('kalender');
+    assert.equal(await page.locator('.plan-banner').count(), 0);
+    await app.close();
+  });
+
+  test('Routine einplanen: Termin-Editor mit der Routine, Dauer aus den Schritten', async () => {
     const app = await browser.open('routinen', {
       data: (s) => {
         const r = s.createTask({ title: 'Morgen', kind: 'routine', default_time: '07:00' });
@@ -326,15 +300,97 @@ describe('Aufgaben einplanen', () => {
     const { page } = app;
     await page.click('.routine:has-text("Morgen") button:has-text("Einplanen")');
     await page.waitForTimeout(250);
-    await page.click('.pp-day[data-day="2026-10-16"]');
-    assert.equal(await page.locator('.pp-chosen').textContent(), 'Fr., 16.10., 07:00–07:20');
-    await page.click('#dialog button:has-text("📅 Einplanen")');
+    await page.locator('.cal-head button[aria-label="Vor"]').click();
+    await page.waitForTimeout(200);
+    await tapTime(app, '2026-10-16', 7);
+    assert.equal(await page.locator('#dialog h2').textContent(), 'Routine einplanen');
+    await page.click('#dialog button[type=submit]');
     await page.waitForTimeout(250);
-    const ev = await app.store((s) => s.eventsBetween(new Date(2026, 9, 16), new Date(2026, 9, 16)).find((e) => e.routine_id));
-    assert.equal(ev.start_at, '2026-10-16 07:00');
+    assert.deepEqual(await planned(app), ['2026-10-16 07:00–07:20']);
+    assert.equal(await page.evaluate(() => location.hash), '#routinen');
     await app.close();
   });
 
+  test('eingeplante Aufgabe im Termin abhaken → ✓ im Kalender', async () => {
+    const app = await browser.open('kalender', {
+      data: (s) => {
+        const t = s.createTask({ title: 'Präsentation' });
+        s.createEvent({ task_id: t.id, start_at: '2026-10-16T10:00', end_at: '2026-10-16T11:00' });
+      },
+    });
+    const { page } = app;
+    await openDay(app, 16, 9);
+    await page.locator('.block:has-text("Präsentation")').click();
+    await page.waitForTimeout(200);
+    await page.click('#dialog .planned-task button:has-text("Erledigt")');
+    await page.waitForTimeout(250);
+    assert.equal(await app.store((s) => s.tasks()[0].status), 'done');
+    assert.match(await page.locator('.block').first().innerText(), /✓ Präsentation/);
+    await app.close();
+  });
+});
+
+describe('Datum und Uhrzeit getrennt', () => {
+  test('Uhrzeit antippen ändert nur die Uhrzeit (Ende wandert mit); Datum öffnet nur den Kalender', async () => {
+    const app = await browser.open('kalender', {
+      data: (s) => s.createEvent({ title: 'Zahnarzt', start_at: '2026-10-15T15:00', end_at: '2026-10-15T16:00' }),
+    });
+    const { page } = app;
+    await openDay(app, 15, 14);
+    await page.locator('.block:has-text("Zahnarzt")').click();
+    await page.waitForTimeout(200);
+    await page.fill('#dialog .dt-time >> nth=0', '17:30');
+    await page.locator('#dialog .dt-time').first().dispatchEvent('change');
+    assert.equal(await page.locator('#dialog .dt-panel:not([hidden])').count(), 0, 'kein Kalender bei der Uhrzeit');
+    assert.deepEqual(await page.locator('#dialog .dt-time').evaluateAll((l) => l.map((n) => n.value)), ['17:30', '18:30']);
+    await page.locator('#dialog .dt-date').first().click();
+    await page.waitForTimeout(100);
+    const panel = page.locator('#dialog .dt-panel:not([hidden])');
+    assert.equal(await panel.count(), 1);
+    assert.equal(await panel.locator('input[type=time]').count(), 0, 'nur der Kalender, keine Uhrzeit');
+    await panel.locator('.dt-day.selected + .dt-day').click();
+    assert.equal(await page.locator('#dialog .dt-panel:not([hidden])').count(), 0, 'nach der Wahl zu');
+    await page.click('#dialog button[type=submit]');
+    await page.waitForTimeout(250);
+    assert.deepEqual(await app.store((s) => s.eventsBetween(new Date(2026, 9, 1), new Date(2026, 10, 1)).map((e) => `${e.start_at}–${e.end_at}`)),
+      ['2026-10-16 17:30–2026-10-16 18:30']);
+    await app.close();
+  });
+});
+
+describe('Urlaub', () => {
+  test('unter „Themen“ eintragen → ganztägig von–bis; Aufgabe „ab dem Erledigen“ rückt um die Urlaubstage', async () => {
+    const app = await browser.open('mehr', {
+      data: (s) => {
+        const t = s.createTask({ title: 'Friseur', recurrence: 'rhythm', window_start: '2026-10-10', buffer: 0, repeat_from_done: true, repeat: { freq: 'weekly', interval: 4 } });
+        s.completeTask(t.id, new Date('2026-10-10T10:00'));
+        s.createTask({ title: 'Müll', recurrence: 'rhythm', window_start: '2026-10-16', buffer: 0, repeat: { freq: 'weekly', interval: 1 } });
+      },
+    });
+    const { page } = app;
+    const windows = () => app.store((s) => s.tasks().map((t) => `${t.title} ${t.window_start}`));
+    assert.deepEqual(await windows(), ['Friseur 2026-11-07', 'Müll 2026-10-16']);
+    await page.click('button:has-text("+ Urlaub eintragen")');
+    await page.waitForTimeout(250);
+    assert.equal(await page.locator('#dialog h2').textContent(), 'Urlaub eintragen');
+    assert.equal(await page.locator('#dialog label.check:has-text("Ganztägig")').isVisible(), false);
+    assert.equal(await page.locator('#dialog .dt-time').first().isVisible(), false, 'ohne Uhrzeit');
+    assert.deepEqual(await texts(page.locator('#dialog .field-label:text-matches("^(Von|Bis)$")')), ['Von', 'Bis']);
+    await page.click('#dialog button[type=submit]');
+    await page.waitForTimeout(250);
+    assert.match(await page.locator('.vacation-list li').textContent(), /Urlaub.*Do\., 15\.10\. – Mi\., 21\.10\. · 7 Tage/);
+    assert.deepEqual(await windows(), ['Friseur 2026-11-14', 'Müll 2026-10-16'], 'Friseur 7 Tage später, Müll bleibt');
+
+    await page.click('.vacation-list button:has-text("Urlaub")');
+    await page.waitForTimeout(200);
+    await page.click('#dialog button.danger:has-text("Löschen")');
+    await page.waitForTimeout(250);
+    assert.deepEqual(await windows(), ['Friseur 2026-11-07', 'Müll 2026-10-16'], 'Urlaub gelöscht → wieder wie vorher');
+    await app.close();
+  });
+});
+
+describe('Rückgängig (Termine)', () => {
   test('Termin löschen → „Rückgängig“', async () => {
     const app = await browser.open('kalender', {
       data: (s) => s.createEvent({ title: 'Zahnarzt', start_at: '2026-10-15T15:00', end_at: '2026-10-15T16:00' }),

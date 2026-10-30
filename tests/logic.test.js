@@ -74,9 +74,9 @@ test('Store: Sicherung exportieren und wieder einlesen', () => {
   store.createTopic({ name: 'Sport', color: '#16a34a' });
   const backup = store.exportJson();
   store.load(memory());
-  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Veranstaltung']); // gibt es immer
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Urlaub', 'Veranstaltung']); // gibt es immer
   store.importJson(backup);
-  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport', 'Veranstaltung']);
+  assert.deepEqual(store.topics().map((t) => t.name), ['Geburtstag', 'Sport', 'Urlaub', 'Veranstaltung']);
   assert.throws(() => store.importJson('{"foo":1}'), /keine gültige Sicherung/);
 });
 
