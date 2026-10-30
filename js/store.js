@@ -55,6 +55,7 @@ export class ValidationError extends Error {}
 const FIXED_TOPICS = [
   { flag: 'birthday', name: 'Geburtstag', color: '#e9a66b', eventKey: 'is_birthday' },
   { flag: 'events', name: 'Veranstaltung', color: '#7b4a7a', eventKey: 'is_event' },
+  { flag: 'vacation', name: 'Urlaub', color: '#3f9a8c', eventKey: 'is_vacation' },
 ];
 
 function withFixedTopics(d) {
@@ -95,6 +96,7 @@ export function clearAll() {
 // Speichern. Änderungen auf diesem Gerät bekommen Zeitstempel (bzw. Löschvermerke) und melden sich beim
 // Cloud-Sync; Daten, die der Sync selbst einspielt (fromSync), bringen ihre Zeitstempel schon mit.
 function save({ fromSync = false } = {}) {
+  if (!fromSync) applyVacations();
   const changed = !fromSync && stampChanges(saved, data, Date.now());
   storage?.setItem(STORAGE_KEY, JSON.stringify(data));
   saved = clone(data);
@@ -129,6 +131,53 @@ export function restore(previous) {
   save();
 }
 
+// --- Urlaub ------------------------------------------------------------------------
+
+// Urlaube = Termine mit dem Thema „Urlaub“ (ganztägig, von–bis), früheste zuerst.
+export function vacations() {
+  return data.events.filter((e) => e.is_vacation)
+    .map((e) => ({ id: e.id, title: e.title, from: e.start_at.slice(0, 10), to: e.end_at.slice(0, 10) }))
+    .sort((a, b) => a.from.localeCompare(b.from));
+}
+
+function vacationDays() {
+  const days = new Set();
+  for (const { from, to } of vacations()) {
+    for (let d = parseDate(from), n = 0; isoDate(d) <= to && n < 3660; d = addDays(d, 1), n += 1) days.add(isoDate(d));
+  }
+  return days;
+}
+
+// Zählt ab dem Erledigen („nach x Tagen/Wochen …“)?
+const countsFromDone = (t) => t.recurrence === 'rhythm' && Boolean(t.repeat_from_done || (!t.repeat && t.rhythm_days));
+
+// Aufgaben, die ab dem Erledigen zählen, um die Urlaubstage seit dem letzten Erledigen verschieben – bei jeder
+// Änderung neu, damit auch nachträglich eingetragene, geänderte oder gelöschte Urlaube wirken.
+// vacation_shift merkt sich das unverschobene Fenster (start, end) und die Tage. Passt das gespeicherte Fenster
+// nicht mehr dazu (erledigt, verpasst oder im Editor geändert), gilt es selbst als unverschoben.
+function applyVacations() {
+  const days = vacationDays();
+  const shifted = (date, n) => isoDate(addDays(parseDate(date), n));
+  for (const t of data.tasks) {
+    const v = t.vacation_shift;
+    const unchanged = v && t.window_start === shifted(v.start, v.days) && t.window_end === shifted(v.end, v.days);
+    const base = unchanged ? { start: v.start, end: v.end } : { start: t.window_start, end: t.window_end };
+    // Gezählt wird ab dem letzten Erledigen (bzw. ab dem zuletzt verpassten Termintag, vacation_from).
+    const since = [t.last_done_at?.slice(0, 10), t.vacation_from].filter(Boolean).sort().at(-1);
+    const n = countsFromDone(t) && since && base.start && base.end
+      ? schedule.vacationShift(parseDate(since), addDays(parseDate(base.start), Math.max(0, Number(t.buffer) || 0)), days)
+      : 0;
+    if (n) {
+      t.vacation_shift = { start: base.start, end: base.end, days: n };
+      t.window_start = shifted(base.start, n);
+      t.window_end = shifted(base.end, n);
+    } else if (v) {
+      delete t.vacation_shift;
+      if (unchanged) [t.window_start, t.window_end] = [base.start, base.end];
+    }
+  }
+}
+
 // IDs sind auch über mehrere Geräte eindeutig (Cloud-Sync): Zeit in Millisekunden × 1000 plus Zufall;
 // sie steigen trotzdem immer an, die Reihenfolge des Anlegens bleibt also erhalten.
 function nextId() {
@@ -159,7 +208,8 @@ export const topicById = (id) => data.topics.find((t) => t.id === Number(id)) ||
 export const topicColor = (id) => topicById(id)?.color || '#94a3b8';
 export const birthdayTopic = () => data.topics.find((t) => t.birthday) || null;
 export const eventTopic = () => data.topics.find((t) => t.events) || null;
-export const isFixedTopic = (topic) => Boolean(topic?.birthday || topic?.events);
+export const vacationTopic = () => data.topics.find((t) => t.vacation) || null;
+export const isFixedTopic = (topic) => Boolean(topic?.birthday || topic?.events || topic?.vacation);
 
 // Aufgaben mit berechnetem Status (status, closes_at). Steigerungen sind keine eigenen Aufgaben –
 // sie hängen an ihrer regelmäßigen Aufgabe (upgradesOf) und stehen dort in upgrades, wenn sie dran sind.
@@ -730,6 +780,7 @@ export function completeTask(id, now = new Date()) {
   const upgrades = activeUpgrades(task);
   data.log.push({ task_id: id, action: 'done', at: when, ...(upgrades.length ? { upgrade_ids: upgrades.map((u) => u.id) } : {}) });
   task.last_done_at = when;
+  delete task.vacation_from;
 
   if (task.recurrence !== 'once') {
     [task.window_start, task.window_end] = schedule.windowAfterDone(task, now);
@@ -805,6 +856,8 @@ export function rollExpired(now = new Date()) {
     let guard = 0;
     while (schedule.status(task, now) === 'expired' && guard++ < 5000) {
       const closed = schedule.closesAt(task);
+      // Urlaub: der verpasste Termintag enthält ihn schon – ab dort weiterzählen (siehe applyVacations).
+      if (countsFromDone(task)) task.vacation_from = isoDate(addDays(parseDate(task.window_start), Math.max(0, Number(task.buffer) || 0)));
       [task.window_start, task.window_end] = schedule.windowAfterMissed(task, closed);
       task.missed_count = (task.missed_count || 0) + 1;
       data.log.push({ task_id: task.id, action: 'missed', at: stamp(closed) });
@@ -892,6 +945,7 @@ function eventInput(input) {
     notes: text(input, 'notes', 5000),
     topic_id: ref(input, 'topic_id') ?? (source ? source.topic_id : null),
     is_event: false,
+    is_vacation: false,
     is_birthday: false,
     all_day: Boolean(input.all_day) && !routine,
     start_at: dateTime('start_at'),
@@ -902,6 +956,12 @@ function eventInput(input) {
   event.is_birthday = !source && event.topic_id !== null && event.topic_id === birthdayTopic()?.id;
   // Veranstaltung = Thema „Veranstaltung“ (lässt sich im Kalender ausblenden).
   event.is_event = event.topic_id !== null && event.topic_id === eventTopic()?.id;
+  // Urlaub = Thema „Urlaub“: ganztägig von–bis, ohne Wiederholung. Aufgaben „ab dem Erledigen“ rücken um die Tage nach.
+  event.is_vacation = !source && event.topic_id !== null && event.topic_id === vacationTopic()?.id;
+  if (event.is_vacation) {
+    event.all_day = true;
+    input = { ...input, repeat: null };
+  }
   event.birth_year = null;
   if (event.is_birthday) {
     event.is_event = false;

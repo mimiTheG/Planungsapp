@@ -1,4 +1,5 @@
-// Datum & Uhrzeit mit Monatskalender statt der Drehräder von Android: Tag im Kalender antippen, Uhrzeit darunter.
+// Datum & Uhrzeit getrennt: Antippen des Datums öffnet einen Monatskalender (statt der Drehräder von Android),
+// Antippen der Uhrzeit direkt die Uhrzeit-Auswahl des Handys.
 // Der Wert steckt in einem versteckten Feld (name, "JJJJ-MM-TTTHH:MM"); Änderungen lösen dort ein 'change' aus,
 // damit das Formular wie mit einem normalen Eingabefeld funktioniert.
 
@@ -17,7 +18,18 @@ export function dateTimeField(name, value, { required = false } = {}) {
   const input = el('input', { type: 'hidden', name, value: isoDateTime(parseDate(value)), required });
   let month = startOfMonth(parseDate(value));
 
-  const display = el('button.dt-display', { type: 'button', 'aria-expanded': 'false', onclick: () => toggle() });
+  const dateButton = el('button.dt-date', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'Datum', onclick: () => toggle() });
+  const timeInput = el('input.dt-time', {
+    type: 'time',
+    'aria-label': 'Uhrzeit',
+    onchange: () => {
+      if (!timeInput.value) return updateDisplay(); // geleert → alte Uhrzeit bleibt
+      const [h, m] = timeInput.value.split(':').map(Number);
+      const d = current();
+      set(new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m));
+    },
+  });
+  const display = el('div.dt-display', {}, dateButton, timeInput);
   const panel = el('div.dt-panel', { hidden: true });
   let dateOnly = false; // ganztägig: nur das Datum wählen
 
@@ -31,9 +43,9 @@ export function dateTimeField(name, value, { required = false } = {}) {
 
   function updateDisplay() {
     const d = current();
-    mount(display,
-      el('span.dt-date', {}, formatDate(d, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })),
-      dateOnly ? null : el('span.dt-time', {}, `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`));
+    dateButton.textContent = formatDate(d, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    timeInput.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    timeInput.hidden = dateOnly;
   }
 
   // Setzt den Wert; mit notify wird 'change' ausgelöst (für abhängige Felder wie das Ende).
@@ -47,7 +59,7 @@ export function dateTimeField(name, value, { required = false } = {}) {
   function toggle(open = panel.hidden) {
     for (const other of openPanels) if (other !== close && open) other();
     panel.hidden = !open;
-    display.setAttribute('aria-expanded', String(open));
+    dateButton.setAttribute('aria-expanded', String(open));
     if (open) {
       month = startOfMonth(current());
       renderPanel();
@@ -82,23 +94,11 @@ export function dateTimeField(name, value, { required = false } = {}) {
         'aria-label': formatDate(day, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
         onclick: () => {
           const next = new Date(day.getFullYear(), day.getMonth(), day.getDate(), selected.getHours(), selected.getMinutes());
-          if (day.getMonth() !== month.getMonth()) month = startOfMonth(day);
           set(next);
+          close(); // Tag gewählt → fertig
         },
       }, String(day.getDate()), busy.has(key) ? el('span.dt-busy') : null));
     }
-
-    const time = el('input', {
-      type: 'time',
-      value: `${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`,
-      'aria-label': 'Uhrzeit',
-      onchange: () => {
-        if (!time.value) return;
-        const [h, m] = time.value.split(':').map(Number);
-        const d = current();
-        set(new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m));
-      },
-    });
 
     mount(panel,
       el('div.dt-head', {},
@@ -107,8 +107,17 @@ export function dateTimeField(name, value, { required = false } = {}) {
         el('button.icon', { type: 'button', 'aria-label': 'Nächster Monat', onclick: () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderPanel(); } }, '›')),
       el('div.dt-grid', {}, WEEKDAYS.map((w) => el('span.dt-weekday', {}, w)), days),
       el('div.dt-foot', {},
-        dateOnly ? el('span.spacer') : el('label.dt-time-label', {}, el('span', {}, 'Uhrzeit'), time),
-        el('button.primary', { type: 'button', onclick: close }, 'Fertig')));
+        el('button', {
+          type: 'button',
+          onclick: () => {
+            const d = current();
+            const now = new Date();
+            set(new Date(now.getFullYear(), now.getMonth(), now.getDate(), d.getHours(), d.getMinutes()));
+            close();
+          },
+        }, 'Heute'),
+        el('span.spacer'),
+        el('button', { type: 'button', onclick: close }, 'Schließen')));
   }
 
   updateDisplay();

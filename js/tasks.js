@@ -1,7 +1,7 @@
 // Aufgaben, Projekte und Routinen: Baumansicht, Editor mit Wichtigkeits-Dringlichkeits-Matrix.
 
 import {
-  el, mount, field, select, formData, openDialog, toast, attempt,
+  el, mount, field, select, formData, openDialog, closeDialog, toast, attempt,
 } from './ui.js';
 import {
   addDays, daysBetween, formatDate, formatDuration, formatTime, hoursText, isoDate, parseDate, spanText,
@@ -11,9 +11,8 @@ import { importanceLabel, urgencyLabel, matrixText } from './matrix-texts.js';
 import { topicPicker } from './topic-picker.js';
 import { enableLongPressReorder } from './reorder.js';
 import { parentPicker } from './parent-picker.js';
-import { openEventEditor } from './calendar.js';
+import { openEventEditor, planInCalendar } from './calendar.js';
 import { repeatFields } from './repeat-fields.js';
-import { asInputs, openPlanPicker } from './plan-picker.js';
 import { repeatText } from './repeat.js';
 
 export const KIND_LABELS = { todo: 'Aufgabe', project: 'Projekt', routine: 'Routine' };
@@ -826,33 +825,15 @@ export function routineStart(routine, day = null) {
 // Beginn zur nächsten vollen Stunde.
 const canPlan = (task) => task.kind !== 'routine' && !store.isInRoutine(task) && task.status !== 'done';
 
-// Einplanen: Kalender mit allen Terminen, Tag wählen, freie Zeit wählen (plan-picker.js).
-// „Mehr Optionen …“ öffnet den Termin-Editor (z. B. für Wiederholungen).
+// Einplanen: der normale Kalender im Einplanen-Modus – Tag wählen, auf die Uhrzeit tippen, im Termin-Editor speichern.
 export function planTask(task, refresh) {
-  openPlanPicker({
-    title: task.title,
-    minutes: task.duration_min || 60,
-    onPlan: (start, minutes) => {
-      store.createEvent({ task_id: task.id, ...asInputs(start, minutes) });
-      toast(`Eingeplant: ${formatDate(start)}, ${formatTime(start)}`);
-      refresh();
-    },
-    onMore: (start, minutes) => openEventEditor({ task_id: task.id, title: task.title, topic_id: task.topic_id, ...asInputs(start, minutes) }, refresh),
-  });
+  closeDialog();
+  planInCalendar({ title: task.title, minutes: task.duration_min || 60, input: { task_id: task.id, title: task.title, topic_id: task.topic_id } });
 }
 
-function planRoutine(routine, refresh) {
-  openPlanPicker({
-    title: routine.title,
-    minutes: store.routineMinutes(routine) || 30,
-    preferredTime: routine.default_time,
-    onPlan: (start, minutes) => {
-      store.createEvent({ routine_id: routine.id, ...asInputs(start, minutes) });
-      toast(`Eingeplant: ${formatDate(start)}, ${formatTime(start)}`);
-      refresh();
-    },
-    onMore: (start, minutes) => openEventEditor({ routine_id: routine.id, topic_id: routine.topic_id, ...asInputs(start, minutes) }, refresh),
-  });
+function planRoutine(routine) {
+  closeDialog();
+  planInCalendar({ title: routine.title, minutes: store.routineMinutes(routine) || 30, input: { routine_id: routine.id, topic_id: routine.topic_id } });
 }
 
 export function renderRoutinesView(root) {
